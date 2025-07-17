@@ -7,7 +7,7 @@ import { Toaster } from "@/components/ui/toaster"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Make Short Link - URL Shortener",
+  title: "Make Short URL - URL Shortener",
   description: "Transform your long URLs into short, shareable links with powerful analytics.",
   generator: "v0.dev",
 }

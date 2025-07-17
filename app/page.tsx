@@ -12,7 +12,7 @@ export default function HomePage() {
         <div className="text-center mb-12">
           <div className="flex items-center justify-center gap-2 mb-4">
             <Link className="h-8 w-8 text-blue-600" />
-            <h1 className="text-3xl font-bold text-gray-900">Make Short Link</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Make Short URL</h1>
           </div>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-4">
             Transform your long URLs into short, shareable links with powerful analytics and custom domains.
