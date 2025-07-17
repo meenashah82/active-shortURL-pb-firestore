@@ -20,12 +20,19 @@ function isValidUrl(string: string): boolean {
   }
 }
 
+function isValidShortCode(shortCode: string): boolean {
+  // Allow letters, numbers, hyphens, and underscores
+  const validPattern = /^[a-zA-Z0-9-_]+$/
+  return validPattern.test(shortCode) && shortCode.length >= 3 && shortCode.length <= 20
+}
+
 export async function POST(request: NextRequest) {
   try {
     console.log("=== SHORTEN URL REQUEST ===")
 
-    const { url } = await request.json()
+    const { url, customShortCode } = await request.json()
     console.log("1. URL to shorten:", url)
+    console.log("2. Custom shortcode:", customShortCode)
 
     if (!url || typeof url !== "string") {
       console.log("ERROR: URL is required")
@@ -37,32 +44,62 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid URL format" }, { status: 400 })
     }
 
-    // Generate a unique short code
-    console.log("2. Generating short code...")
-    let shortCode = generateShortCode()
-    let attempts = 0
-    const maxAttempts = 10
+    let shortCode: string
 
-    // Check for uniqueness
-    while (attempts < maxAttempts) {
-      const urlRef = doc(db, "urls", shortCode)
-      const existingDoc = await getDoc(urlRef)
+    // Handle custom shortcode
+    if (customShortCode && customShortCode.trim()) {
+      const trimmedCustomCode = customShortCode.trim()
 
-      if (!existingDoc.exists()) {
-        break // Found unique code
+      if (!isValidShortCode(trimmedCustomCode)) {
+        console.log("ERROR: Invalid custom shortcode format")
+        return NextResponse.json(
+          {
+            error:
+              "Custom shortcode must be 3-20 characters long and contain only letters, numbers, hyphens, and underscores",
+          },
+          { status: 400 },
+        )
       }
 
+      // Check if custom shortcode is available
+      const customRef = doc(db, "urls", trimmedCustomCode)
+      const existingCustomDoc = await getDoc(customRef)
+
+      if (existingCustomDoc.exists()) {
+        console.log("ERROR: Custom shortcode already exists")
+        return NextResponse.json({ error: "Custom shortcode is already taken" }, { status: 409 })
+      }
+
+      shortCode = trimmedCustomCode
+      console.log("3. Using custom shortcode:", shortCode)
+    } else {
+      // Generate a unique short code
+      console.log("3. Generating random short code...")
       shortCode = generateShortCode()
-      attempts++
-      console.log(`3. Code ${shortCode} exists, trying again (attempt ${attempts})`)
+      let attempts = 0
+      const maxAttempts = 10
+
+      // Check for uniqueness
+      while (attempts < maxAttempts) {
+        const urlRef = doc(db, "urls", shortCode)
+        const existingDoc = await getDoc(urlRef)
+
+        if (!existingDoc.exists()) {
+          break // Found unique code
+        }
+
+        shortCode = generateShortCode()
+        attempts++
+        console.log(`4. Code ${shortCode} exists, trying again (attempt ${attempts})`)
+      }
+
+      if (attempts >= maxAttempts) {
+        console.log("ERROR: Could not generate unique short code")
+        return NextResponse.json({ error: "Could not generate unique short code" }, { status: 500 })
+      }
     }
 
-    if (attempts >= maxAttempts) {
-      console.log("ERROR: Could not generate unique short code")
-      return NextResponse.json({ error: "Could not generate unique short code" }, { status: 500 })
-    }
-
-    console.log("4. Final short code:", shortCode)
+    console.log("5. Final short code:", shortCode)
 
     // Create expiration date (30 days from now)
     const expiresAt = new Date()
@@ -78,6 +115,7 @@ export async function POST(request: NextRequest) {
       createdAt: serverTimestamp(),
       isActive: true,
       expiresAt: Timestamp.fromDate(expiresAt),
+      isCustom: !!customShortCode?.trim(), // Track if it was a custom shortcode
     }
 
     const analyticsData = {
@@ -87,17 +125,17 @@ export async function POST(request: NextRequest) {
       clickEvents: [],
     }
 
-    console.log("5. Creating documents in Firestore...")
+    console.log("6. Creating documents in Firestore...")
 
     // Create both documents
     await Promise.all([setDoc(urlRef, urlData), setDoc(analyticsRef, analyticsData)])
 
-    console.log("6. Documents created successfully")
+    console.log("7. Documents created successfully")
 
     const baseUrl = request.nextUrl.origin
     const shortUrl = `${baseUrl}/${shortCode}`
 
-    console.log("7. Short URL created:", shortUrl)
+    console.log("8. Short URL created:", shortUrl)
     console.log("=== SHORTEN URL COMPLETE ===")
 
     return NextResponse.json({
@@ -105,13 +143,14 @@ export async function POST(request: NextRequest) {
       originalUrl: url,
       shortCode,
       createdAt: new Date().toISOString(),
+      isCustom: !!customShortCode?.trim(),
     })
   } catch (error) {
     console.error("=== SHORTEN URL ERROR ===", error)
     return NextResponse.json(
       {
         error: "Internal server error",
-        details: error.message,
+        details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 },
     )

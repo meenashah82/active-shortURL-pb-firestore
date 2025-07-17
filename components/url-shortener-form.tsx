@@ -18,6 +18,7 @@ interface ShortenedUrl {
 
 export function UrlShortenerForm() {
   const [url, setUrl] = useState("")
+  const [customShortCode, setCustomShortCode] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [shortenedUrl, setShortenedUrl] = useState<ShortenedUrl | null>(null)
   const { toast } = useToast()
@@ -33,7 +34,10 @@ export function UrlShortenerForm() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ url: url.trim() }),
+        body: JSON.stringify({
+          url: url.trim(),
+          customShortCode: customShortCode.trim() || undefined,
+        }),
       })
 
       if (!response.ok) {
@@ -85,25 +89,36 @@ export function UrlShortenerForm() {
         <CardTitle className="text-center">Shorten Your URL</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <form onSubmit={handleSubmit} className="flex gap-2">
+        <form onSubmit={handleSubmit} className="space-y-3">
           <Input
             type="url"
             placeholder="Enter your long URL here..."
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            className="flex-1"
+            className="w-full"
             required
           />
-          <Button type="submit" disabled={isLoading}>
-            {isLoading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Shortening...
-              </>
-            ) : (
-              "Shorten"
-            )}
-          </Button>
+          <div className="flex gap-2">
+            <Input
+              type="text"
+              placeholder="Custom shortcode (optional)"
+              value={customShortCode}
+              onChange={(e) => setCustomShortCode(e.target.value)}
+              className="flex-1"
+              pattern="[a-zA-Z0-9-_]+"
+              title="Only letters, numbers, hyphens, and underscores allowed"
+            />
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Shortening...
+                </>
+              ) : (
+                "Shorten"
+              )}
+            </Button>
+          </div>
         </form>
 
         {shortenedUrl && (
