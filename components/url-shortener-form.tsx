@@ -10,6 +10,14 @@ import { Label } from "@/components/ui/label"
 import { Copy, ExternalLink, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
+interface ShortenedUrl {
+  shortUrl: string
+  originalUrl: string
+  shortCode: string
+  createdAt: string
+  isCustom?: boolean
+}
+
 export function UrlShortenerForm() {
   const [url, setUrl] = useState("")
   const [customShortcode, setCustomShortcode] = useState("")
@@ -30,6 +38,26 @@ export function UrlShortenerForm() {
     }
 
     return null
+  }
+
+  const saveToHistory = (data: ShortenedUrl) => {
+    try {
+      const history = JSON.parse(localStorage.getItem("linkHistory") || "[]")
+      const newEntry = {
+        ...data,
+        id: Date.now().toString(),
+        createdAt: new Date().toISOString(),
+      }
+
+      // Add to beginning of array and limit to 50 entries
+      const updatedHistory = [newEntry, ...history].slice(0, 50)
+      localStorage.setItem("linkHistory", JSON.stringify(updatedHistory))
+
+      // Dispatch custom event to notify other components
+      window.dispatchEvent(new CustomEvent("linkHistoryUpdated"))
+    } catch (error) {
+      console.error("Failed to save to history:", error)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -70,6 +98,20 @@ export function UrlShortenerForm() {
       }
 
       setShortUrl(data.shortUrl)
+
+      // Save to history
+      saveToHistory({
+        shortUrl: data.shortUrl,
+        originalUrl: data.originalUrl,
+        shortCode: data.shortCode,
+        createdAt: data.createdAt || new Date().toISOString(),
+        isCustom: data.isCustom,
+      })
+
+      // Reset form
+      setUrl("")
+      setCustomShortcode("")
+
       toast({
         title: "Success!",
         description: "Your URL has been shortened successfully.",
