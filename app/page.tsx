@@ -1,44 +1,53 @@
+"use client"
+
+import { useState } from "react"
 import { UrlShortenerForm } from "@/components/url-shortener-form"
 import { LinkHistory } from "@/components/link-history"
-import { RecentUrls } from "@/components/recent-urls"
 import { Button } from "@/components/ui/button"
-import { BarChart3, Link } from "lucide-react"
-import NextLink from "next/link"
+import { BarChart3, Shield } from "lucide-react"
+import Link from "next/link"
 
-export default function Home() {
+export default function HomePage() {
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
+
+  const handleUrlCreated = () => {
+    // Trigger history refresh
+    setRefreshTrigger((prev) => prev + 1)
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="flex items-center justify-center gap-2 mb-4">
-              <Link className="h-8 w-8 text-blue-600" />
-              <h1 className="text-4xl font-bold text-gray-900">Make Short URL</h1>
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">Make Short URL</h1>
+            <p className="text-lg text-gray-600 mb-6">
+              Transform your long URLs into short, memorable links that are easy to share
+            </p>
+            <div className="flex justify-center gap-4">
+              <Link href="/dashboard">
+                <Button variant="outline">
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  View Dashboard
+                </Button>
+              </Link>
+              <Link href="/admin">
+                <Button variant="outline">
+                  <Shield className="h-4 w-4 mr-2" />
+                  Admin Panel
+                </Button>
+              </Link>
             </div>
-            <p className="text-lg text-gray-600 mb-6">Transform long URLs into short, shareable links instantly</p>
-            <NextLink href="/dashboard">
-              <Button variant="outline" className="gap-2 bg-transparent">
-                <BarChart3 className="h-4 w-4" />
-                View Dashboard
-              </Button>
-            </NextLink>
           </div>
 
           {/* URL Shortener Form */}
           <div className="mb-8">
-            <UrlShortenerForm />
+            <UrlShortenerForm onUrlCreated={handleUrlCreated} />
           </div>
 
           {/* Link History */}
-          <div className="mb-8">
-            <LinkHistory />
-          </div>
-
-          {/* Recent URLs from all users */}
-          <div>
-            <RecentUrls />
-          </div>
+          <LinkHistory refreshTrigger={refreshTrigger} />
         </div>
       </div>
     </div>

@@ -34,6 +34,8 @@ export interface UrlData {
   createdAt: any
   isActive: boolean
   expiresAt: any
+  deactivatedAt?: any
+  reactivatedAt?: any
   // ❌ REMOVED: clicks: number (this belongs in analytics only)
 }
 
@@ -48,7 +50,7 @@ export interface AnalyticsData {
 }
 
 // Create short URL - NO click tracking in URL document
-export async function createShortUrl(shortCode: string, originalUrl: string): Promise<void> {
+export async function createShortUrl(shortCode: string, originalUrl: string, metadata?: any): Promise<void> {
   try {
     console.log(`Creating short URL: ${shortCode} -> ${originalUrl}`)
 

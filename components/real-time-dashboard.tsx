@@ -1,175 +1,244 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Activity, TrendingUp, Clock, Zap, Wifi } from "lucide-react"
-import { realTimeAnalytics } from "@/lib/real-time-analytics"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { ExternalLink, Copy, BarChart3, Clock, MousePointer, TrendingUp, AlertCircle } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { subscribeToTopUrls } from "@/lib/analytics-clean"
+
+interface TopUrl {
+  shortCode: string
+  clicks: number
+  originalUrl: string
+}
 
 export function RealTimeDashboard() {
-  const [recentClicks, setRecentClicks] = useState<any[]>([])
-  const [topUrls, setTopUrls] = useState<any[]>([])
-  const [isConnected, setIsConnected] = useState(false)
-  const [liveClickCount, setLiveClickCount] = useState(0)
-  const [lastClickTime, setLastClickTime] = useState<Date | null>(null)
+  const [topUrls, setTopUrls] = useState<TopUrl[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const { toast } = useToast()
 
   useEffect(() => {
-    console.log("📊 Setting up real-time dashboard")
+    let unsubscribe: (() => void) | null = null
 
-    // Subscribe to dashboard data
-    const unsubscribe = realTimeAnalytics.subscribeToDashboard((data) => {
-      console.log("📈 Dashboard data update:", {
-        recentClicksCount: data.recentClicks.length,
-        topUrlsCount: data.topUrls.length,
-      })
+    const initializeSubscription = async () => {
+      try {
+        setLoading(true)
+        setError(null)
 
-      if (data.recentClicks.length > 0) {
-        setRecentClicks(data.recentClicks)
-        setLiveClickCount(data.recentClicks.length)
-        setLastClickTime(new Date())
+        // Check if we're in a browser environment
+        if (typeof window === "undefined") {
+          setError("Dashboard requires client-side rendering")
+          setLoading(false)
+          return
+        }
+
+        // Subscribe to top URLs
+        unsubscribe = subscribeToTopUrls((urls) => {
+          console.log("📊 Dashboard received top URLs:", urls)
+          setTopUrls(urls)
+          setLoading(false)
+        }, 10)
+      } catch (err) {
+        console.error("❌ Dashboard subscription error:", err)
+        setError(err instanceof Error ? err.message : "Failed to load dashboard data")
+        setLoading(false)
       }
+    }
 
-      if (data.topUrls.length > 0) {
-        setTopUrls(data.topUrls)
-      }
-
-      setIsConnected(true)
-    })
-
-    // Monitor connection status
-    const statusUnsubscribe = realTimeAnalytics.onConnectionStatusChange((status) => {
-      setIsConnected(status === "connected")
-    })
+    initializeSubscription()
 
     return () => {
-      unsubscribe()
-      statusUnsubscribe()
+      if (unsubscribe) {
+        unsubscribe()
+      }
     }
   }, [])
 
+  const copyToClipboard = async (shortCode: string) => {
+    try {
+      const shortUrl = `${window.location.origin}/${shortCode}`
+      await navigator.clipboard.writeText(shortUrl)
+      toast({
+        title: "Copied!",
+        description: "Short URL copied to clipboard",
+      })
+    } catch (err) {
+      toast({
+        title: "Copy failed",
+        description: "Could not copy URL to clipboard",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const openUrl = (shortCode: string) => {
+    const shortUrl = `${window.location.origin}/${shortCode}`
+    window.open(shortUrl, "_blank")
+  }
+
+  const openAnalytics = (shortCode: string) => {
+    window.open(`/analytics/${shortCode}`, "_blank")
+  }
+
+  if (error) {
+    return (
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    )
+  }
+
   return (
     <div className="space-y-6">
-      {/* Real-time Status */}
-      <Card className="border-2 border-green-200 bg-gradient-to-r from-green-50 to-blue-50">
+      {/* Stats Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total URLs</CardTitle>
+            <BarChart3 className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{loading ? <Skeleton className="h-8 w-16" /> : topUrls.length}</div>
+            <p className="text-xs text-muted-foreground">Active short URLs</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Clicks</CardTitle>
+            <MousePointer className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {loading ? (
+                <Skeleton className="h-8 w-16" />
+              ) : (
+                topUrls.reduce((sum, url) => sum + url.clicks, 0).toLocaleString()
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">Across all URLs</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Top Performer</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {loading ? (
+                <Skeleton className="h-8 w-16" />
+              ) : topUrls.length > 0 ? (
+                `${topUrls[0].clicks} clicks`
+              ) : (
+                "No data"
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {topUrls.length > 0 ? `/${topUrls[0].shortCode}` : "Create your first URL"}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Top URLs Table */}
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Wifi className="h-5 w-5 text-green-600" />
-            Real-Time WebSocket Status
+            <BarChart3 className="h-5 w-5" />
+            Top Performing URLs
           </CardTitle>
+          <CardDescription>Real-time view of your most clicked short URLs</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`w-4 h-4 rounded-full ${isConnected ? "bg-green-500 animate-pulse" : "bg-gray-400"}`} />
-              <span className={`font-medium ${isConnected ? "text-green-600" : "text-gray-500"}`}>
-                {isConnected ? "🔥 Firestore WebSocket connected - Live updates active!" : "Connecting..."}
-              </span>
-              {isConnected && <Activity className="h-4 w-4 text-green-600" />}
+          {loading ? (
+            <div className="space-y-4">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="space-y-2 flex-1">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-64" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-6 w-16" />
+                    <Skeleton className="h-8 w-8" />
+                    <Skeleton className="h-8 w-8" />
+                  </div>
+                </div>
+              ))}
             </div>
-            <div className="text-right">
-              <div className="text-2xl font-bold text-blue-600">{liveClickCount}</div>
-              <div className="text-sm text-gray-500">Live Events</div>
+          ) : topUrls.length === 0 ? (
+            <div className="text-center py-12">
+              <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No URLs yet</h3>
+              <p className="text-muted-foreground mb-4">Create your first short URL to see analytics here</p>
+              <Button asChild>
+                <a href="/">Create Short URL</a>
+              </Button>
             </div>
-          </div>
-          {lastClickTime && (
-            <div className="mt-2 text-xs text-gray-500">Last update: {lastClickTime.toLocaleTimeString()}</div>
+          ) : (
+            <div className="space-y-4">
+              {topUrls.map((url, index) => (
+                <div
+                  key={url.shortCode}
+                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Badge variant={index === 0 ? "default" : "secondary"}>#{index + 1}</Badge>
+                      <code className="text-sm font-mono bg-muted px-2 py-1 rounded">/{url.shortCode}</code>
+                    </div>
+                    <p className="text-sm text-muted-foreground truncate" title={url.originalUrl}>
+                      {url.originalUrl}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 ml-4">
+                    <Badge variant="outline" className="flex items-center gap-1">
+                      <MousePointer className="h-3 w-3" />
+                      {url.clicks.toLocaleString()}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => copyToClipboard(url.shortCode)}
+                      title="Copy short URL"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => openUrl(url.shortCode)} title="Open short URL">
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => openAnalytics(url.shortCode)}
+                      title="View analytics"
+                    >
+                      <BarChart3 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </CardContent>
       </Card>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        {/* Real-time Activity Feed */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              Live Activity Feed
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {recentClicks.length === 0 ? (
-              <div className="text-center py-8">
-                <Zap className="h-12 w-12 text-gray-300 mx-auto mb-2" />
-                <p className="text-gray-500 text-sm">Waiting for real-time click activity...</p>
-                <p className="text-xs text-gray-400 mt-1">WebSocket ready for instant updates!</p>
-              </div>
-            ) : (
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-                {recentClicks.slice(0, 10).map((click, index) => (
-                  <div
-                    key={click.id || index}
-                    className={`p-3 rounded-lg transition-all duration-500 cursor-pointer hover:bg-gray-100 ${
-                      index === 0 ? "bg-green-100 border-2 border-green-300 animate-pulse" : "bg-gray-50"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <code className="text-sm font-mono text-blue-600">/{click.shortCode}</code>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-500">
-                          {click.timestamp?.toDate?.()?.toLocaleTimeString() || "Just now"}
-                        </span>
-                        {index === 0 && <span className="text-green-600 text-xs font-bold animate-bounce">LIVE!</span>}
-                      </div>
-                    </div>
-                    {click.referer && (
-                      <div className="text-xs text-gray-600 mt-1">
-                        From: {(() => {
-                          try {
-                            return new URL(click.referer).hostname
-                          } catch {
-                            return click.referer
-                          }
-                        })()}
-                      </div>
-                    )}
-                    {click.clickSource && (
-                      <div className="text-xs text-blue-600 mt-1">
-                        Source: {click.clickSource}
-                        {click.clickSource === "direct" && " 🎯"}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Top Performing URLs */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Top Performing URLs (Live)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {topUrls.length === 0 ? (
-              <div className="text-center py-8">
-                <TrendingUp className="h-12 w-12 text-gray-300 mx-auto mb-2" />
-                <p className="text-gray-500 text-sm">No URLs created yet</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {topUrls.map((url, index) => (
-                  <div
-                    key={url.shortCode}
-                    className="p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <code className="text-sm font-mono text-blue-600">/{url.shortCode}</code>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-gray-900">{url.clicks} clicks</span>
-                        {index === 0 && <span className="text-yellow-600 text-xs">👑 TOP</span>}
-                      </div>
-                    </div>
-                    <p className="text-xs text-gray-600 truncate">{url.originalUrl}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      {/* Real-time indicator */}
+      <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+          <span>Real-time updates</span>
+        </div>
+        <Clock className="h-4 w-4" />
+        <span>Last updated: {new Date().toLocaleTimeString()}</span>
       </div>
     </div>
   )
