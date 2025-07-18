@@ -1,8 +1,10 @@
 // This script creates the first super admin user
-// Run locally with: npx tsx scripts/create-first-admin.ts
+// First run: npm install
+// Then run: npx tsx scripts/create-first-admin.ts
 
 import { initializeApp } from "firebase/app"
 import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore"
+import { createHash } from "crypto"
 
 // Firebase configuration
 const firebaseConfig = {
@@ -42,72 +44,69 @@ console.log("✅ All environment variables are set")
 const app = initializeApp(firebaseConfig)
 const db = getFirestore(app)
 
-// Simple password hashing function
-async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder()
-  const data = encoder.encode(password + "salt_shorturl_2024")
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data)
-  const hashArray = Array.from(new Uint8Array(hashBuffer))
-  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("")
+// Hash password function
+function hashPassword(password: string): string {
+  return createHash("sha256").update(password).digest("hex")
 }
 
 async function createFirstAdmin() {
   try {
-    const username = "superadmin"
-    const email = "admin@example.com"
-    const password = "changeme123"
+    const adminId = "superadmin"
+    const adminRef = doc(db, "admins", adminId)
 
-    console.log("\n🔍 Checking if super admin already exists...")
-
-    // Check if user already exists
-    const userDoc = await getDoc(doc(db, "admins", username))
-    if (userDoc.exists()) {
+    // Check if admin already exists
+    const adminDoc = await getDoc(adminRef)
+    if (adminDoc.exists()) {
       console.log("⚠️  Super admin user already exists!")
-      console.log("📋 Existing user details:")
-      const data = userDoc.data()
+      console.log("📋 Existing admin details:")
+      const data = adminDoc.data()
       console.log(`   Username: ${data.username}`)
       console.log(`   Email: ${data.email}`)
       console.log(`   Role: ${data.role}`)
       console.log(`   Active: ${data.isActive ? "Yes" : "No"}`)
-      console.log("\n🔐 Use these credentials to login:")
-      console.log(`   Username: ${username}`)
-      console.log(`   Password: ${password}`)
+      console.log("\n🎯 You can login at /admin with:")
+      console.log("   Username: superadmin")
+      console.log("   Password: changeme123 (if not changed)")
       return
     }
 
-    console.log("🔨 Creating super admin user...")
-
-    const hashedPassword = await hashPassword(password)
-
-    const adminUser = {
-      username: username,
-      email: email,
-      password: hashedPassword,
-      role: "superadmin",
+    // Create the super admin user
+    const adminData = {
+      username: "superadmin",
+      email: "admin@example.com",
+      passwordHash: hashPassword("changeme123"),
+      role: "super_admin",
       isActive: true,
       createdAt: new Date(),
+      lastLogin: null,
+      permissions: {
+        canManageUsers: true,
+        canManageUrls: true,
+        canViewAnalytics: true,
+        canManageSettings: true,
+      },
     }
 
-    await setDoc(doc(db, "admins", username), adminUser)
+    await setDoc(adminRef, adminData)
 
     console.log("✅ Super admin user created successfully!")
     console.log("=".repeat(50))
-    console.log("📋 Admin User Details:")
-    console.log(`   Username: ${username}`)
-    console.log(`   Email: ${email}`)
-    console.log(`   Role: superadmin`)
-    console.log(`   Status: Active`)
-    console.log("\n🔐 Login Credentials:")
-    console.log(`   Username: ${username}`)
-    console.log(`   Password: ${password}`)
-    console.log("\n🌐 You can now login at your-domain.com/admin")
-    console.log("⚠️  IMPORTANT: Change the password immediately after first login!")
+    console.log("📋 Admin Details:")
+    console.log(`   Username: ${adminData.username}`)
+    console.log(`   Email: ${adminData.email}`)
+    console.log(`   Role: ${adminData.role}`)
+    console.log(`   Password: changeme123`)
+    console.log("=".repeat(50))
+    console.log("\n🎯 You can now login at /admin with the credentials above.")
+    console.log("⚠️  IMPORTANT: Change the default password after first login!")
   } catch (error) {
     console.error("❌ Error creating super admin user:", error)
 
     if (error.code === "permission-denied") {
       console.log("\n💡 This might be a Firestore security rules issue.")
       console.log("   Make sure your Firestore rules allow write access to the 'admins' collection.")
+    } else if (error.code === "unavailable") {
+      console.log("\n💡 Check your Firebase configuration and internet connection.")
     }
 
     process.exit(1)

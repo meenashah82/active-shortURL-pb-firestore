@@ -1,5 +1,6 @@
 // This script checks if admin users exist in the database
-// Run locally with: npx tsx scripts/check-admin-users.ts
+// First run: npm install
+// Then run: npx tsx scripts/check-admin-users.ts
 
 import { initializeApp } from "firebase/app"
 import { getFirestore, collection, getDocs } from "firebase/firestore"
