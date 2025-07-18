@@ -1,6 +1,5 @@
-// This script checks if admin users exist in the database
-// First run: npm install
-// Then run: npm run check-admin
+// This script checks existing admin users
+// Run with: npm run check-admin
 
 import { initializeApp } from "firebase/app"
 import { getFirestore, collection, getDocs } from "firebase/firestore"
@@ -9,7 +8,10 @@ import * as dotenv from "dotenv"
 // Load environment variables from .env.local
 dotenv.config({ path: ".env.local" })
 
-// Firebase configuration - make sure these environment variables are set
+console.log("🔍 Starting admin user check script...")
+console.log("📁 Loading environment variables from .env.local")
+
+// Firebase configuration
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -38,100 +40,88 @@ if (missingVars.length > 0) {
     console.log(`   - ${varName}`)
   })
   console.log("\n💡 Create a .env.local file with your Firebase configuration")
-  console.log("Example .env.local:")
-  console.log("NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key_here")
-  console.log("NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com")
-  console.log("NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id")
-  console.log("NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com")
-  console.log("NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789")
-  console.log("NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789:web:abcdef")
   process.exit(1)
 }
 
 console.log("✅ All environment variables are set")
+console.log(`📡 Project ID: ${firebaseConfig.projectId}`)
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig)
-const db = getFirestore(app)
+let app, db
+
+try {
+  console.log("🔥 Initializing Firebase...")
+  app = initializeApp(firebaseConfig)
+  db = getFirestore(app)
+  console.log("✅ Firebase initialized successfully")
+} catch (error) {
+  console.error("❌ Failed to initialize Firebase:", error)
+  process.exit(1)
+}
 
 async function checkAdminUsers() {
   try {
-    console.log("\n🔍 Checking for admin users in the database...")
-    console.log(`📡 Connecting to project: ${firebaseConfig.projectId}`)
+    console.log("\n🔍 Checking admin users in Firestore...")
 
-    const adminsSnapshot = await getDocs(collection(db, "admins"))
+    const adminsRef = collection(db, "admins")
+    const snapshot = await getDocs(adminsRef)
 
-    if (adminsSnapshot.empty) {
-      console.log("❌ No admin users found in the database.")
-      console.log("\n💡 To create the first super admin user:")
+    if (snapshot.empty) {
+      console.log("❌ No admin users found in the database!")
+      console.log("\n💡 To create the first admin user, run:")
       console.log("   npm run create-admin")
-      console.log("   or")
-      console.log("   npx tsx scripts/create-first-admin.ts")
       return
     }
 
-    console.log(`✅ Found ${adminsSnapshot.size} admin user(s):`)
+    console.log(`✅ Found ${snapshot.size} admin user(s):`)
     console.log("=".repeat(60))
 
-    adminsSnapshot.docs.forEach((doc) => {
+    snapshot.forEach((doc) => {
       const data = doc.data()
-      console.log(`📋 Username: ${data.username || doc.id}`)
+      console.log(`📋 User ID: ${doc.id}`)
+      console.log(`   Username: ${data.username || "Not set"}`)
       console.log(`   Email: ${data.email || "Not set"}`)
       console.log(`   Role: ${data.role || "Unknown"}`)
       console.log(`   Active: ${data.isActive ? "Yes" : "No"}`)
+      console.log(
+        `   Created: ${data.createdAt ? new Date(data.createdAt.seconds * 1000).toLocaleString() : "Unknown"}`,
+      )
+      console.log(
+        `   Last Login: ${data.lastLogin ? new Date(data.lastLogin.seconds * 1000).toLocaleString() : "Never"}`,
+      )
 
-      // Handle different timestamp formats
-      let createdDate = "Unknown"
-      if (data.createdAt) {
-        if (data.createdAt.seconds) {
-          createdDate = new Date(data.createdAt.seconds * 1000).toLocaleString()
-        } else if (data.createdAt.toDate) {
-          createdDate = data.createdAt.toDate().toLocaleString()
-        } else {
-          createdDate = new Date(data.createdAt).toLocaleString()
-        }
+      if (data.permissions) {
+        console.log(`   Permissions:`)
+        console.log(`     - Manage Users: ${data.permissions.canManageUsers ? "Yes" : "No"}`)
+        console.log(`     - Manage URLs: ${data.permissions.canManageUrls ? "Yes" : "No"}`)
+        console.log(`     - View Analytics: ${data.permissions.canViewAnalytics ? "Yes" : "No"}`)
+        console.log(`     - Manage Settings: ${data.permissions.canManageSettings ? "Yes" : "No"}`)
       }
-      console.log(`   Created: ${createdDate}`)
 
-      // Handle last login
-      let lastLoginDate = "Never"
-      if (data.lastLogin) {
-        if (data.lastLogin.seconds) {
-          lastLoginDate = new Date(data.lastLogin.seconds * 1000).toLocaleString()
-        } else if (data.lastLogin.toDate) {
-          lastLoginDate = data.lastLogin.toDate().toLocaleString()
-        } else {
-          lastLoginDate = new Date(data.lastLogin).toLocaleString()
-        }
-      }
-      console.log(`   Last Login: ${lastLoginDate}`)
       console.log("-".repeat(40))
     })
 
-    console.log("\n🎯 You can now login at your-domain.com/admin with these credentials.")
-    console.log("🔐 Default credentials (if using the setup script):")
-    console.log("   Username: superadmin")
-    console.log("   Password: changeme123")
-    console.log("\n⚠️  Remember to change the default password after first login!")
+    console.log("=".repeat(60))
+    console.log("\n🌐 You can login at:")
+    console.log("   Local: http://localhost:3000/admin")
+    console.log("   Production: https://www.wodify.link/admin")
+
+    // Check for default admin
+    const hasDefaultAdmin = snapshot.docs.some((doc) => doc.id === "superadmin")
+    if (hasDefaultAdmin) {
+      console.log("\n🔐 Default admin credentials (if not changed):")
+      console.log("   Username: superadmin")
+      console.log("   Password: changeme123")
+      console.log("   ⚠️  Change the password after first login!")
+    }
   } catch (error: any) {
     console.error("❌ Error checking admin users:", error)
 
     if (error.code === "permission-denied") {
       console.log("\n💡 This might be a Firestore security rules issue.")
       console.log("   Make sure your Firestore rules allow read access to the 'admins' collection.")
-      console.log("   Example rule:")
-      console.log("   rules_version = '2';")
-      console.log("   service cloud.firestore {")
-      console.log("     match /databases/{database}/documents {")
-      console.log("       match /{document=**} {")
-      console.log("         allow read, write: if true;")
-      console.log("       }")
-      console.log("     }")
-      console.log("   }")
     } else if (error.code === "unavailable") {
       console.log("\n💡 Check your Firebase configuration and internet connection.")
-    } else if (error.code === "invalid-api-key") {
-      console.log("\n💡 Your Firebase API key is invalid. Check your .env.local file.")
     }
 
     process.exit(1)
@@ -140,3 +130,11 @@ async function checkAdminUsers() {
 
 // Run the script
 checkAdminUsers()
+  .then(() => {
+    console.log("\n🎉 Check completed successfully!")
+    process.exit(0)
+  })
+  .catch((error) => {
+    console.error("\n💥 Check failed:", error)
+    process.exit(1)
+  })

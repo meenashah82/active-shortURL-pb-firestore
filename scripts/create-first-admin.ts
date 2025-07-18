@@ -10,6 +10,9 @@ import * as dotenv from "dotenv"
 // Load environment variables from .env.local
 dotenv.config({ path: ".env.local" })
 
+console.log("🚀 Starting admin user creation script...")
+console.log("📁 Loading environment variables from .env.local")
+
 // Firebase configuration
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -39,15 +42,31 @@ if (missingVars.length > 0) {
     console.log(`   - ${varName}`)
   })
   console.log("\n💡 Create a .env.local file with your Firebase configuration")
-  console.log("Copy the values from your Vercel environment variables.")
+  console.log("Example .env.local content:")
+  console.log("NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key_here")
+  console.log("NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com")
+  console.log("NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id")
+  console.log("NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com")
+  console.log("NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789")
+  console.log("NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789:web:abcdef")
   process.exit(1)
 }
 
 console.log("✅ All environment variables are set")
+console.log(`📡 Project ID: ${firebaseConfig.projectId}`)
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig)
-const db = getFirestore(app)
+let app, db
+
+try {
+  console.log("🔥 Initializing Firebase...")
+  app = initializeApp(firebaseConfig)
+  db = getFirestore(app)
+  console.log("✅ Firebase initialized successfully")
+} catch (error) {
+  console.error("❌ Failed to initialize Firebase:", error)
+  process.exit(1)
+}
 
 // Simple password hashing function (same as in admin-auth.ts)
 function hashPassword(password: string): string {
@@ -63,10 +82,11 @@ async function createFirstAdmin() {
     const password = "changeme123"
 
     console.log("\n🔍 Checking if super admin already exists...")
-    console.log(`📡 Connecting to project: ${firebaseConfig.projectId}`)
 
     // Check if user already exists
-    const userDoc = await getDoc(doc(db, "admins", username))
+    const userRef = doc(db, "admins", username)
+    const userDoc = await getDoc(userRef)
+
     if (userDoc.exists()) {
       console.log("⚠️  Super admin user already exists!")
       console.log("📋 Existing user details:")
@@ -75,6 +95,9 @@ async function createFirstAdmin() {
       console.log(`   Email: ${data.email}`)
       console.log(`   Role: ${data.role}`)
       console.log(`   Active: ${data.isActive ? "Yes" : "No"}`)
+      console.log(
+        `   Created: ${data.createdAt ? new Date(data.createdAt.seconds * 1000).toLocaleString() : "Unknown"}`,
+      )
       console.log("\n🔐 Use these credentials to login:")
       console.log(`   Username: ${username}`)
       console.log(`   Password: ${password} (if not changed)`)
@@ -94,32 +117,53 @@ async function createFirstAdmin() {
       isActive: true,
       createdAt: new Date(),
       lastLogin: null,
+      permissions: {
+        canManageUsers: true,
+        canManageUrls: true,
+        canViewAnalytics: true,
+        canManageSettings: true,
+      },
     }
 
-    await setDoc(doc(db, "admins", username), adminUser)
+    await setDoc(userRef, adminUser)
 
     console.log("✅ Super admin user created successfully!")
-    console.log("=".repeat(50))
+    console.log("=".repeat(60))
     console.log("📋 Admin User Details:")
     console.log(`   Username: ${username}`)
     console.log(`   Email: ${email}`)
     console.log(`   Role: superadmin`)
     console.log(`   Status: Active`)
+    console.log(`   Permissions: Full access`)
     console.log("\n🔐 Login Credentials:")
     console.log(`   Username: ${username}`)
     console.log(`   Password: ${password}`)
-    console.log("\n🌐 You can now login at your-domain.com/admin")
-    console.log("⚠️  IMPORTANT: Change the password immediately after first login!")
+    console.log("\n🌐 You can now login at:")
+    console.log(`   Local: http://localhost:3000/admin`)
+    console.log(`   Production: https://www.wodify.link/admin`)
+    console.log("\n⚠️  IMPORTANT: Change the password immediately after first login!")
+    console.log("=".repeat(60))
   } catch (error: any) {
     console.error("❌ Error creating super admin user:", error)
 
     if (error.code === "permission-denied") {
       console.log("\n💡 This might be a Firestore security rules issue.")
       console.log("   Make sure your Firestore rules allow write access to the 'admins' collection.")
+      console.log("   Example rule for testing:")
+      console.log("   rules_version = '2';")
+      console.log("   service cloud.firestore {")
+      console.log("     match /databases/{database}/documents {")
+      console.log("       match /{document=**} {")
+      console.log("         allow read, write: if true;")
+      console.log("       }")
+      console.log("     }")
+      console.log("   }")
     } else if (error.code === "unavailable") {
       console.log("\n💡 Check your Firebase configuration and internet connection.")
     } else if (error.code === "invalid-api-key") {
       console.log("\n💡 Your Firebase API key is invalid. Check your .env.local file.")
+    } else if (error.code === "project-not-found") {
+      console.log("\n💡 Firebase project not found. Check your project ID in .env.local.")
     }
 
     process.exit(1)
@@ -128,3 +172,11 @@ async function createFirstAdmin() {
 
 // Run the script
 createFirstAdmin()
+  .then(() => {
+    console.log("\n🎉 Script completed successfully!")
+    process.exit(0)
+  })
+  .catch((error) => {
+    console.error("\n💥 Script failed:", error)
+    process.exit(1)
+  })
