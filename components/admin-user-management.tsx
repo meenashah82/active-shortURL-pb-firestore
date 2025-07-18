@@ -1,14 +1,24 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import {
   Dialog,
   DialogContent,
@@ -18,272 +28,254 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Loader2, Plus, Shield, ShieldCheck, UserX, Key, Trash2 } from "lucide-react"
 import {
   createAdminUser,
-  getAllAdmins,
+  getAllAdminUsers,
   updateAdminUser,
-  deleteAdminUser,
   changeAdminPassword,
+  deleteAdminUser,
   type AdminUser,
 } from "@/lib/admin-auth"
+import { toast } from "sonner"
+import { Loader2, Plus, Edit, Trash2, ToggleLeft, ToggleRight } from "lucide-react"
 
 interface AdminUserManagementProps {
-  currentAdmin: AdminUser
+  currentUser: AdminUser
 }
 
-export function AdminUserManagement({ currentAdmin }: AdminUserManagementProps) {
-  const [admins, setAdmins] = useState<AdminUser[]>([])
+export function AdminUserManagement({ currentUser }: AdminUserManagementProps) {
+  const [users, setUsers] = useState<AdminUser[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState("")
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false)
-  const [selectedAdmin, setSelectedAdmin] = useState<AdminUser | null>(null)
+  const [isCreating, setIsCreating] = useState(false)
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false)
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null)
 
-  // Create admin form state
-  const [createForm, setCreateForm] = useState({
+  // Create user form state
+  const [newUser, setNewUser] = useState({
     username: "",
     email: "",
     password: "",
-    role: "admin" as "admin" | "super_admin",
+    role: "admin" as "admin" | "superadmin",
   })
-  const [isCreating, setIsCreating] = useState(false)
 
-  // Password change form state
+  // Password change state
   const [newPassword, setNewPassword] = useState("")
-  const [isChangingPassword, setIsChangingPassword] = useState(false)
+
+  const isSuperAdmin = currentUser.role === "superadmin"
 
   useEffect(() => {
-    loadAdmins()
+    loadUsers()
   }, [])
 
-  const loadAdmins = async () => {
+  const loadUsers = async () => {
+    setIsLoading(true)
     try {
-      setIsLoading(true)
-      const adminList = await getAllAdmins()
-      setAdmins(adminList)
-    } catch (error: any) {
-      setError(error.message || "Failed to load admin users")
+      const adminUsers = await getAllAdminUsers()
+      setUsers(adminUsers)
+    } catch (error) {
+      toast.error("Failed to load admin users")
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleCreateAdmin = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleCreateUser = async () => {
+    if (!newUser.username.trim() || !newUser.email.trim() || !newUser.password.trim()) {
+      toast.error("Please fill in all fields")
+      return
+    }
+
+    if (newUser.password.length < 8) {
+      toast.error("Password must be at least 8 characters long")
+      return
+    }
+
     setIsCreating(true)
-    setError("")
 
     try {
-      if (createForm.password.length < 8) {
-        throw new Error("Password must be at least 8 characters long")
+      const result = await createAdminUser(newUser)
+
+      if (result.success) {
+        toast.success(result.message)
+        setShowCreateDialog(false)
+        setNewUser({ username: "", email: "", password: "", role: "admin" })
+        loadUsers()
+      } else {
+        toast.error(result.message)
       }
-
-      await createAdminUser(
-        createForm.username,
-        createForm.email,
-        createForm.password,
-        createForm.role,
-        currentAdmin.id,
-      )
-
-      setCreateForm({ username: "", email: "", password: "", role: "admin" })
-      setIsCreateDialogOpen(false)
-      await loadAdmins()
-    } catch (error: any) {
-      setError(error.message || "Failed to create admin user")
+    } catch (error) {
+      toast.error("Failed to create admin user")
     } finally {
       setIsCreating(false)
     }
   }
 
-  const handleToggleActive = async (admin: AdminUser) => {
-    if (admin.id === currentAdmin.id) {
-      setError("You cannot deactivate your own account")
+  const handleToggleActive = async (user: AdminUser) => {
+    if (user.username === currentUser.username) {
+      toast.error("You cannot deactivate your own account")
       return
     }
 
     try {
-      await updateAdminUser(admin.id, { isActive: !admin.isActive })
-      await loadAdmins()
-    } catch (error: any) {
-      setError(error.message || "Failed to update admin status")
-    }
-  }
+      const result = await updateAdminUser(user.username, { isActive: !user.isActive })
 
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!selectedAdmin) return
-
-    setIsChangingPassword(true)
-    setError("")
-
-    try {
-      if (newPassword.length < 8) {
-        throw new Error("Password must be at least 8 characters long")
+      if (result.success) {
+        toast.success(`User ${user.isActive ? "deactivated" : "activated"} successfully`)
+        loadUsers()
+      } else {
+        toast.error(result.message)
       }
-
-      await changeAdminPassword(selectedAdmin.id, newPassword)
-      setNewPassword("")
-      setIsPasswordDialogOpen(false)
-      setSelectedAdmin(null)
-    } catch (error: any) {
-      setError(error.message || "Failed to change password")
-    } finally {
-      setIsChangingPassword(false)
+    } catch (error) {
+      toast.error("Failed to update user status")
     }
   }
 
-  const handleDeleteAdmin = async (admin: AdminUser) => {
-    if (admin.id === currentAdmin.id) {
-      setError("You cannot delete your own account")
+  const handleChangePassword = async () => {
+    if (!selectedUser || !newPassword.trim()) {
+      toast.error("Please enter a new password")
       return
     }
 
-    if (!confirm(`Are you sure you want to delete admin "${admin.username}"? This action cannot be undone.`)) {
+    if (newPassword.length < 8) {
+      toast.error("Password must be at least 8 characters long")
       return
     }
 
     try {
-      await deleteAdminUser(admin.id)
-      await loadAdmins()
-    } catch (error: any) {
-      setError(error.message || "Failed to delete admin user")
+      const result = await changeAdminPassword(selectedUser.username, newPassword)
+
+      if (result.success) {
+        toast.success(result.message)
+        setShowPasswordDialog(false)
+        setNewPassword("")
+        setSelectedUser(null)
+      } else {
+        toast.error(result.message)
+      }
+    } catch (error) {
+      toast.error("Failed to change password")
     }
   }
 
-  const formatDate = (timestamp: any) => {
-    if (!timestamp) return "Never"
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
-    return date.toLocaleDateString() + " " + date.toLocaleTimeString()
+  const handleDeleteUser = async (user: AdminUser) => {
+    if (user.username === currentUser.username) {
+      toast.error("You cannot delete your own account")
+      return
+    }
+
+    try {
+      const result = await deleteAdminUser(user.username)
+
+      if (result.success) {
+        toast.success(result.message)
+        loadUsers()
+      } else {
+        toast.error(result.message)
+      }
+    } catch (error) {
+      toast.error("Failed to delete user")
+    }
   }
 
-  if (currentAdmin.role !== "super_admin") {
+  if (!isSuperAdmin) {
     return (
       <Card>
-        <CardContent className="pt-6">
-          <Alert>
-            <Shield className="h-4 w-4" />
-            <AlertDescription>You need Super Admin privileges to manage admin users.</AlertDescription>
-          </Alert>
-        </CardContent>
+        <CardHeader>
+          <CardTitle>Access Denied</CardTitle>
+          <CardDescription>Only Super Admins can manage user accounts.</CardDescription>
+        </CardHeader>
       </Card>
     )
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold">Admin User Management</h2>
-          <p className="text-gray-600">Manage admin users and their permissions</p>
-        </div>
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Create Admin
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Admin User</DialogTitle>
-              <DialogDescription>Create a new admin user with access to the admin dashboard.</DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleCreateAdmin}>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Admin Users</CardTitle>
+            <CardDescription>Manage admin user accounts and permissions</CardDescription>
+          </div>
+          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Create Admin
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Admin User</DialogTitle>
+                <DialogDescription>Add a new administrator to the system</DialogDescription>
+              </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="create-username">Username</Label>
+                  <Label htmlFor="username">Username</Label>
                   <Input
-                    id="create-username"
-                    value={createForm.username}
-                    onChange={(e) => setCreateForm({ ...createForm, username: e.target.value })}
-                    required
-                    disabled={isCreating}
+                    id="username"
+                    value={newUser.username}
+                    onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
+                    placeholder="Enter username"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="create-email">Email</Label>
+                  <Label htmlFor="email">Email</Label>
                   <Input
-                    id="create-email"
+                    id="email"
                     type="email"
-                    value={createForm.email}
-                    onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
-                    required
-                    disabled={isCreating}
+                    value={newUser.email}
+                    onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                    placeholder="Enter email address"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="create-password">Password</Label>
+                  <Label htmlFor="password">Password</Label>
                   <Input
-                    id="create-password"
+                    id="password"
                     type="password"
-                    value={createForm.password}
-                    onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
-                    required
-                    disabled={isCreating}
-                    minLength={8}
+                    value={newUser.password}
+                    onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                    placeholder="Enter password (min 8 characters)"
                   />
-                  <p className="text-sm text-gray-500">Minimum 8 characters</p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="create-role">Role</Label>
+                  <Label htmlFor="role">Role</Label>
                   <Select
-                    value={createForm.role}
-                    onValueChange={(value: "admin" | "super_admin") => setCreateForm({ ...createForm, role: value })}
-                    disabled={isCreating}
+                    value={newUser.role}
+                    onValueChange={(value: "admin" | "superadmin") => setNewUser({ ...newUser, role: value })}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="super_admin">Super Admin</SelectItem>
+                      <SelectItem value="superadmin">Super Admin</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-              <DialogFooter className="mt-6">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsCreateDialogOpen(false)}
-                  disabled={isCreating}
-                >
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isCreating}>
+                <Button onClick={handleCreateUser} disabled={isCreating}>
                   {isCreating ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Creating...
                     </>
                   ) : (
-                    "Create Admin"
+                    "Create User"
                   )}
                 </Button>
               </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Admin Users ({admins.length})</CardTitle>
-          <CardDescription>Manage admin user accounts and permissions</CardDescription>
+            </DialogContent>
+          </Dialog>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="flex justify-center py-8">
+            <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin" />
             </div>
           ) : (
@@ -300,67 +292,98 @@ export function AdminUserManagement({ currentAdmin }: AdminUserManagementProps) 
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {admins.map((admin) => (
-                  <TableRow key={admin.id}>
-                    <TableCell className="font-medium">
-                      {admin.username}
-                      {admin.id === currentAdmin.id && (
-                        <Badge variant="outline" className="ml-2">
-                          You
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>{admin.email}</TableCell>
+                {users.map((user) => (
+                  <TableRow key={user.username}>
+                    <TableCell className="font-medium">{user.username}</TableCell>
+                    <TableCell>{user.email}</TableCell>
                     <TableCell>
-                      <Badge variant={admin.role === "super_admin" ? "default" : "secondary"}>
-                        {admin.role === "super_admin" ? (
-                          <>
-                            <ShieldCheck className="mr-1 h-3 w-3" />
-                            Super Admin
-                          </>
-                        ) : (
-                          <>
-                            <Shield className="mr-1 h-3 w-3" />
-                            Admin
-                          </>
-                        )}
+                      <Badge variant={user.role === "superadmin" ? "default" : "secondary"}>
+                        {user.role === "superadmin" ? "Super Admin" : "Admin"}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={admin.isActive ? "default" : "destructive"}>
-                        {admin.isActive ? "Active" : "Inactive"}
+                      <Badge variant={user.isActive ? "default" : "destructive"}>
+                        {user.isActive ? "Active" : "Inactive"}
                       </Badge>
                     </TableCell>
-                    <TableCell>{formatDate(admin.createdAt)}</TableCell>
-                    <TableCell>{formatDate(admin.lastLoginAt)}</TableCell>
+                    <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
+                    <TableCell>{user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : "Never"}</TableCell>
                     <TableCell>
-                      <div className="flex space-x-2">
+                      <div className="flex items-center space-x-2">
                         <Button
-                          size="sm"
                           variant="outline"
-                          onClick={() => handleToggleActive(admin)}
-                          disabled={admin.id === currentAdmin.id}
+                          size="sm"
+                          onClick={() => handleToggleActive(user)}
+                          disabled={user.username === currentUser.username}
                         >
-                          <UserX className="h-4 w-4" />
+                          {user.isActive ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setSelectedAdmin(admin)
-                            setIsPasswordDialogOpen(true)
+                        <Dialog
+                          open={showPasswordDialog && selectedUser?.username === user.username}
+                          onOpenChange={(open) => {
+                            setShowPasswordDialog(open)
+                            if (!open) {
+                              setSelectedUser(null)
+                              setNewPassword("")
+                            }
                           }}
                         >
-                          <Key className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleDeleteAdmin(admin)}
-                          disabled={admin.id === currentAdmin.id}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                          <DialogTrigger asChild>
+                            <Button variant="outline" size="sm" onClick={() => setSelectedUser(user)}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Change Password</DialogTitle>
+                              <DialogDescription>Change password for {user.username}</DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                              <div className="space-y-2">
+                                <Label htmlFor="newPassword">New Password</Label>
+                                <Input
+                                  id="newPassword"
+                                  type="password"
+                                  value={newPassword}
+                                  onChange={(e) => setNewPassword(e.target.value)}
+                                  placeholder="Enter new password (min 8 characters)"
+                                />
+                              </div>
+                            </div>
+                            <DialogFooter>
+                              <Button
+                                variant="outline"
+                                onClick={() => {
+                                  setShowPasswordDialog(false)
+                                  setSelectedUser(null)
+                                  setNewPassword("")
+                                }}
+                              >
+                                Cancel
+                              </Button>
+                              <Button onClick={handleChangePassword}>Change Password</Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="outline" size="sm" disabled={user.username === currentUser.username}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Admin User</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to delete {user.username}? This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDeleteUser(user)}>Delete</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -372,53 +395,37 @@ export function AdminUserManagement({ currentAdmin }: AdminUserManagementProps) 
       </Card>
 
       {/* Password Change Dialog */}
-      <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+      <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Change Password</DialogTitle>
-            <DialogDescription>Change password for {selectedAdmin?.username}</DialogDescription>
+            <DialogDescription>Change password for {selectedUser?.username}</DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleChangePassword}>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="new-password">New Password</Label>
-                <Input
-                  id="new-password"
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  required
-                  disabled={isChangingPassword}
-                  minLength={8}
-                />
-                <p className="text-sm text-gray-500">Minimum 8 characters</p>
-              </div>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="newPassword">New Password</Label>
+              <Input
+                id="newPassword"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Enter new password (min 8 characters)"
+              />
             </div>
-            <DialogFooter className="mt-6">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setIsPasswordDialogOpen(false)
-                  setSelectedAdmin(null)
-                  setNewPassword("")
-                }}
-                disabled={isChangingPassword}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isChangingPassword}>
-                {isChangingPassword ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Changing...
-                  </>
-                ) : (
-                  "Change Password"
-                )}
-              </Button>
-            </DialogFooter>
-          </form>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowPasswordDialog(false)
+                setSelectedUser(null)
+                setNewPassword("")
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleChangePassword}>Change Password</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

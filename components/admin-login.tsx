@@ -7,40 +7,41 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2, Shield } from "lucide-react"
 import { authenticateAdmin, createSession, type AdminUser } from "@/lib/admin-auth"
+import { toast } from "sonner"
+import { Loader2 } from "lucide-react"
 
 interface AdminLoginProps {
-  onLogin: (admin: AdminUser) => void
+  onLogin: (user: AdminUser) => void
 }
 
 export function AdminLogin({ onLogin }: AdminLoginProps) {
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!username.trim() || !password.trim()) {
+      toast.error("Please fill in all fields")
+      return
+    }
+
     setIsLoading(true)
-    setError("")
 
     try {
-      const admin = await authenticateAdmin(username, password)
+      const result = await authenticateAdmin(username.trim(), password)
 
-      if (!admin) {
-        setError("Invalid username or password")
-        return
+      if (result.success && result.user) {
+        createSession(result.user)
+        onLogin(result.user)
+        toast.success("Login successful")
+      } else {
+        toast.error(result.message)
       }
-
-      // Create session and store in localStorage
-      const session = createSession(admin)
-      localStorage.setItem("admin_session", JSON.stringify(session))
-
-      onLogin(admin)
-    } catch (error: any) {
-      setError(error.message || "Login failed")
+    } catch (error) {
+      toast.error("Login failed. Please try again.")
     } finally {
       setIsLoading(false)
     }
@@ -49,12 +50,9 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
-            <Shield className="h-6 w-6 text-blue-600" />
-          </div>
-          <CardTitle className="text-2xl">Admin Login</CardTitle>
-          <CardDescription>Sign in to access the admin dashboard</CardDescription>
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl font-bold text-center">Admin Login</CardTitle>
+          <CardDescription className="text-center">Enter your credentials to access the admin panel</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -65,9 +63,9 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                required
-                disabled={isLoading}
                 placeholder="Enter your username"
+                disabled={isLoading}
+                required
               />
             </div>
             <div className="space-y-2">
@@ -77,16 +75,11 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                required
-                disabled={isLoading}
                 placeholder="Enter your password"
+                disabled={isLoading}
+                required
               />
             </div>
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? (
                 <>
