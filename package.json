@@ -4,7 +4,6 @@
   "private": true,
   "scripts": {
     "build": "next build",
-    "create-admin": "tsx scripts/create-first-admin.ts",
     "dev": "next dev",
     "lint": "next lint",
     "start": "next start"
@@ -29,7 +28,6 @@
     "@radix-ui/react-scroll-area": "latest",
     "@radix-ui/react-select": "latest",
     "@radix-ui/react-separator": "latest",
-    "@radix-ui/react-sheet": "^1.0.4",
     "@radix-ui/react-slider": "latest",
     "@radix-ui/react-slot": "latest",
     "@radix-ui/react-switch": "latest",
@@ -58,14 +56,12 @@
     "sonner": "latest",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
-    "tsx": "^4.6.2",
     "vaul": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "autoprefixer": "^10.0.1",
     "eslint": "^8",
     "eslint-config-next": "15.1.0",
     "postcss": "^8.5",

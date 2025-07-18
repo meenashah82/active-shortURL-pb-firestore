@@ -1,7 +1,10 @@
+// This script creates the first super admin user
+// Run with: npm run create-admin
+
 import { initializeApp } from "firebase/app"
 import { getFirestore, doc, setDoc } from "firebase/firestore"
 
-// Firebase configuration - make sure these match your environment variables
+// Firebase configuration - make sure these environment variables are set
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -15,10 +18,10 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig)
 const db = getFirestore(app)
 
-// Simple hash function for passwords (matches the one in admin-auth.ts)
+// Simple password hashing function (same as in admin-auth.ts)
 async function hashPassword(password: string): Promise<string> {
   const encoder = new TextEncoder()
-  const data = encoder.encode(password + "salt_key_2024")
+  const data = encoder.encode(password + "salt_shorturl_2024")
   const hashBuffer = await crypto.subtle.digest("SHA-256", data)
   const hashArray = Array.from(new Uint8Array(hashBuffer))
   return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("")
@@ -26,39 +29,36 @@ async function hashPassword(password: string): Promise<string> {
 
 async function createFirstAdmin() {
   try {
-    console.log("Creating first super admin user...")
-
     // CHANGE THESE CREDENTIALS BEFORE RUNNING!
     const adminData = {
       username: "superadmin",
-      email: "admin@example.com",
+      email: "admin@yourcompany.com",
       password: "changeme123", // CHANGE THIS!
-      role: "superadmin",
+      role: "superadmin" as const,
+      isActive: true,
+      createdAt: new Date().toISOString(),
     }
 
-    console.log("⚠️  WARNING: Change the default credentials in this script before running!")
-    console.log(`Creating admin with username: ${adminData.username}`)
+    console.log("Creating first super admin user...")
+    console.log("Username:", adminData.username)
+    console.log("Email:", adminData.email)
+    console.log("⚠️  IMPORTANT: Change the default password after first login!")
 
     const hashedPassword = await hashPassword(adminData.password)
 
     const adminUser = {
-      id: adminData.username,
-      username: adminData.username,
-      email: adminData.email,
-      role: adminData.role,
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      passwordHash: hashedPassword,
+      ...adminData,
+      password: hashedPassword,
     }
 
-    await setDoc(doc(db, "admin_users", adminData.username), adminUser)
+    await setDoc(doc(db, "admins", adminData.username), adminUser)
 
     console.log("✅ Super admin user created successfully!")
-    console.log(`Username: ${adminData.username}`)
-    console.log(`Password: ${adminData.password}`)
-    console.log("🔒 Please change the password immediately after first login!")
+    console.log("You can now login at /admin with the credentials above.")
+    console.log("🔒 Remember to change the password immediately after first login!")
   } catch (error) {
     console.error("❌ Error creating admin user:", error)
+    process.exit(1)
   }
 }
 
