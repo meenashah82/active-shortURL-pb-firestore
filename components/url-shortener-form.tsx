@@ -129,7 +129,7 @@ export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
       <CardHeader className="text-center">
         <CardTitle className="flex items-center justify-center gap-2">
           <Link className="h-6 w-6 text-blue-600" />
-          Make Short URL
+          Make Short Link
         </CardTitle>
         <CardDescription>Transform long URLs into short, shareable links instantly</CardDescription>
       </CardHeader>

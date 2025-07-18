@@ -15,7 +15,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { Copy, ExternalLink, Trash2, History, Sparkles, Clock } from "lucide-react"
+import { Copy, ExternalLink, Trash2, HistoryIcon,History, Sparkles, Clock } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface HistoryEntry {
@@ -113,7 +113,7 @@ export function LinkHistory({ refreshTrigger }: LinkHistoryProps) {
         </CardHeader>
         <CardContent>
           <div className="text-center py-8">
-            <History className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <HistoryIcon className="h-12 w-12 text-gray-300 mx-auto mb-4" />
             <p className="text-gray-500 text-sm">No links created yet</p>
             <p className="text-gray-400 text-xs mt-1">Start by shortening your first URL above</p>
           </div>
