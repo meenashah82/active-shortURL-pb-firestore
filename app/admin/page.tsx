@@ -4,7 +4,8 @@ import { useState, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { LogOut, Shield, Link, Users } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { LogOut, Shield, Link, Users, AlertTriangle } from "lucide-react"
 import { AdminLogin } from "@/components/admin-login"
 import { AdminDashboard } from "@/components/admin-dashboard"
 import { AdminUserManagement } from "@/components/admin-user-management"
@@ -13,37 +14,74 @@ import { getSession, clearSession, type AdminUser } from "@/lib/admin-auth"
 export default function AdminPage() {
   const [user, setUser] = useState<AdminUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const session = getSession()
-    if (session) {
-      // Create a user object from session data
-      const sessionUser: AdminUser = {
-        id: session.userId,
-        username: session.username,
-        email: "", // We don't store email in session
-        role: session.role,
-        isActive: true,
-        createdAt: "",
+    try {
+      const session = getSession()
+      if (session) {
+        // Create a user object from session data
+        const sessionUser: AdminUser = {
+          id: session.userId,
+          username: session.username,
+          email: "", // We don't store email in session
+          role: session.role,
+          isActive: true,
+          createdAt: "",
+        }
+        setUser(sessionUser)
       }
-      setUser(sessionUser)
+    } catch (error) {
+      console.error("Error loading session:", error)
+      setError("Failed to load session. Please try logging in again.")
+    } finally {
+      setIsLoading(false)
     }
-    setIsLoading(false)
   }, [])
 
   const handleLogin = (loggedInUser: AdminUser) => {
     setUser(loggedInUser)
+    setError(null)
   }
 
   const handleLogout = () => {
-    clearSession()
-    setUser(null)
+    try {
+      clearSession()
+      setUser(null)
+      setError(null)
+    } catch (error) {
+      console.error("Error during logout:", error)
+    }
   }
 
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+            <Button
+              onClick={() => {
+                setError(null)
+                setIsLoading(false)
+              }}
+              className="w-full mt-4"
+            >
+              Try Again
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     )
   }

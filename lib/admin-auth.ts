@@ -20,11 +20,16 @@ export interface AdminSession {
 
 // Simple password hashing using Web Crypto API
 async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder()
-  const data = encoder.encode(password + "salt_shorturl_2024")
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data)
-  const hashArray = Array.from(new Uint8Array(hashBuffer))
-  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("")
+  try {
+    const encoder = new TextEncoder()
+    const data = encoder.encode(password + "salt_shorturl_2024")
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("")
+  } catch (error) {
+    console.error("Password hashing error:", error)
+    throw new Error("Failed to hash password")
+  }
 }
 
 export async function createAdminUser(userData: {
@@ -34,6 +39,10 @@ export async function createAdminUser(userData: {
   role: "admin" | "superadmin"
 }): Promise<{ success: boolean; message: string }> {
   try {
+    if (!db) {
+      return { success: false, message: "Database not initialized" }
+    }
+
     // Check if username already exists
     const userDoc = await getDoc(doc(db, "admins", userData.username))
     if (userDoc.exists()) {
@@ -76,6 +85,10 @@ export async function authenticateAdmin(
   message: string
 }> {
   try {
+    if (!db) {
+      return { success: false, message: "Database not initialized" }
+    }
+
     const userDoc = await getDoc(doc(db, "admins", username))
 
     if (!userDoc.exists()) {
@@ -125,7 +138,11 @@ export function createSession(user: AdminUser): AdminSession {
   }
 
   if (typeof window !== "undefined") {
-    localStorage.setItem("adminSession", JSON.stringify(session))
+    try {
+      localStorage.setItem("adminSession", JSON.stringify(session))
+    } catch (error) {
+      console.error("Failed to save session:", error)
+    }
   }
 
   return session
@@ -134,10 +151,10 @@ export function createSession(user: AdminUser): AdminSession {
 export function getSession(): AdminSession | null {
   if (typeof window === "undefined") return null
 
-  const sessionData = localStorage.getItem("adminSession")
-  if (!sessionData) return null
-
   try {
+    const sessionData = localStorage.getItem("adminSession")
+    if (!sessionData) return null
+
     const session: AdminSession = JSON.parse(sessionData)
 
     if (Date.now() > session.expiresAt) {
@@ -146,7 +163,8 @@ export function getSession(): AdminSession | null {
     }
 
     return session
-  } catch {
+  } catch (error) {
+    console.error("Failed to get session:", error)
     localStorage.removeItem("adminSession")
     return null
   }
@@ -154,12 +172,21 @@ export function getSession(): AdminSession | null {
 
 export function clearSession(): void {
   if (typeof window !== "undefined") {
-    localStorage.removeItem("adminSession")
+    try {
+      localStorage.removeItem("adminSession")
+    } catch (error) {
+      console.error("Failed to clear session:", error)
+    }
   }
 }
 
 export async function getAllAdminUsers(): Promise<AdminUser[]> {
   try {
+    if (!db) {
+      console.error("Database not initialized")
+      return []
+    }
+
     const adminsSnapshot = await getDocs(collection(db, "admins"))
     return adminsSnapshot.docs.map((doc) => ({
       id: doc.id,
@@ -186,6 +213,10 @@ export async function updateAdminUser(
   }>,
 ): Promise<{ success: boolean; message: string }> {
   try {
+    if (!db) {
+      return { success: false, message: "Database not initialized" }
+    }
+
     const updateData: any = { ...updates }
 
     if (updates.password) {
@@ -203,6 +234,10 @@ export async function updateAdminUser(
 
 export async function deleteAdminUser(username: string): Promise<{ success: boolean; message: string }> {
   try {
+    if (!db) {
+      return { success: false, message: "Database not initialized" }
+    }
+
     await deleteDoc(doc(db, "admins", username))
     return { success: true, message: "Admin user deleted successfully" }
   } catch (error) {

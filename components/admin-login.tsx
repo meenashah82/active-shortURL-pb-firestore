@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -36,7 +35,8 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
         setError(result.message)
       }
     } catch (error) {
-      setError("Login failed. Please try again.")
+      console.error("Login error:", error)
+      setError("Login failed. Please check your connection and try again.")
     } finally {
       setIsLoading(false)
     }
