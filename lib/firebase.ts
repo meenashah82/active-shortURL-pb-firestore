@@ -24,7 +24,6 @@ const missingEnvVars = requiredEnvVars.filter((envVar) => !process.env[envVar])
 
 if (missingEnvVars.length > 0) {
   console.error("Missing Firebase environment variables:", missingEnvVars)
-  // Don't throw error, just log it to prevent app crash
 }
 
 // Initialize Firebase with error handling
@@ -32,7 +31,6 @@ let app = null
 let db = null
 
 try {
-  // Only initialize if all env vars are present
   if (missingEnvVars.length === 0) {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp()
     db = getFirestore(app)
@@ -42,7 +40,6 @@ try {
   }
 } catch (error) {
   console.error("Firebase initialization error:", error)
-  // Keep app and db as null to prevent crashes
 }
 
 export { db }
