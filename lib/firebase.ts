@@ -20,24 +20,29 @@ const requiredEnvVars = [
   "NEXT_PUBLIC_FIREBASE_APP_ID",
 ]
 
-for (const envVar of requiredEnvVars) {
-  if (!process.env[envVar]) {
-    console.error(`Missing required environment variable: ${envVar}`)
-  }
+const missingEnvVars = requiredEnvVars.filter((envVar) => !process.env[envVar])
+
+if (missingEnvVars.length > 0) {
+  console.error("Missing Firebase environment variables:", missingEnvVars)
+  // Don't throw error, just log it to prevent app crash
 }
 
 // Initialize Firebase with error handling
-let app
-let db
+let app = null
+let db = null
 
 try {
-  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp()
-  db = getFirestore(app)
+  // Only initialize if all env vars are present
+  if (missingEnvVars.length === 0) {
+    app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp()
+    db = getFirestore(app)
+    console.log("Firebase initialized successfully")
+  } else {
+    console.warn("Firebase not initialized due to missing environment variables")
+  }
 } catch (error) {
   console.error("Firebase initialization error:", error)
-  // Create a fallback to prevent complete app crash
-  app = null
-  db = null
+  // Keep app and db as null to prevent crashes
 }
 
 export { db }

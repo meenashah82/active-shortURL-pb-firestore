@@ -1,22 +1,26 @@
 "use client"
 
 import type React from "react"
+
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2, Shield } from "lucide-react"
-import { authenticateAdmin, createSession, type AdminUser } from "@/lib/admin-auth"
+import { Eye, EyeOff, LogIn } from "lucide-react"
+import { loginAdmin, setAdminSession } from "@/lib/admin-auth"
 
 interface AdminLoginProps {
-  onLogin: (user: AdminUser) => void
+  onLoginSuccess: () => void
 }
 
-export function AdminLogin({ onLogin }: AdminLoginProps) {
-  const [username, setUsername] = useState("")
-  const [password, setPassword] = useState("")
+export function AdminLogin({ onLoginSuccess }: AdminLoginProps) {
+  const [credentials, setCredentials] = useState({
+    username: "",
+    password: "",
+  })
+  const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
 
@@ -26,17 +30,16 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
     setError("")
 
     try {
-      const result = await authenticateAdmin(username, password)
+      const result = await loginAdmin(credentials)
 
       if (result.success && result.user) {
-        createSession(result.user)
-        onLogin(result.user)
+        setAdminSession(result.user)
+        onLoginSuccess()
       } else {
         setError(result.message)
       }
     } catch (error) {
-      console.error("Login error:", error)
-      setError("Login failed. Please check your connection and try again.")
+      setError("Login failed. Please try again.")
     } finally {
       setIsLoading(false)
     }
@@ -45,22 +48,25 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
-            <Shield className="h-6 w-6 text-blue-600" />
-          </div>
-          <CardTitle className="text-2xl font-bold">Admin Login</CardTitle>
-          <CardDescription>Sign in to access the admin dashboard</CardDescription>
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl font-bold text-center">Admin Login</CardTitle>
+          <CardDescription className="text-center">Enter your credentials to access the admin panel</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="username">Username</Label>
               <Input
                 id="username"
                 type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                value={credentials.username}
+                onChange={(e) => setCredentials((prev) => ({ ...prev, username: e.target.value }))}
                 required
                 disabled={isLoading}
                 placeholder="Enter your username"
@@ -69,31 +75,40 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
 
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                disabled={isLoading}
-                placeholder="Enter your password"
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={credentials.password}
+                  onChange={(e) => setCredentials((prev) => ({ ...prev, password: e.target.value }))}
+                  required
+                  disabled={isLoading}
+                  placeholder="Enter your password"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() => setShowPassword(!showPassword)}
+                  disabled={isLoading}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
             </div>
-
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
 
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing in...
-                </>
+                <div className="flex items-center space-x-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span>Signing in...</span>
+                </div>
               ) : (
-                "Sign In"
+                <div className="flex items-center space-x-2">
+                  <LogIn className="h-4 w-4" />
+                  <span>Sign In</span>
+                </div>
               )}
             </Button>
           </form>
