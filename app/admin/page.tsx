@@ -3,119 +3,154 @@
 import { useState, useEffect } from "react"
 
 export default function AdminPage() {
-  const [debugInfo, setDebugInfo] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [debugInfo, setDebugInfo] = useState<string[]>([])
 
   useEffect(() => {
-    const debug: string[] = []
+    const initializeAdmin = async () => {
+      const debug: string[] = []
 
-    try {
-      debug.push("✓ Component mounted")
+      try {
+        debug.push("Starting admin page initialization...")
 
-      // Check if we're in browser
-      if (typeof window === "undefined") {
-        debug.push("✗ Running on server side")
-      } else {
-        debug.push("✓ Running in browser")
-      }
-
-      // Check environment variables
-      const envVars = [
-        "NEXT_PUBLIC_FIREBASE_API_KEY",
-        "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN",
-        "NEXT_PUBLIC_FIREBASE_PROJECT_ID",
-        "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET",
-        "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
-        "NEXT_PUBLIC_FIREBASE_APP_ID",
-      ]
-
-      envVars.forEach((envVar) => {
-        if (process.env[envVar]) {
-          debug.push(`✓ ${envVar} is set`)
-        } else {
-          debug.push(`✗ ${envVar} is missing`)
+        // Check if we're in browser
+        if (typeof window === "undefined") {
+          debug.push("Running on server side")
+          setDebugInfo(debug)
+          setLoading(false)
+          return
         }
-      })
 
-      // Try to import Firebase
-      try {
-        debug.push("✓ About to import Firebase")
-        import("@/lib/firebase")
-          .then(() => {
-            debug.push("✓ Firebase imported successfully")
-            setDebugInfo([...debug, "✓ Firebase imported successfully"])
-          })
-          .catch((err) => {
-            debug.push(`✗ Firebase import failed: ${err.message}`)
-            setDebugInfo([...debug, `✗ Firebase import failed: ${err.message}`])
-          })
-      } catch (err) {
-        debug.push(`✗ Firebase import error: ${err}`)
+        debug.push("Running on client side")
+
+        // Try to import Firebase
+        try {
+          debug.push("Importing Firebase...")
+          const { db } = await import("@/lib/firebase")
+
+          if (!db) {
+            throw new Error("Firebase database is null")
+          }
+
+          debug.push("✓ Firebase imported successfully")
+        } catch (firebaseError) {
+          debug.push(`✗ Firebase import failed: ${firebaseError}`)
+          setError(`Firebase Error: ${firebaseError}`)
+          setDebugInfo(debug)
+          setLoading(false)
+          return
+        }
+
+        // Try to import admin auth
+        try {
+          debug.push("Importing admin auth...")
+          const adminAuth = await import("@/lib/admin-auth")
+          debug.push("✓ Admin auth imported successfully")
+        } catch (authError) {
+          debug.push(`✗ Admin auth import failed: ${authError}`)
+          setError(`Admin Auth Error: ${authError}`)
+          setDebugInfo(debug)
+          setLoading(false)
+          return
+        }
+
+        // Try to import components
+        try {
+          debug.push("Importing admin components...")
+          const { default: AdminLogin } = await import("@/components/admin-login")
+          debug.push("✓ Admin components imported successfully")
+        } catch (componentError) {
+          debug.push(`✗ Component import failed: ${componentError}`)
+          setError(`Component Error: ${componentError}`)
+          setDebugInfo(debug)
+          setLoading(false)
+          return
+        }
+
+        debug.push("✓ All imports successful")
+        setDebugInfo(debug)
+        setLoading(false)
+      } catch (globalError) {
+        debug.push(`✗ Global error: ${globalError}`)
+        setError(`Global Error: ${globalError}`)
+        setDebugInfo(debug)
+        setLoading(false)
       }
-
-      // Try to import admin-auth
-      try {
-        debug.push("✓ About to import admin-auth")
-        import("@/lib/admin-auth")
-          .then(() => {
-            debug.push("✓ Admin-auth imported successfully")
-            setDebugInfo([...debug, "✓ Admin-auth imported successfully"])
-          })
-          .catch((err) => {
-            debug.push(`✗ Admin-auth import failed: ${err.message}`)
-            setDebugInfo([...debug, `✗ Admin-auth import failed: ${err.message}`])
-          })
-      } catch (err) {
-        debug.push(`✗ Admin-auth import error: ${err}`)
-      }
-
-      setDebugInfo(debug)
-    } catch (err) {
-      setError(`Component error: ${err}`)
-      console.error("Admin page error:", err)
     }
+
+    initializeAdmin()
   }, [])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p>Loading admin panel...</p>
+        </div>
+      </div>
+    )
+  }
 
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-red-50 p-4">
         <div className="bg-white p-6 rounded-lg shadow-lg max-w-2xl w-full">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">Error Detected</h1>
-          <div className="bg-red-100 p-4 rounded text-red-800 font-mono text-sm">{error}</div>
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Admin Panel Error</h1>
+
+          <div className="bg-red-100 p-4 rounded text-red-800 font-mono text-sm whitespace-pre-wrap mb-4">{error}</div>
+
+          <div className="bg-gray-100 p-4 rounded">
+            <h3 className="font-semibold mb-2">Debug Information:</h3>
+            <div className="space-y-1">
+              {debugInfo.map((info, index) => (
+                <div key={index} className="text-sm font-mono">
+                  {info}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-4 p-4 bg-blue-50 rounded">
+            <p className="text-sm text-blue-800">
+              <strong>Troubleshooting:</strong>
+              <br />
+              1. Check that all environment variables are set in Vercel
+              <br />
+              2. Verify Firebase configuration is correct
+              <br />
+              3. Check browser console for additional errors
+              <br />
+              4. Try visiting{" "}
+              <a href="/debug" className="underline">
+                /debug
+              </a>{" "}
+              for more details
+            </p>
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6">Admin Page Debug</h1>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
+        <h1 className="text-2xl font-bold text-center mb-6">Admin Panel</h1>
+        <p className="text-center text-gray-600">
+          If you see this message, the basic imports are working but the full admin system needs to be loaded.
+        </p>
 
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4">Diagnostic Information</h2>
-          <div className="space-y-2">
+        <div className="mt-6 p-4 bg-green-50 rounded">
+          <h3 className="font-semibold text-green-800 mb-2">Success!</h3>
+          <div className="space-y-1 text-sm">
             {debugInfo.map((info, index) => (
-              <div
-                key={index}
-                className={`p-2 rounded font-mono text-sm ${
-                  info.startsWith("✓") ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-                }`}
-              >
+              <div key={index} className="font-mono text-green-700">
                 {info}
               </div>
             ))}
           </div>
-
-          {debugInfo.length === 0 && <div className="text-gray-500">Loading diagnostics...</div>}
-        </div>
-
-        <div className="mt-6 bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4">Browser Console</h2>
-          <p className="text-gray-600">
-            Please check your browser's developer console (F12) for any additional error messages. Look for red error
-            messages that might indicate what's failing.
-          </p>
         </div>
       </div>
     </div>
