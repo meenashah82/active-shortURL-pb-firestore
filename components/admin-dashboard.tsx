@@ -1,15 +1,14 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { getFirebase } from "@/lib/firebase"
+import { collection, getDocs, deleteDoc, doc } from "firebase/firestore"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Trash2, ExternalLink, Search, RefreshCw } from "lucide-react"
-import { db } from "@/lib/firebase"
-import { collection, getDocs, deleteDoc, doc, orderBy, query } from "firebase/firestore"
+import { Trash2, ExternalLink, BarChart3 } from "lucide-react"
+import Link from "next/link"
 
 interface UrlData {
   id: string
@@ -21,73 +20,69 @@ interface UrlData {
 
 export function AdminDashboard() {
   const [urls, setUrls] = useState<UrlData[]>([])
-  const [filteredUrls, setFilteredUrls] = useState<UrlData[]>([])
-  const [searchTerm, setSearchTerm] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const fetchUrls = async () => {
-    if (!db) {
-      setError("Database not initialized")
-      setIsLoading(false)
-      return
-    }
+    setIsLoading(true)
+    setError(null)
 
     try {
-      setIsLoading(true)
-      const q = query(collection(db, "urls"), orderBy("createdAt", "desc"))
-      const querySnapshot = await getDocs(q)
+      const { db } = getFirebase()
+
+      if (!db) {
+        setError("Firebase Firestore is not available. Please enable it in your Firebase project console.")
+        return
+      }
+
+      const urlsCollection = collection(db, "urls")
+      const snapshot = await getDocs(urlsCollection)
 
       const urlsData: UrlData[] = []
-      querySnapshot.forEach((doc) => {
+      snapshot.forEach((doc) => {
         const data = doc.data()
         urlsData.push({
           id: doc.id,
-          originalUrl: data.originalUrl,
-          shortCode: data.shortCode,
-          createdAt: data.createdAt,
+          originalUrl: data.originalUrl || "",
+          shortCode: data.shortCode || doc.id,
+          createdAt: data.createdAt || "",
           totalClicks: data.totalClicks || 0,
         })
       })
 
+      // Sort by creation date (newest first)
+      urlsData.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
       setUrls(urlsData)
-      setFilteredUrls(urlsData)
-      setError(null)
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching URLs:", error)
-      setError("Failed to fetch URLs")
+      if (error.message.includes("service firestore is not available")) {
+        setError("Firebase Firestore is not available. Please enable it in your Firebase project console.")
+      } else {
+        setError(`Failed to fetch URLs: ${error.message}`)
+      }
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleDelete = async (id: string, shortCode: string) => {
-    if (!db) return
-
-    if (!confirm(`Are you sure you want to delete the URL with code "${shortCode}"?`)) {
+  const deleteUrl = async (id: string, shortCode: string) => {
+    if (!confirm(`Are you sure you want to delete the short URL "${shortCode}"?`)) {
       return
     }
 
     try {
-      await deleteDoc(doc(db, "urls", id))
-      await fetchUrls() // Refresh the list
-    } catch (error) {
-      console.error("Error deleting URL:", error)
-      setError("Failed to delete URL")
-    }
-  }
+      const { db } = getFirebase()
+      if (!db) {
+        setError("Database connection not available")
+        return
+      }
 
-  const handleSearch = (term: string) => {
-    setSearchTerm(term)
-    if (!term) {
-      setFilteredUrls(urls)
-    } else {
-      const filtered = urls.filter(
-        (url) =>
-          url.originalUrl.toLowerCase().includes(term.toLowerCase()) ||
-          url.shortCode.toLowerCase().includes(term.toLowerCase()),
-      )
-      setFilteredUrls(filtered)
+      await deleteDoc(doc(db, "urls", id))
+      setUrls(urls.filter((url) => url.id !== id))
+    } catch (error: any) {
+      console.error("Error deleting URL:", error)
+      setError(`Failed to delete URL: ${error.message}`)
     }
   }
 
@@ -95,109 +90,107 @@ export function AdminDashboard() {
     fetchUrls()
   }, [])
 
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold">URL Management</h2>
+          <Button disabled>Refresh</Button>
+        </div>
+        <div className="grid gap-4">
+          {[1, 2, 3].map((i) => (
+            <Card key={i}>
+              <CardContent className="p-6">
+                <div className="animate-pulse space-y-2">
+                  <div className="h-4 bg-muted rounded w-3/4"></div>
+                  <div className="h-3 bg-muted rounded w-1/2"></div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   if (error) {
     return (
-      <Alert variant="destructive">
-        <AlertDescription>{error}</AlertDescription>
-      </Alert>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold">URL Management</h2>
+          <Button onClick={fetchUrls}>Retry</Button>
+        </div>
+        <Alert>
+          <AlertDescription>
+            <strong>Configuration Error</strong>
+            <br />
+            {error}
+            <br />
+            <br />
+            <strong>Action Required:</strong> Go to your Firebase Console, select 'Firestore Database' from the Build
+            menu, and click 'Create database'.
+          </AlertDescription>
+        </Alert>
+      </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">URL Management</h2>
-          <p className="text-gray-600">Manage all shortened URLs</p>
+          <p className="text-muted-foreground">Manage all shortened URLs ({urls.length} total)</p>
         </div>
-        <Button onClick={fetchUrls} disabled={isLoading}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-          Refresh
-        </Button>
+        <Button onClick={fetchUrls}>Refresh</Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Search URLs</CardTitle>
-          <CardDescription>Search by original URL or short code</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Search URLs..."
-              value={searchTerm}
-              onChange={(e) => handleSearch(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>URLs ({filteredUrls.length})</CardTitle>
-          <CardDescription>All shortened URLs in the system</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            </div>
-          ) : filteredUrls.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              {searchTerm ? "No URLs found matching your search" : "No URLs found"}
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Short Code</TableHead>
-                    <TableHead>Original URL</TableHead>
-                    <TableHead>Clicks</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredUrls.map((url) => (
-                    <TableRow key={url.id}>
-                      <TableCell>
-                        <div className="flex items-center space-x-2">
-                          <Badge variant="secondary">{url.shortCode}</Badge>
-                          <Button variant="ghost" size="sm" onClick={() => window.open(`/${url.shortCode}`, "_blank")}>
-                            <ExternalLink className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="max-w-xs truncate" title={url.originalUrl}>
-                          {url.originalUrl}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{url.totalClicks}</Badge>
-                      </TableCell>
-                      <TableCell>{new Date(url.createdAt).toLocaleDateString()}</TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(url.id, url.shortCode)}
-                          className="text-red-600 hover:text-red-800"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {urls.length === 0 ? (
+        <Card>
+          <CardContent className="p-6 text-center">
+            <p className="text-muted-foreground">No URLs found. Create your first short URL!</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4">
+          {urls.map((url) => (
+            <Card key={url.id}>
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1 flex-1 min-w-0">
+                    <CardTitle className="text-lg truncate">{url.originalUrl}</CardTitle>
+                    <CardDescription className="flex items-center gap-2">
+                      <code className="bg-muted px-2 py-1 rounded text-sm">/{url.shortCode}</code>
+                      <Badge variant="outline">{url.totalClicks} clicks</Badge>
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2 ml-4">
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={`/analytics/${url.shortCode}`}>
+                        <BarChart3 className="h-4 w-4" />
+                        Analytics
+                      </Link>
+                    </Button>
+                    <Button variant="outline" size="sm" asChild>
+                      <a href={`/${url.shortCode}`} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="h-4 w-4" />
+                        Visit
+                      </a>
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => deleteUrl(url.id, url.shortCode)}>
+                      <Trash2 className="h-4 w-4" />
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="text-sm text-muted-foreground">Created: {new Date(url.createdAt).toLocaleString()}</div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
