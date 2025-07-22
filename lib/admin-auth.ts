@@ -1,5 +1,5 @@
 import { db } from "./firebase"
-import { doc, getDoc, setDoc, collection, getDocs, updateDoc, deleteDoc } from "firebase/firestore"
+import { collection, doc, getDocs, addDoc, updateDoc, deleteDoc, query, where } from "firebase/firestore"
 
 export interface AdminUser {
   id: string
@@ -8,7 +8,6 @@ export interface AdminUser {
   role: "admin" | "superadmin"
   isActive: boolean
   createdAt: string
-  lastLogin?: string
 }
 
 export interface AdminSession {
@@ -20,115 +19,121 @@ export interface AdminSession {
 
 // Simple password hashing using Web Crypto API
 async function hashPassword(password: string): Promise<string> {
-  try {
-    const encoder = new TextEncoder()
-    const data = encoder.encode(password + "salt_shorturl_2024")
-    const hashBuffer = await crypto.subtle.digest("SHA-256", data)
-    const hashArray = Array.from(new Uint8Array(hashBuffer))
-    return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("")
-  } catch (error) {
-    console.error("Password hashing error:", error)
-    throw new Error("Failed to hash password")
-  }
+  const encoder = new TextEncoder()
+  const data = encoder.encode(password)
+  const hash = await crypto.subtle.digest("SHA-256", data)
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")
 }
 
-export async function createAdminUser(userData: {
-  username: string
-  email: string
-  password: string
-  role: "admin" | "superadmin"
-}): Promise<{ success: boolean; message: string }> {
-  try {
-    if (!db) {
-      return { success: false, message: "Database not initialized" }
-    }
-
-    // Check if username already exists
-    const userDoc = await getDoc(doc(db, "admins", userData.username))
-    if (userDoc.exists()) {
-      return { success: false, message: "Username already exists" }
-    }
-
-    // Check if email already exists
-    const adminsSnapshot = await getDocs(collection(db, "admins"))
-    const existingEmails = adminsSnapshot.docs.map((doc) => doc.data().email)
-    if (existingEmails.includes(userData.email)) {
-      return { success: false, message: "Email already exists" }
-    }
-
-    const hashedPassword = await hashPassword(userData.password)
-
-    const adminUser: Omit<AdminUser, "id"> & { password: string } = {
-      username: userData.username,
-      email: userData.email,
-      password: hashedPassword,
-      role: userData.role,
-      isActive: true,
-      createdAt: new Date().toISOString(),
-    }
-
-    await setDoc(doc(db, "admins", userData.username), adminUser)
-
-    return { success: true, message: "Admin user created successfully" }
-  } catch (error) {
-    console.error("Error creating admin user:", error)
-    return { success: false, message: "Failed to create admin user" }
-  }
+async function verifyPassword(password: string, hash: string): Promise<boolean> {
+  const hashedInput = await hashPassword(password)
+  return hashedInput === hash
 }
 
-export async function authenticateAdmin(
+export async function createAdminUser(
   username: string,
+  email: string,
   password: string,
-): Promise<{
-  success: boolean
-  user?: AdminUser
-  message: string
-}> {
-  try {
-    if (!db) {
-      return { success: false, message: "Database not initialized" }
-    }
+  role: "admin" | "superadmin" = "admin",
+): Promise<AdminUser> {
+  if (!db) {
+    throw new Error("Database not initialized")
+  }
 
-    const userDoc = await getDoc(doc(db, "admins", username))
+  const hashedPassword = await hashPassword(password)
 
-    if (!userDoc.exists()) {
-      return { success: false, message: "Invalid credentials" }
-    }
+  const adminData = {
+    username,
+    email,
+    password: hashedPassword,
+    role,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+  }
 
-    const userData = userDoc.data()
+  const docRef = await addDoc(collection(db, "admin_users"), adminData)
 
-    if (!userData.isActive) {
-      return { success: false, message: "Account is deactivated" }
-    }
-
-    const hashedPassword = await hashPassword(password)
-
-    if (userData.password !== hashedPassword) {
-      return { success: false, message: "Invalid credentials" }
-    }
-
-    // Update last login
-    await updateDoc(doc(db, "admins", username), {
-      lastLogin: new Date().toISOString(),
-    })
-
-    const user: AdminUser = {
-      id: username,
-      username: userData.username,
-      email: userData.email,
-      role: userData.role,
-      isActive: userData.isActive,
-      createdAt: userData.createdAt,
-      lastLogin: new Date().toISOString(),
-    }
-
-    return { success: true, user, message: "Login successful" }
-  } catch (error) {
-    console.error("Error authenticating admin:", error)
-    return { success: false, message: "Authentication failed" }
+  return {
+    id: docRef.id,
+    username,
+    email,
+    role,
+    isActive: true,
+    createdAt: adminData.createdAt,
   }
 }
 
+export async function authenticateAdmin(username: string, password: string): Promise<AdminUser | null> {
+  if (!db) {
+    throw new Error("Database not initialized")
+  }
+
+  const q = query(collection(db, "admin_users"), where("username", "==", username))
+  const querySnapshot = await getDocs(q)
+
+  if (querySnapshot.empty) {
+    return null
+  }
+
+  const userDoc = querySnapshot.docs[0]
+  const userData = userDoc.data()
+
+  if (!userData.isActive) {
+    throw new Error("Account is deactivated")
+  }
+
+  const isValidPassword = await verifyPassword(password, userData.password)
+  if (!isValidPassword) {
+    return null
+  }
+
+  return {
+    id: userDoc.id,
+    username: userData.username,
+    email: userData.email,
+    role: userData.role,
+    isActive: userData.isActive,
+    createdAt: userData.createdAt,
+  }
+}
+
+export async function getAllAdminUsers(): Promise<AdminUser[]> {
+  if (!db) {
+    throw new Error("Database not initialized")
+  }
+
+  const querySnapshot = await getDocs(collection(db, "admin_users"))
+  return querySnapshot.docs.map((doc) => ({
+    id: doc.id,
+    username: doc.data().username,
+    email: doc.data().email,
+    role: doc.data().role,
+    isActive: doc.data().isActive,
+    createdAt: doc.data().createdAt,
+  }))
+}
+
+export async function updateAdminUser(userId: string, updates: Partial<Omit<AdminUser, "id">>): Promise<void> {
+  if (!db) {
+    throw new Error("Database not initialized")
+  }
+
+  const userRef = doc(db, "admin_users", userId)
+  await updateDoc(userRef, updates)
+}
+
+export async function deleteAdminUser(userId: string): Promise<void> {
+  if (!db) {
+    throw new Error("Database not initialized")
+  }
+
+  const userRef = doc(db, "admin_users", userId)
+  await deleteDoc(userRef)
+}
+
+// Session management
 export function createSession(user: AdminUser): AdminSession {
   const session: AdminSession = {
     userId: user.id,
@@ -138,110 +143,39 @@ export function createSession(user: AdminUser): AdminSession {
   }
 
   if (typeof window !== "undefined") {
-    try {
-      localStorage.setItem("adminSession", JSON.stringify(session))
-    } catch (error) {
-      console.error("Failed to save session:", error)
-    }
+    localStorage.setItem("admin_session", JSON.stringify(session))
   }
 
   return session
 }
 
 export function getSession(): AdminSession | null {
-  if (typeof window === "undefined") return null
+  if (typeof window === "undefined") {
+    return null
+  }
 
   try {
-    const sessionData = localStorage.getItem("adminSession")
-    if (!sessionData) return null
+    const sessionData = localStorage.getItem("admin_session")
+    if (!sessionData) {
+      return null
+    }
 
     const session: AdminSession = JSON.parse(sessionData)
 
     if (Date.now() > session.expiresAt) {
-      localStorage.removeItem("adminSession")
+      localStorage.removeItem("admin_session")
       return null
     }
 
     return session
   } catch (error) {
-    console.error("Failed to get session:", error)
-    localStorage.removeItem("adminSession")
+    console.error("Error reading session:", error)
     return null
   }
 }
 
 export function clearSession(): void {
   if (typeof window !== "undefined") {
-    try {
-      localStorage.removeItem("adminSession")
-    } catch (error) {
-      console.error("Failed to clear session:", error)
-    }
-  }
-}
-
-export async function getAllAdminUsers(): Promise<AdminUser[]> {
-  try {
-    if (!db) {
-      console.error("Database not initialized")
-      return []
-    }
-
-    const adminsSnapshot = await getDocs(collection(db, "admins"))
-    return adminsSnapshot.docs.map((doc) => ({
-      id: doc.id,
-      username: doc.data().username,
-      email: doc.data().email,
-      role: doc.data().role,
-      isActive: doc.data().isActive,
-      createdAt: doc.data().createdAt,
-      lastLogin: doc.data().lastLogin,
-    }))
-  } catch (error) {
-    console.error("Error fetching admin users:", error)
-    return []
-  }
-}
-
-export async function updateAdminUser(
-  username: string,
-  updates: Partial<{
-    email: string
-    role: "admin" | "superadmin"
-    isActive: boolean
-    password: string
-  }>,
-): Promise<{ success: boolean; message: string }> {
-  try {
-    if (!db) {
-      return { success: false, message: "Database not initialized" }
-    }
-
-    const updateData: any = { ...updates }
-
-    if (updates.password) {
-      updateData.password = await hashPassword(updates.password)
-    }
-
-    await updateDoc(doc(db, "admins", username), updateData)
-
-    return { success: true, message: "Admin user updated successfully" }
-  } catch (error) {
-    console.error("Error updating admin user:", error)
-    return { success: false, message: "Failed to update admin user" }
-  }
-}
-
-export async function deleteAdminUser(username: string): Promise<{ success: boolean; message: string }> {
-  try {
-    if (!db) {
-      return { success: false, message: "Database not initialized" }
-    }
-
-    await deleteDoc(doc(db, "admins", username))
-    return { success: true, message: "Admin user deleted successfully" }
-  } catch (error) {
-    console.error("Error deleting admin user:", error)
-    return { success: false, message: "Failed to delete admin user" }
+    localStorage.removeItem("admin_session")
   }
 }

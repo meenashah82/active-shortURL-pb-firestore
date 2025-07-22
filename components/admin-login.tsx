@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Shield, AlertCircle } from "lucide-react"
+import { Shield, AlertTriangle } from "lucide-react"
 import { authenticateAdmin, createSession, type AdminUser } from "@/lib/admin-auth"
 
 interface AdminLoginProps {
@@ -27,31 +27,30 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
     setError(null)
 
     try {
-      const result = await authenticateAdmin(username, password)
-
-      if (result.success && result.user) {
-        createSession(result.user)
-        onLogin(result.user)
+      const user = await authenticateAdmin(username, password)
+      if (user) {
+        createSession(user)
+        onLogin(user)
       } else {
-        setError(result.message)
+        setError("Invalid username or password")
       }
     } catch (error) {
-      setError("An unexpected error occurred. Please try again.")
       console.error("Login error:", error)
+      setError(error instanceof Error ? error.message : "Login failed")
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <div className="flex items-center justify-center mb-4">
+        <CardHeader className="text-center">
+          <div className="flex justify-center mb-4">
             <Shield className="h-12 w-12 text-blue-600" />
           </div>
-          <CardTitle className="text-2xl font-bold text-center">Admin Login</CardTitle>
-          <CardDescription className="text-center">Enter your credentials to access the admin panel</CardDescription>
+          <CardTitle className="text-2xl">Admin Login</CardTitle>
+          <CardDescription>Sign in to access the admin dashboard</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -64,7 +63,6 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
                 onChange={(e) => setUsername(e.target.value)}
                 required
                 disabled={isLoading}
-                placeholder="Enter your username"
               />
             </div>
             <div className="space-y-2">
@@ -76,25 +74,18 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={isLoading}
-                placeholder="Enter your password"
               />
             </div>
-
             {error && (
               <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
+                <AlertTriangle className="h-4 w-4" />
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
-
-          <div className="mt-6 text-center text-sm text-gray-600">
-            <p>Need help? Contact your system administrator.</p>
-          </div>
         </CardContent>
       </Card>
     </div>

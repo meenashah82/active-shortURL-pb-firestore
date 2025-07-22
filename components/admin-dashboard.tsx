@@ -7,89 +7,80 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Trash2, ExternalLink, Search, RefreshCw } from "lucide-react"
+import { Trash2, ExternalLink, AlertTriangle } from "lucide-react"
 import { db } from "@/lib/firebase"
-import { collection, getDocs, deleteDoc, doc, orderBy, query } from "firebase/firestore"
+import { collection, getDocs, doc, deleteDoc, query, orderBy } from "firebase/firestore"
 
 interface UrlData {
   id: string
-  shortCode: string
   originalUrl: string
+  shortCode: string
   createdAt: string
   totalClicks: number
 }
 
 export function AdminDashboard() {
   const [urls, setUrls] = useState<UrlData[]>([])
-  const [filteredUrls, setFilteredUrls] = useState<UrlData[]>([])
-  const [searchTerm, setSearchTerm] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState("")
 
-  const fetchUrls = async () => {
+  useEffect(() => {
+    loadUrls()
+  }, [])
+
+  const loadUrls = async () => {
+    if (!db) {
+      setError("Database not initialized")
+      setIsLoading(false)
+      return
+    }
+
     try {
-      setIsLoading(true)
-      setError(null)
+      const q = query(collection(db, "urls"), orderBy("createdAt", "desc"))
+      const querySnapshot = await getDocs(q)
 
-      if (!db) {
-        throw new Error("Database not initialized")
-      }
-
-      const urlsQuery = query(collection(db, "urls"), orderBy("createdAt", "desc"))
-      const snapshot = await getDocs(urlsQuery)
-
-      const urlsData: UrlData[] = []
-      snapshot.forEach((doc) => {
-        const data = doc.data()
-        urlsData.push({
-          id: doc.id,
-          shortCode: data.shortCode || doc.id,
-          originalUrl: data.originalUrl || data.url || "",
-          createdAt: data.createdAt || "",
-          totalClicks: data.totalClicks || 0,
-        })
-      })
+      const urlsData: UrlData[] = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        originalUrl: doc.data().originalUrl,
+        shortCode: doc.data().shortCode,
+        createdAt: doc.data().createdAt,
+        totalClicks: doc.data().totalClicks || 0,
+      }))
 
       setUrls(urlsData)
-      setFilteredUrls(urlsData)
     } catch (error) {
-      console.error("Error fetching URLs:", error)
-      setError(`Failed to fetch URLs: ${error}`)
+      console.error("Error loading URLs:", error)
+      setError("Failed to load URLs")
     } finally {
       setIsLoading(false)
     }
   }
 
-  const deleteUrl = async (id: string) => {
-    try {
-      if (!db) {
-        throw new Error("Database not initialized")
-      }
+  const handleDelete = async (id: string, shortCode: string) => {
+    if (!db) {
+      setError("Database not initialized")
+      return
+    }
 
+    if (!confirm(`Are you sure you want to delete the URL with code "${shortCode}"?`)) {
+      return
+    }
+
+    try {
       await deleteDoc(doc(db, "urls", id))
-      await fetchUrls() // Refresh the list
+      setUrls(urls.filter((url) => url.id !== id))
     } catch (error) {
       console.error("Error deleting URL:", error)
-      setError(`Failed to delete URL: ${error}`)
+      setError("Failed to delete URL")
     }
   }
 
-  useEffect(() => {
-    fetchUrls()
-  }, [])
-
-  useEffect(() => {
-    if (searchTerm) {
-      const filtered = urls.filter(
-        (url) =>
-          url.originalUrl.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          url.shortCode.toLowerCase().includes(searchTerm.toLowerCase()),
-      )
-      setFilteredUrls(filtered)
-    } else {
-      setFilteredUrls(urls)
-    }
-  }, [searchTerm, urls])
+  const filteredUrls = urls.filter(
+    (url) =>
+      url.originalUrl.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      url.shortCode.toLowerCase().includes(searchTerm.toLowerCase()),
+  )
 
   if (isLoading) {
     return (
@@ -99,86 +90,89 @@ export function AdminDashboard() {
     )
   }
 
+  if (error) {
+    return (
+      <Alert variant="destructive">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    )
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold">URL Management</h2>
           <p className="text-gray-600">Manage all shortened URLs in the system</p>
         </div>
-        <Button onClick={fetchUrls} variant="outline">
-          <RefreshCw className="mr-2 h-4 w-4" />
+        <Badge variant="secondary">{urls.length} Total URLs</Badge>
+      </div>
+
+      <div className="flex gap-4">
+        <Input
+          placeholder="Search URLs or short codes..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="max-w-sm"
+        />
+        <Button onClick={loadUrls} variant="outline">
           Refresh
         </Button>
       </div>
 
-      {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
       <Card>
         <CardHeader>
-          <CardTitle>URLs ({filteredUrls.length})</CardTitle>
-          <CardDescription>All shortened URLs in the system</CardDescription>
+          <CardTitle>All URLs</CardTitle>
+          <CardDescription>
+            {filteredUrls.length} of {urls.length} URLs shown
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center space-x-2 mb-4">
-            <Search className="h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Search URLs..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="max-w-sm"
-            />
-          </div>
-
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Short Code</TableHead>
-                  <TableHead>Original URL</TableHead>
-                  <TableHead>Clicks</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>Actions</TableHead>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Short Code</TableHead>
+                <TableHead>Original URL</TableHead>
+                <TableHead>Clicks</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredUrls.map((url) => (
+                <TableRow key={url.id}>
+                  <TableCell>
+                    <code className="bg-gray-100 px-2 py-1 rounded text-sm">{url.shortCode}</code>
+                  </TableCell>
+                  <TableCell>
+                    <div className="max-w-xs truncate" title={url.originalUrl}>
+                      {url.originalUrl}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{url.totalClicks}</Badge>
+                  </TableCell>
+                  <TableCell>{new Date(url.createdAt).toLocaleDateString()}</TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => window.open(`/${url.shortCode}`, "_blank")}>
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
+                      <Button size="sm" variant="destructive" onClick={() => handleDelete(url.id, url.shortCode)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredUrls.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-gray-500">
-                      No URLs found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredUrls.map((url) => (
-                    <TableRow key={url.id}>
-                      <TableCell className="font-mono">
-                        <Badge variant="secondary">{url.shortCode}</Badge>
-                      </TableCell>
-                      <TableCell className="max-w-xs truncate">{url.originalUrl}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{url.totalClicks}</Badge>
-                      </TableCell>
-                      <TableCell>{new Date(url.createdAt).toLocaleDateString()}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center space-x-2">
-                          <Button variant="outline" size="sm" onClick={() => window.open(url.originalUrl, "_blank")}>
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                          <Button variant="destructive" size="sm" onClick={() => deleteUrl(url.id)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+              ))}
+            </TableBody>
+          </Table>
+          {filteredUrls.length === 0 && (
+            <div className="text-center py-8 text-gray-500">
+              {searchTerm ? "No URLs match your search" : "No URLs found"}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
