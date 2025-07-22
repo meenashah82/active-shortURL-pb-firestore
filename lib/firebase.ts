@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from "firebase/app"
-import { getFirestore } from "firebase/firestore"
+import { getFirestore, connectFirestoreEmulator } from "firebase/firestore"
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -10,27 +10,37 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 }
 
-// Initialize Firebase
-let app = null
+let app
 let db = null
 
 try {
-  if (firebaseConfig.apiKey && firebaseConfig.projectId) {
-    // Initialize Firebase app
-    app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp()
-
-    // Initialize Firestore with proper error handling
-    db = getFirestore(app)
-
-    console.log("Firebase initialized successfully")
+  if (!getApps().length) {
+    app = initializeApp(firebaseConfig)
   } else {
-    console.warn("Firebase config missing")
+    app = getApp()
+  }
+
+  const firestore = getFirestore(app)
+
+  // This check is crucial. If firestore service is not enabled in your Firebase project,
+  // getFirestore() might not throw immediately but the service will not be available.
+  if (firestore) {
+    db = firestore
+    console.log("Firebase and Firestore initialized successfully.")
+  } else {
+    console.error("Firebase initialization error: Firestore service is not available.")
+  }
+
+  // Optional: Connect to Firestore emulator in development
+  if (process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST) {
+    const [host, port] = process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST.split(":")
+    connectFirestoreEmulator(db, host, Number.parseInt(port))
+    console.log(`Connecting to Firestore emulator at ${host}:${port}`)
   }
 } catch (error) {
   console.error("Firebase initialization error:", error)
-  app = null
+  // Set db to null so the app can handle the uninitialized state gracefully
   db = null
 }
 
 export { db }
-export default app
