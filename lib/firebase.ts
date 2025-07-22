@@ -11,36 +11,22 @@ const firebaseConfig = {
 }
 
 let app
-let db = null
+let db
 
 try {
-  if (!getApps().length) {
-    app = initializeApp(firebaseConfig)
-  } else {
-    app = getApp()
-  }
+  if (typeof window !== "undefined") {
+    app = !getApps().length ? initializeApp(firebaseConfig) : getApp()
+    db = getFirestore(app)
 
-  const firestore = getFirestore(app)
-
-  // This check is crucial. If firestore service is not enabled in your Firebase project,
-  // getFirestore() might not throw immediately but the service will not be available.
-  if (firestore) {
-    db = firestore
-    console.log("Firebase and Firestore initialized successfully.")
-  } else {
-    console.error("Firebase initialization error: Firestore service is not available.")
-  }
-
-  // Optional: Connect to Firestore emulator in development
-  if (process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST) {
-    const [host, port] = process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST.split(":")
-    connectFirestoreEmulator(db, host, Number.parseInt(port))
-    console.log(`Connecting to Firestore emulator at ${host}:${port}`)
+    if (process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST) {
+      console.log("Connecting to Firestore emulator")
+      connectFirestoreEmulator(db, "localhost", 8080)
+    }
   }
 } catch (error) {
   console.error("Firebase initialization error:", error)
-  // Set db to null so the app can handle the uninitialized state gracefully
-  db = null
+  // We don't re-throw here, so the app can still run.
+  // The db variable will be undefined, and functions using it should handle this.
 }
 
-export { db }
+export { app, db }
