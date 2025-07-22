@@ -1,5 +1,5 @@
-import { initializeApp, getApps, getApp } from "firebase/app"
-import { getFirestore, connectFirestoreEmulator } from "firebase/firestore"
+import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app"
+import { getFirestore, type Firestore } from "firebase/firestore"
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -10,23 +10,33 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 }
 
-let app
-let db
+let app: FirebaseApp | null = null
+let db: Firestore | null = null
 
-try {
+// This function ensures that we only initialize the app once on the client-side.
+function initializeFirebaseClient() {
   if (typeof window !== "undefined") {
-    app = !getApps().length ? initializeApp(firebaseConfig) : getApp()
-    db = getFirestore(app)
-
-    if (process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST) {
-      console.log("Connecting to Firestore emulator")
-      connectFirestoreEmulator(db, "localhost", 8080)
+    try {
+      if (firebaseConfig.apiKey && firebaseConfig.projectId) {
+        if (getApps().length === 0) {
+          app = initializeApp(firebaseConfig)
+        } else {
+          app = getApp()
+        }
+        db = getFirestore(app)
+        console.log("Firebase client initialized successfully.")
+      } else {
+        console.error("Firebase config missing. App will not work correctly.")
+      }
+    } catch (error) {
+      console.error("Firebase client initialization error:", error)
+      app = null
+      db = null
     }
   }
-} catch (error) {
-  console.error("Firebase initialization error:", error)
-  // We don't re-throw here, so the app can still run.
-  // The db variable will be undefined, and functions using it should handle this.
 }
 
-export { app, db }
+// Initialize the app when this module is loaded.
+initializeFirebaseClient()
+
+export { db, app }

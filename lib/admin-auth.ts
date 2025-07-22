@@ -21,7 +21,6 @@ export interface AdminSession {
 const ADMIN_COLLECTION = "admins"
 const SESSION_KEY = "adminSession"
 
-// Helper for password hashing using Web Crypto API
 async function hashPassword(password: string): Promise<string> {
   const encoder = new TextEncoder()
   const data = encoder.encode(password)
@@ -30,7 +29,6 @@ async function hashPassword(password: string): Promise<string> {
   return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("")
 }
 
-// --- Session Management ---
 export function setSession(user: AdminUser) {
   if (typeof window !== "undefined") {
     const session: AdminSession = {
@@ -62,8 +60,6 @@ export function clearSession() {
     localStorage.removeItem(SESSION_KEY)
   }
 }
-
-// --- User Authentication & Creation ---
 
 export async function authenticateAdmin(
   username: string,
@@ -126,8 +122,6 @@ export async function createAdminUser(userData: {
     return { success: false, message: error.message }
   }
 }
-
-// --- Other User Management Functions ---
 
 export async function getAllAdminUsers(): Promise<{ success: boolean; users?: AdminUser[]; error?: string }> {
   if (!db) return { success: false, error: "Database service is not available." }
