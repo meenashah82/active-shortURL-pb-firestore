@@ -10,33 +10,32 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 }
 
-let app: FirebaseApp | null = null
+let app: FirebaseApp
 let db: Firestore | null = null
 
-// This function ensures that we only initialize the app once on the client-side.
-function initializeFirebaseClient() {
+// This function initializes Firebase and should only be called on the client-side.
+function initializeFirebase() {
   if (typeof window !== "undefined") {
-    try {
-      if (firebaseConfig.apiKey && firebaseConfig.projectId) {
-        if (getApps().length === 0) {
-          app = initializeApp(firebaseConfig)
-        } else {
-          app = getApp()
-        }
+    if (!firebaseConfig.apiKey) {
+      console.error("Firebase Error: Missing required environment variable: NEXT_PUBLIC_FIREBASE_API_KEY")
+      return
+    }
+    if (!getApps().length) {
+      try {
+        app = initializeApp(firebaseConfig)
         db = getFirestore(app)
-        console.log("Firebase client initialized successfully.")
-      } else {
-        console.error("Firebase config missing. App will not work correctly.")
+        console.log("Firebase initialized successfully.")
+      } catch (error) {
+        console.error("Firebase initialization error:", error)
       }
-    } catch (error) {
-      console.error("Firebase client initialization error:", error)
-      app = null
-      db = null
+    } else {
+      app = getApp()
+      db = getFirestore(app)
     }
   }
 }
 
-// Initialize the app when this module is loaded.
-initializeFirebaseClient()
+// Initialize Firebase on load
+initializeFirebase()
 
-export { db, app }
+export { db }

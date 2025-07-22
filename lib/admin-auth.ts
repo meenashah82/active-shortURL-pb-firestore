@@ -1,13 +1,14 @@
+import { collection, addDoc, getDocs, query, where, doc, updateDoc, deleteDoc, Timestamp } from "firebase/firestore"
 import { db } from "./firebase"
-import { collection, getDocs, doc, updateDoc, deleteDoc, addDoc, query, where } from "firebase/firestore"
 
+// --- Types ---
 export interface AdminUser {
   id: string
   username: string
   email: string
   role: "admin" | "superadmin"
   isActive: boolean
-  createdAt: string
+  createdAt: string | Timestamp
   lastLogin?: string
 }
 
@@ -21,6 +22,7 @@ export interface AdminSession {
 const ADMIN_COLLECTION = "admins"
 const SESSION_KEY = "adminSession"
 
+// --- Helper Functions ---
 async function hashPassword(password: string): Promise<string> {
   const encoder = new TextEncoder()
   const data = encoder.encode(password)
@@ -29,38 +31,37 @@ async function hashPassword(password: string): Promise<string> {
   return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("")
 }
 
+// --- Session Management (Client-Side) ---
 export function setSession(user: AdminUser) {
-  if (typeof window !== "undefined") {
-    const session: AdminSession = {
-      userId: user.id,
-      username: user.username,
-      role: user.role,
-      expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
-    }
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session))
+  if (typeof window === "undefined") return
+  const session: AdminSession = {
+    userId: user.id,
+    username: user.username,
+    role: user.role,
+    expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
   }
+  localStorage.setItem(SESSION_KEY, JSON.stringify(session))
 }
 
 export function getSession(): AdminSession | null {
-  if (typeof window !== "undefined") {
-    const sessionData = localStorage.getItem(SESSION_KEY)
-    if (!sessionData) return null
-    const session: AdminSession = JSON.parse(sessionData)
-    if (Date.now() > session.expiresAt) {
-      localStorage.removeItem(SESSION_KEY)
-      return null
-    }
-    return session
+  if (typeof window === "undefined") return null
+  const sessionData = localStorage.getItem(SESSION_KEY)
+  if (!sessionData) return null
+
+  const session: AdminSession = JSON.parse(sessionData)
+  if (Date.now() > session.expiresAt) {
+    localStorage.removeItem(SESSION_KEY)
+    return null
   }
-  return null
+  return session
 }
 
 export function clearSession() {
-  if (typeof window !== "undefined") {
-    localStorage.removeItem(SESSION_KEY)
-  }
+  if (typeof window === "undefined") return
+  localStorage.removeItem(SESSION_KEY)
 }
 
+// --- Core Authentication & User Management ---
 export async function authenticateAdmin(
   username: string,
   password: string,
@@ -78,7 +79,9 @@ export async function authenticateAdmin(
     const hashedPassword = await hashPassword(password)
     if (userData.password !== hashedPassword) return { success: false, message: "Invalid credentials." }
 
-    await updateDoc(userDoc.ref, { lastLogin: new Date().toISOString() })
+    const lastLogin = new Date().toISOString()
+    await updateDoc(userDoc.ref, { lastLogin })
+
     const user: AdminUser = {
       id: userDoc.id,
       username: userData.username,
@@ -86,7 +89,7 @@ export async function authenticateAdmin(
       role: userData.role,
       isActive: userData.isActive,
       createdAt: userData.createdAt,
-      lastLogin: new Date().toISOString(),
+      lastLogin: lastLogin,
     }
     setSession(user)
     return { success: true, user, message: "Login successful." }
@@ -109,12 +112,10 @@ export async function createAdminUser(userData: {
 
     const hashedPassword = await hashPassword(userData.password)
     await addDoc(collection(db, ADMIN_COLLECTION), {
-      username: userData.username,
-      email: userData.email,
+      ...userData,
       password: hashedPassword,
-      role: userData.role,
       isActive: true,
-      createdAt: new Date().toISOString(),
+      createdAt: Timestamp.now(),
     })
     return { success: true, message: "Admin user created successfully." }
   } catch (error: any) {
@@ -128,7 +129,18 @@ export async function getAllAdminUsers(): Promise<{ success: boolean; users?: Ad
   try {
     const usersCol = collection(db, ADMIN_COLLECTION)
     const userSnapshot = await getDocs(usersCol)
-    const userList = userSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as AdminUser)
+    const userList = userSnapshot.docs.map((doc) => {
+      const data = doc.data()
+      return {
+        id: doc.id,
+        username: data.username,
+        email: data.email,
+        role: data.role,
+        isActive: data.isActive,
+        createdAt: data.createdAt.toDate().toISOString(),
+        lastLogin: data.lastLogin,
+      } as AdminUser
+    })
     return { success: true, users: userList }
   } catch (error: any) {
     return { success: false, error: error.message }
@@ -137,7 +149,7 @@ export async function getAllAdminUsers(): Promise<{ success: boolean; users?: Ad
 
 export async function updateAdminUser(
   userId: string,
-  data: Partial<{ email: string; role: string; isActive: boolean }>,
+  data: Partial<{ email: string; role: "admin" | "superadmin"; isActive: boolean }>,
 ): Promise<{ success: boolean; error?: string }> {
   if (!db) return { success: false, error: "Database service is not available." }
   try {
