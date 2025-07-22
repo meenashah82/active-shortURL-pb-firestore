@@ -18,11 +18,7 @@ interface UrlData {
   totalClicks: number
 }
 
-interface AdminDashboardProps {
-  onLogout: () => void
-}
-
-export function AdminDashboard({ onLogout }: AdminDashboardProps) {
+export function AdminDashboard() {
   const [urls, setUrls] = useState<UrlData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -46,8 +42,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         const data = doc.data()
         urlsData.push({
           id: doc.id,
-          originalUrl: data.originalUrl,
-          shortCode: data.shortCode,
+          originalUrl: data.originalUrl || "",
+          shortCode: data.shortCode || "",
           createdAt: data.createdAt?.toDate() || new Date(),
           totalClicks: data.totalClicks || 0,
         })
@@ -72,7 +68,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     try {
       const { db } = getFirebase()
       if (!db) {
-        setError("Database not available")
+        setError("Database connection not available")
         return
       }
 
@@ -114,19 +110,26 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           <h1 className="text-3xl font-bold">Admin Dashboard</h1>
           <p className="text-muted-foreground">Manage shortened URLs and view analytics</p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={fetchUrls} variant="outline">
-            Refresh
-          </Button>
-          <Button onClick={onLogout} variant="destructive">
-            Logout
-          </Button>
-        </div>
+        <Button onClick={fetchUrls} variant="outline">
+          Refresh
+        </Button>
       </div>
 
       {error && (
         <Alert>
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>
+            {error}
+            {error.includes("Firestore is not available") && (
+              <div className="mt-2">
+                <p className="font-semibold">To fix this:</p>
+                <ol className="list-decimal list-inside text-sm mt-1">
+                  <li>Go to Firebase Console → Build → Firestore Database</li>
+                  <li>Create database if it doesn't exist</li>
+                  <li>Set security rules to allow access</li>
+                </ol>
+              </div>
+            )}
+          </AlertDescription>
         </Alert>
       )}
 

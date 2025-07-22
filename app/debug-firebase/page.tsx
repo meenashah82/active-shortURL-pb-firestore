@@ -248,58 +248,68 @@ export default function DebugFirebasePage() {
         </CardContent>
       </Card>
 
-      {/* Next Steps */}
+      {/* Firestore Fix Instructions */}
       <Card>
         <CardHeader>
-          <CardTitle>Next Steps</CardTitle>
-          <CardDescription>Since the Project IDs match, here are other potential issues</CardDescription>
+          <CardTitle>🔧 How to Fix Firestore "Not Available" Error</CardTitle>
+          <CardDescription>Step-by-step instructions to resolve the Firestore issue</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {debugInfo.testResults.canReadAdmins && debugInfo.testResults.adminCount > 0 && (
-              <Alert>
-                <AlertDescription>
-                  <strong>Good News:</strong> Firebase is working correctly! You have {debugInfo.testResults.adminCount}{" "}
-                  admin user(s). The /admin page should work now.
-                </AlertDescription>
-              </Alert>
-            )}
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+              <h4 className="font-semibold text-red-800 mb-2">Step 1: Check if Firestore Database Exists</h4>
+              <ol className="list-decimal list-inside text-red-700 text-sm space-y-1">
+                <li>Go to https://console.firebase.google.com/</li>
+                <li>Select your project</li>
+                <li>In the left sidebar, click "Build" → "Firestore Database"</li>
+                <li>If you see "Get started", click it to create the database</li>
+                <li>Choose "Start in test mode" (you can change this later)</li>
+                <li>Select a location for your database</li>
+              </ol>
+            </div>
 
-            {!debugInfo.environmentVariables.NEXT_PUBLIC_FIREBASE_PROJECT_ID && (
-              <Alert>
-                <AlertDescription>
-                  <strong>Missing Environment Variables:</strong> Go to your Vercel project settings and add the missing
-                  NEXT_PUBLIC_FIREBASE_* environment variables.
-                </AlertDescription>
-              </Alert>
-            )}
+            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <h4 className="font-semibold text-yellow-800 mb-2">Step 2: Check Firestore Security Rules</h4>
+              <p className="text-yellow-700 text-sm mb-2">
+                If your database exists but you still get errors, check your security rules:
+              </p>
+              <ol className="list-decimal list-inside text-yellow-700 text-sm space-y-1">
+                <li>In Firestore Database, click the "Rules" tab</li>
+                <li>
+                  Temporarily set rules to allow all access (for testing):
+                  <pre className="bg-yellow-100 p-2 mt-1 text-xs rounded">
+                    {`rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}`}
+                  </pre>
+                </li>
+                <li>Click "Publish" to save the rules</li>
+                <li>⚠️ Remember to secure these rules later!</li>
+              </ol>
+            </div>
 
-            {debugInfo.firebaseStatus === "error" && (
-              <Alert>
-                <AlertDescription>
-                  <strong>Firebase Initialization Error:</strong> Check that your environment variables are correct and
-                  match your Firebase project configuration.
-                </AlertDescription>
-              </Alert>
-            )}
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <h4 className="font-semibold text-blue-800 mb-2">Step 3: Enable Firestore API</h4>
+              <ol className="list-decimal list-inside text-blue-700 text-sm space-y-1">
+                <li>Go to Google Cloud Console: https://console.cloud.google.com/</li>
+                <li>Select your Firebase project</li>
+                <li>Go to "APIs & Services" → "Library"</li>
+                <li>Search for "Cloud Firestore API"</li>
+                <li>Click on it and make sure it's enabled</li>
+              </ol>
+            </div>
 
-            {debugInfo.firestoreStatus === "error" && (
-              <Alert>
-                <AlertDescription>
-                  <strong>Firestore Not Available:</strong> Even though you have a database, there might be a
-                  permissions issue. Check your Firestore security rules.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {debugInfo.testResults.canReadAdmins && debugInfo.testResults.adminCount === 0 && (
-              <Alert>
-                <AlertDescription>
-                  <strong>No Admin Users Found:</strong> Your Firestore is working, but the admins collection is empty.
-                  You need to create the first admin user.
-                </AlertDescription>
-              </Alert>
-            )}
+            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+              <h4 className="font-semibold text-green-800 mb-2">Step 4: Test Again</h4>
+              <p className="text-green-700 text-sm">
+                After completing the above steps, click "Run Diagnostics" again to test the connection.
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>
