@@ -152,7 +152,10 @@ export default function DebugFirebasePage() {
       <Card>
         <CardHeader>
           <CardTitle>Environment Variables</CardTitle>
-          <CardDescription>Firebase configuration from environment variables</CardDescription>
+          <CardDescription>
+            Firebase configuration from your Vercel environment variables. Compare the PROJECT ID below with your
+            Firebase console.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
@@ -165,7 +168,9 @@ export default function DebugFirebasePage() {
                       <Badge variant="default" className="bg-green-500">
                         ✓ Set
                       </Badge>
-                      <code className="text-xs text-muted-foreground">{value.substring(0, 10)}...</code>
+                      <code className="text-xs text-muted-foreground">
+                        {key === "NEXT_PUBLIC_FIREBASE_PROJECT_ID" ? value : `${value.substring(0, 10)}...`}
+                      </code>
                     </>
                   ) : (
                     <Badge variant="destructive">✗ Missing</Badge>
@@ -246,11 +251,42 @@ export default function DebugFirebasePage() {
       {/* Instructions */}
       <Card>
         <CardHeader>
-          <CardTitle>Next Steps</CardTitle>
-          <CardDescription>How to resolve common configuration issues</CardDescription>
+          <CardTitle>How to Compare Project IDs</CardTitle>
+          <CardDescription>Step-by-step instructions to fix the configuration</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <h4 className="font-semibold text-blue-800 mb-2">Step 1: Check Your Firebase Console</h4>
+              <ol className="list-decimal list-inside text-blue-700 text-sm space-y-1">
+                <li>Go to https://console.firebase.google.com/</li>
+                <li>Select your project (the one with your Firestore database)</li>
+                <li>Click the gear icon (⚙️) next to "Project Overview"</li>
+                <li>Click "Project settings"</li>
+                <li>Look for "Project ID" - this is what you need to compare</li>
+              </ol>
+            </div>
+
+            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <h4 className="font-semibold text-yellow-800 mb-2">Step 2: Compare Project IDs</h4>
+              <p className="text-yellow-700 text-sm">
+                Compare the <strong>NEXT_PUBLIC_FIREBASE_PROJECT_ID</strong> shown above with the Project ID from your
+                Firebase console. If they don't match, that's the problem!
+              </p>
+            </div>
+
+            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+              <h4 className="font-semibold text-green-800 mb-2">Step 3: Fix in Vercel</h4>
+              <ol className="list-decimal list-inside text-green-700 text-sm space-y-1">
+                <li>Go to your Vercel project dashboard</li>
+                <li>Click "Settings" tab</li>
+                <li>Click "Environment Variables" in the sidebar</li>
+                <li>Update NEXT_PUBLIC_FIREBASE_PROJECT_ID with the correct value</li>
+                <li>Update any other mismatched variables</li>
+                <li>Redeploy your project</li>
+              </ol>
+            </div>
+
             {!debugInfo.environmentVariables.NEXT_PUBLIC_FIREBASE_PROJECT_ID && (
               <Alert>
                 <AlertDescription>

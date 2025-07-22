@@ -6,7 +6,6 @@ import { collection, getDocs, deleteDoc, doc } from "firebase/firestore"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Trash2, ExternalLink, BarChart3 } from "lucide-react"
 
@@ -15,17 +14,17 @@ interface UrlData {
   originalUrl: string
   shortCode: string
   createdAt: Date
-  clicks: number
+  totalClicks: number
 }
 
-export function AdminDashboard() {
+interface AdminDashboardProps {
+  onLogout: () => void
+}
+
+export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [urls, setUrls] = useState<UrlData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [stats, setStats] = useState({
-    totalUrls: 0,
-    totalClicks: 0,
-  })
 
   const fetchUrls = async () => {
     try {
@@ -46,23 +45,15 @@ export function AdminDashboard() {
         return {
           id: doc.id,
           originalUrl: data.originalUrl || "",
-          shortCode: data.shortCode || doc.id,
+          shortCode: data.shortCode || "",
           createdAt: data.createdAt?.toDate() || new Date(),
-          clicks: data.clicks || 0,
+          totalClicks: data.totalClicks || 0,
         }
       })
 
       // Sort by creation date (newest first)
       urlsData.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-
       setUrls(urlsData)
-
-      // Calculate stats
-      const totalClicks = urlsData.reduce((sum, url) => sum + url.clicks, 0)
-      setStats({
-        totalUrls: urlsData.length,
-        totalClicks,
-      })
     } catch (error: any) {
       console.error("Error fetching URLs:", error)
       setError(`Failed to fetch URLs: ${error.message}`)
@@ -84,7 +75,7 @@ export function AdminDashboard() {
       }
 
       await deleteDoc(doc(db, "urls", id))
-      await fetchUrls() // Refresh the list
+      setUrls(urls.filter((url) => url.id !== id))
     } catch (error: any) {
       console.error("Error deleting URL:", error)
       setError(`Failed to delete URL: ${error.message}`)
@@ -97,98 +88,73 @@ export function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold">URL Management</h2>
-          <Button disabled>Loading...</Button>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card>
-            <CardContent className="p-6">
-              <div className="animate-pulse">
-                <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
-                <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-6">
-              <div className="animate-pulse">
-                <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
-                <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold">URL Management</h2>
-          <Button onClick={fetchUrls}>Retry</Button>
-        </div>
-        <Alert>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-        {error.includes("Firestore is not available") && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Configuration Error</CardTitle>
-              <CardDescription>
-                Firebase Firestore is not available. Please enable it in your Firebase project console.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 text-sm">
-                <p>
-                  <strong>Action Required:</strong>
-                </p>
-                <ol className="list-decimal list-inside space-y-1 ml-4">
-                  <li>Go to your Firebase Console</li>
-                  <li>Select 'Firestore Database' from the Build menu</li>
-                  <li>Click 'Create database'</li>
-                </ol>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+      <div className="container mx-auto p-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Admin Dashboard</CardTitle>
+            <CardDescription>Loading URL data...</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center space-x-2">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
+              <span>Loading...</span>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">URL Management</h2>
-        <Button onClick={fetchUrls}>Refresh</Button>
+        <div>
+          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+          <p className="text-muted-foreground">Manage shortened URLs and view analytics</p>
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={fetchUrls} variant="outline">
+            Refresh
+          </Button>
+          <Button onClick={onLogout} variant="destructive">
+            Logout
+          </Button>
+        </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {error && (
+        <Alert>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center space-x-2">
-              <ExternalLink className="h-5 w-5 text-blue-500" />
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total URLs</p>
-                <p className="text-2xl font-bold">{stats.totalUrls}</p>
-              </div>
-            </div>
+          <CardHeader>
+            <CardTitle>Total URLs</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{urls.length}</div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center space-x-2">
-              <BarChart3 className="h-5 w-5 text-green-500" />
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Clicks</p>
-                <p className="text-2xl font-bold">{stats.totalClicks}</p>
-              </div>
+          <CardHeader>
+            <CardTitle>Total Clicks</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{urls.reduce((sum, url) => sum + url.totalClicks, 0)}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Average Clicks</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {urls.length > 0 ? Math.round(urls.reduce((sum, url) => sum + url.totalClicks, 0) / urls.length) : 0}
             </div>
           </CardContent>
         </Card>
@@ -197,82 +163,55 @@ export function AdminDashboard() {
       {/* URLs Table */}
       <Card>
         <CardHeader>
-          <CardTitle>All Short URLs</CardTitle>
-          <CardDescription>Manage all shortened URLs in your system</CardDescription>
+          <CardTitle>All Shortened URLs</CardTitle>
+          <CardDescription>Manage and monitor your shortened URLs</CardDescription>
         </CardHeader>
         <CardContent>
           {urls.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-muted-foreground">No URLs found</p>
+              <p className="text-muted-foreground">No URLs found. Create some short URLs to see them here.</p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Short Code</TableHead>
-                  <TableHead>Original URL</TableHead>
-                  <TableHead>Clicks</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {urls.map((url) => (
-                  <TableRow key={url.id}>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <Badge variant="outline" className="font-mono">
-                          {url.shortCode}
-                        </Badge>
-                        <a
-                          href={`https://www.wodify.link/${url.shortCode}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-500 hover:text-blue-700"
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="max-w-xs truncate" title={url.originalUrl}>
-                        {url.originalUrl}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{url.clicks}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm text-muted-foreground">{url.createdAt.toLocaleDateString()}</div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => window.open(`/analytics/${url.shortCode}`, "_blank")}
-                        >
-                          <BarChart3 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => deleteUrl(url.id, url.shortCode)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <div className="space-y-4">
+              {urls.map((url) => (
+                <div key={url.id} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge variant="outline" className="font-mono">
+                        {url.shortCode}
+                      </Badge>
+                      <Badge variant="secondary">{url.totalClicks} clicks</Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground truncate">{url.originalUrl}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Created: {url.createdAt.toLocaleDateString()} at {url.createdAt.toLocaleTimeString()}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 ml-4">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => window.open(`https://www.wodify.link/${url.shortCode}`, "_blank")}
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => window.open(`/analytics/${url.shortCode}`, "_blank")}
+                    >
+                      <BarChart3 className="h-4 w-4" />
+                    </Button>
+                    <Button size="sm" variant="destructive" onClick={() => deleteUrl(url.id, url.shortCode)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </CardContent>
       </Card>
     </div>
   )
 }
-
-export default AdminDashboard
