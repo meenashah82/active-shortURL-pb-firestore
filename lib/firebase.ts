@@ -10,32 +10,24 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 }
 
-// Validate required environment variables
-const requiredEnvVars = [
-  "NEXT_PUBLIC_FIREBASE_API_KEY",
-  "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN",
-  "NEXT_PUBLIC_FIREBASE_PROJECT_ID",
-  "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET",
-  "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
-  "NEXT_PUBLIC_FIREBASE_APP_ID",
-]
-
-for (const envVar of requiredEnvVars) {
-  if (!process.env[envVar]) {
-    console.error(`Missing required environment variable: ${envVar}`)
-  }
-}
-
-// Initialize Firebase with error handling
+// Initialize Firebase
 let app
 let db
 
 try {
-  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp()
+  // Check if Firebase is already initialized
+  if (getApps().length === 0) {
+    app = initializeApp(firebaseConfig)
+  } else {
+    app = getApp()
+  }
+
+  // Initialize Firestore
   db = getFirestore(app)
+
+  console.log("Firebase initialized successfully")
 } catch (error) {
-  console.error("Firebase initialization error:", error)
-  // Create a fallback to prevent complete app crash
+  console.error("Firebase initialization failed:", error)
   app = null
   db = null
 }
