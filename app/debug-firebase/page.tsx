@@ -153,8 +153,8 @@ export default function DebugFirebasePage() {
         <CardHeader>
           <CardTitle>Environment Variables</CardTitle>
           <CardDescription>
-            Firebase configuration from your Vercel environment variables. Compare the PROJECT ID below with your
-            Firebase console.
+            Firebase configuration from your Vercel environment variables. The PROJECT ID should match your Firebase
+            console.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -248,44 +248,22 @@ export default function DebugFirebasePage() {
         </CardContent>
       </Card>
 
-      {/* Instructions */}
+      {/* Next Steps */}
       <Card>
         <CardHeader>
-          <CardTitle>How to Compare Project IDs</CardTitle>
-          <CardDescription>Step-by-step instructions to fix the configuration</CardDescription>
+          <CardTitle>Next Steps</CardTitle>
+          <CardDescription>Since the Project IDs match, here are other potential issues</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <h4 className="font-semibold text-blue-800 mb-2">Step 1: Check Your Firebase Console</h4>
-              <ol className="list-decimal list-inside text-blue-700 text-sm space-y-1">
-                <li>Go to https://console.firebase.google.com/</li>
-                <li>Select your project (the one with your Firestore database)</li>
-                <li>Click the gear icon (⚙️) next to "Project Overview"</li>
-                <li>Click "Project settings"</li>
-                <li>Look for "Project ID" - this is what you need to compare</li>
-              </ol>
-            </div>
-
-            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <h4 className="font-semibold text-yellow-800 mb-2">Step 2: Compare Project IDs</h4>
-              <p className="text-yellow-700 text-sm">
-                Compare the <strong>NEXT_PUBLIC_FIREBASE_PROJECT_ID</strong> shown above with the Project ID from your
-                Firebase console. If they don't match, that's the problem!
-              </p>
-            </div>
-
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-              <h4 className="font-semibold text-green-800 mb-2">Step 3: Fix in Vercel</h4>
-              <ol className="list-decimal list-inside text-green-700 text-sm space-y-1">
-                <li>Go to your Vercel project dashboard</li>
-                <li>Click "Settings" tab</li>
-                <li>Click "Environment Variables" in the sidebar</li>
-                <li>Update NEXT_PUBLIC_FIREBASE_PROJECT_ID with the correct value</li>
-                <li>Update any other mismatched variables</li>
-                <li>Redeploy your project</li>
-              </ol>
-            </div>
+            {debugInfo.testResults.canReadAdmins && debugInfo.testResults.adminCount > 0 && (
+              <Alert>
+                <AlertDescription>
+                  <strong>Good News:</strong> Firebase is working correctly! You have {debugInfo.testResults.adminCount}{" "}
+                  admin user(s). The /admin page should work now.
+                </AlertDescription>
+              </Alert>
+            )}
 
             {!debugInfo.environmentVariables.NEXT_PUBLIC_FIREBASE_PROJECT_ID && (
               <Alert>
@@ -299,8 +277,8 @@ export default function DebugFirebasePage() {
             {debugInfo.firebaseStatus === "error" && (
               <Alert>
                 <AlertDescription>
-                  <strong>Firebase Initialization Error:</strong> Check that your environment variables match your
-                  Firebase project configuration.
+                  <strong>Firebase Initialization Error:</strong> Check that your environment variables are correct and
+                  match your Firebase project configuration.
                 </AlertDescription>
               </Alert>
             )}
@@ -308,8 +286,8 @@ export default function DebugFirebasePage() {
             {debugInfo.firestoreStatus === "error" && (
               <Alert>
                 <AlertDescription>
-                  <strong>Firestore Not Available:</strong> Go to your Firebase Console, select 'Firestore Database'
-                  from the Build menu, and click 'Create database'.
+                  <strong>Firestore Not Available:</strong> Even though you have a database, there might be a
+                  permissions issue. Check your Firestore security rules.
                 </AlertDescription>
               </Alert>
             )}
@@ -317,8 +295,8 @@ export default function DebugFirebasePage() {
             {debugInfo.testResults.canReadAdmins && debugInfo.testResults.adminCount === 0 && (
               <Alert>
                 <AlertDescription>
-                  <strong>No Admin Users Found:</strong> Your Firestore is working, but there are no admin users. You
-                  may need to create the first admin user.
+                  <strong>No Admin Users Found:</strong> Your Firestore is working, but the admins collection is empty.
+                  You need to create the first admin user.
                 </AlertDescription>
               </Alert>
             )}

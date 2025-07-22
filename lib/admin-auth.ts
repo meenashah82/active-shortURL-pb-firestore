@@ -6,7 +6,7 @@ export interface AdminUser {
   id: string
   username: string
   email: string
-  role: "super_admin" | "admin"
+  role: "admin" | "super_admin"
   createdAt: Date
   lastLogin?: Date
 }
@@ -17,10 +17,28 @@ export interface LoginResult {
   error?: string
 }
 
-// Session management
-let currentSession: { user: AdminUser; token: string } | null = null
+export interface CreateUserResult {
+  success: boolean
+  userId?: string
+  error?: string
+}
 
-// Hash password using Web Crypto API
+// Session management
+let currentSession: AdminUser | null = null
+
+export function getSession(): AdminUser | null {
+  return currentSession
+}
+
+export function setSession(user: AdminUser | null): void {
+  currentSession = user
+}
+
+export function clearSession(): void {
+  currentSession = null
+}
+
+// Password hashing using Web Crypto API
 async function hashPassword(password: string): Promise<string> {
   const encoder = new TextEncoder()
   const data = encoder.encode(password)
@@ -29,49 +47,42 @@ async function hashPassword(password: string): Promise<string> {
   return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("")
 }
 
-// Verify password
-async function verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
-  const hashedInput = await hashPassword(password)
-  return hashedInput === hashedPassword
-}
-
 // Create admin user
 export async function createAdminUser(
   username: string,
   email: string,
   password: string,
-  role: "super_admin" | "admin" = "admin",
-): Promise<{ success: boolean; error?: string; userId?: string }> {
+  role: "admin" | "super_admin" = "admin",
+): Promise<CreateUserResult> {
   try {
     const { db } = getFirebase()
     if (!db) {
-      return { success: false, error: "Database connection not available" }
+      return { success: false, error: "Database not available" }
     }
 
     // Check if user already exists
     const usersRef = collection(db, "admins")
-    const usernameQuery = query(usersRef, where("username", "==", username))
-    const emailQuery = query(usersRef, where("email", "==", email))
+    const existingUserQuery = query(usersRef, where("username", "==", username))
+    const existingUserSnapshot = await getDocs(existingUserQuery)
 
-    const [usernameSnapshot, emailSnapshot] = await Promise.all([getDocs(usernameQuery), getDocs(emailQuery)])
-
-    if (!usernameSnapshot.empty) {
+    if (!existingUserSnapshot.empty) {
       return { success: false, error: "Username already exists" }
     }
 
-    if (!emailSnapshot.empty) {
-      return { success: false, error: "Email already exists" }
-    }
-
-    // Hash password and create user
+    // Hash password
     const hashedPassword = await hashPassword(password)
-    const docRef = await addDoc(usersRef, {
+
+    // Create user document
+    const newUser = {
       username,
       email,
       password: hashedPassword,
       role,
       createdAt: new Date(),
-    })
+    }
+
+    const docRef = await addDoc(usersRef, newUser)
+    console.log("Admin user created successfully:", docRef.id)
 
     return { success: true, userId: docRef.id }
   } catch (error: any) {
@@ -80,28 +91,29 @@ export async function createAdminUser(
   }
 }
 
-// Authenticate admin
+// Authenticate admin user
 export async function authenticateAdmin(username: string, password: string): Promise<LoginResult> {
   try {
     const { db } = getFirebase()
     if (!db) {
-      return { success: false, error: "Database connection not available" }
+      return { success: false, error: "Database not available" }
     }
 
+    // Find user by username
     const usersRef = collection(db, "admins")
-    const q = query(usersRef, where("username", "==", username))
-    const querySnapshot = await getDocs(q)
+    const userQuery = query(usersRef, where("username", "==", username))
+    const userSnapshot = await getDocs(userQuery)
 
-    if (querySnapshot.empty) {
+    if (userSnapshot.empty) {
       return { success: false, error: "Invalid username or password" }
     }
 
-    const userDoc = querySnapshot.docs[0]
+    const userDoc = userSnapshot.docs[0]
     const userData = userDoc.data()
 
     // Verify password
-    const isValidPassword = await verifyPassword(password, userData.password)
-    if (!isValidPassword) {
+    const hashedPassword = await hashPassword(password)
+    if (userData.password !== hashedPassword) {
       return { success: false, error: "Invalid username or password" }
     }
 
@@ -110,6 +122,7 @@ export async function authenticateAdmin(username: string, password: string): Pro
       lastLogin: new Date(),
     })
 
+    // Create user object
     const user: AdminUser = {
       id: userDoc.id,
       username: userData.username,
@@ -120,61 +133,46 @@ export async function authenticateAdmin(username: string, password: string): Pro
     }
 
     // Set session
-    currentSession = {
-      user,
-      token: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    }
+    setSession(user)
 
+    console.log("Admin user authenticated successfully:", user.username)
     return { success: true, user }
   } catch (error: any) {
-    console.error("Error authenticating admin:", error)
+    console.error("Error authenticating admin user:", error)
     return { success: false, error: error.message }
   }
 }
 
 // Get all admin users
-export async function getAllAdminUsers(): Promise<{ success: boolean; users?: AdminUser[]; error?: string }> {
+export async function getAllAdminUsers(): Promise<AdminUser[]> {
   try {
     const { db } = getFirebase()
     if (!db) {
-      return { success: false, error: "Database connection not available" }
+      console.error("Database not available")
+      return []
     }
 
     const usersRef = collection(db, "admins")
-    const querySnapshot = await getDocs(usersRef)
+    const snapshot = await getDocs(usersRef)
 
-    const users: AdminUser[] = querySnapshot.docs.map((doc) => {
+    const users: AdminUser[] = []
+    snapshot.forEach((doc) => {
       const data = doc.data()
-      return {
+      users.push({
         id: doc.id,
         username: data.username,
         email: data.email,
         role: data.role,
         createdAt: data.createdAt.toDate(),
-        lastLogin: data.lastLogin?.toDate(),
-      }
+        lastLogin: data.lastLogin ? data.lastLogin.toDate() : undefined,
+      })
     })
 
-    return { success: true, users }
+    return users
   } catch (error: any) {
     console.error("Error getting admin users:", error)
-    return { success: false, error: error.message }
+    return []
   }
-}
-
-// Get current session
-export function getSession(): { user: AdminUser; token: string } | null {
-  return currentSession
-}
-
-// Set session
-export function setSession(user: AdminUser, token: string): void {
-  currentSession = { user, token }
-}
-
-// Clear session
-export function clearSession(): void {
-  currentSession = null
 }
 
 // Update admin user
@@ -185,12 +183,13 @@ export async function updateAdminUser(
   try {
     const { db } = getFirebase()
     if (!db) {
-      return { success: false, error: "Database connection not available" }
+      return { success: false, error: "Database not available" }
     }
 
     const userRef = doc(db, "admins", userId)
     await updateDoc(userRef, updates)
 
+    console.log("Admin user updated successfully:", userId)
     return { success: true }
   } catch (error: any) {
     console.error("Error updating admin user:", error)
@@ -203,12 +202,13 @@ export async function deleteAdminUser(userId: string): Promise<{ success: boolea
   try {
     const { db } = getFirebase()
     if (!db) {
-      return { success: false, error: "Database connection not available" }
+      return { success: false, error: "Database not available" }
     }
 
     const userRef = doc(db, "admins", userId)
     await deleteDoc(userRef)
 
+    console.log("Admin user deleted successfully:", userId)
     return { success: true }
   } catch (error: any) {
     console.error("Error deleting admin user:", error)
@@ -224,15 +224,14 @@ export async function changePassword(
   try {
     const { db } = getFirebase()
     if (!db) {
-      return { success: false, error: "Database connection not available" }
+      return { success: false, error: "Database not available" }
     }
 
     const hashedPassword = await hashPassword(newPassword)
     const userRef = doc(db, "admins", userId)
-    await updateDoc(userRef, {
-      password: hashedPassword,
-    })
+    await updateDoc(userRef, { password: hashedPassword })
 
+    console.log("Password changed successfully for user:", userId)
     return { success: true }
   } catch (error: any) {
     console.error("Error changing password:", error)
