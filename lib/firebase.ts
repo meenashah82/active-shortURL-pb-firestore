@@ -10,19 +10,20 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 }
 
-// Initialize Firebase
-let app = null
-let db = null
+// Initialize Firebase only if config exists and no apps are already initialized
+let app
+let db
 
 try {
-  // Only initialize if we have the required config
   if (firebaseConfig.apiKey && firebaseConfig.projectId) {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp()
     db = getFirestore(app)
+    console.log("Firebase initialized successfully")
+  } else {
+    console.warn("Firebase config missing, some features may not work")
   }
 } catch (error) {
   console.error("Firebase initialization error:", error)
-  // Keep app and db as null
 }
 
 export { db }
