@@ -18,7 +18,7 @@ export interface AdminSession {
   expiresAt: number
 }
 
-// Simple password hashing using Web Crypto API (no bcrypt dependency needed)
+// Simple password hashing using Web Crypto API
 async function hashPassword(password: string): Promise<string> {
   try {
     const encoder = new TextEncoder()

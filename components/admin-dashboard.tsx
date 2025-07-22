@@ -2,67 +2,56 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Trash2, Eye, ExternalLink, AlertTriangle, RefreshCw } from "lucide-react"
-import { collection, getDocs, deleteDoc, doc, orderBy, query, limit } from "firebase/firestore"
+import { Trash2, ExternalLink, Search, RefreshCw } from "lucide-react"
 import { db } from "@/lib/firebase"
+import { collection, getDocs, deleteDoc, doc, orderBy, query } from "firebase/firestore"
 
-interface URLData {
+interface UrlData {
   id: string
-  originalUrl: string
   shortCode: string
+  originalUrl: string
   createdAt: string
-  clicks: number
-  isActive: boolean
+  totalClicks: number
 }
 
 export function AdminDashboard() {
-  const [urls, setUrls] = useState<URLData[]>([])
+  const [urls, setUrls] = useState<UrlData[]>([])
+  const [filteredUrls, setFilteredUrls] = useState<UrlData[]>([])
+  const [searchTerm, setSearchTerm] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [stats, setStats] = useState({
-    totalUrls: 0,
-    totalClicks: 0,
-    activeUrls: 0,
-  })
 
   const fetchUrls = async () => {
     try {
+      setIsLoading(true)
+      setError(null)
+
       if (!db) {
         throw new Error("Database not initialized")
       }
 
-      const urlsQuery = query(collection(db, "urls"), orderBy("createdAt", "desc"), limit(100))
+      const urlsQuery = query(collection(db, "urls"), orderBy("createdAt", "desc"))
       const snapshot = await getDocs(urlsQuery)
 
-      const urlsData: URLData[] = []
-      let totalClicks = 0
-      let activeUrls = 0
-
+      const urlsData: UrlData[] = []
       snapshot.forEach((doc) => {
         const data = doc.data()
-        const urlData: URLData = {
+        urlsData.push({
           id: doc.id,
-          originalUrl: data.originalUrl || "",
           shortCode: data.shortCode || doc.id,
+          originalUrl: data.originalUrl || data.url || "",
           createdAt: data.createdAt || "",
-          clicks: data.clicks || 0,
-          isActive: data.isActive !== false,
-        }
-        urlsData.push(urlData)
-        totalClicks += urlData.clicks
-        if (urlData.isActive) activeUrls++
+          totalClicks: data.totalClicks || 0,
+        })
       })
 
       setUrls(urlsData)
-      setStats({
-        totalUrls: urlsData.length,
-        totalClicks,
-        activeUrls,
-      })
-      setError(null)
+      setFilteredUrls(urlsData)
     } catch (error) {
       console.error("Error fetching URLs:", error)
       setError(`Failed to fetch URLs: ${error}`)
@@ -72,8 +61,6 @@ export function AdminDashboard() {
   }
 
   const deleteUrl = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this URL?")) return
-
     try {
       if (!db) {
         throw new Error("Database not initialized")
@@ -91,6 +78,19 @@ export function AdminDashboard() {
     fetchUrls()
   }, [])
 
+  useEffect(() => {
+    if (searchTerm) {
+      const filtered = urls.filter(
+        (url) =>
+          url.originalUrl.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          url.shortCode.toLowerCase().includes(searchTerm.toLowerCase()),
+      )
+      setFilteredUrls(filtered)
+    } else {
+      setFilteredUrls(urls)
+    }
+  }, [searchTerm, urls])
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -99,102 +99,86 @@ export function AdminDashboard() {
     )
   }
 
-  if (error) {
-    return (
-      <Alert variant="destructive">
-        <AlertTriangle className="h-4 w-4" />
-        <AlertDescription>{error}</AlertDescription>
-      </Alert>
-    )
-  }
-
   return (
     <div className="space-y-6">
-      {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total URLs</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalUrls}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Clicks</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalClicks}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active URLs</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.activeUrls}</div>
-          </CardContent>
-        </Card>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">URL Management</h2>
+          <p className="text-gray-600">Manage all shortened URLs in the system</p>
+        </div>
+        <Button onClick={fetchUrls} variant="outline">
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Refresh
+        </Button>
       </div>
 
-      {/* URLs Table */}
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>URL Management</CardTitle>
-              <CardDescription>Manage all shortened URLs in the system</CardDescription>
-            </div>
-            <Button onClick={fetchUrls} variant="outline" size="sm">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
-          </div>
+          <CardTitle>URLs ({filteredUrls.length})</CardTitle>
+          <CardDescription>All shortened URLs in the system</CardDescription>
         </CardHeader>
         <CardContent>
-          {urls.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">No URLs found</div>
-          ) : (
-            <div className="space-y-4">
-              {urls.map((url) => (
-                <div key={url.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <Badge variant={url.isActive ? "default" : "secondary"}>
-                        {url.isActive ? "Active" : "Inactive"}
-                      </Badge>
-                      <span className="text-sm text-gray-500">{url.clicks} clicks</span>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="font-medium text-sm">
-                        Short URL: <span className="font-mono text-blue-600">/{url.shortCode}</span>
-                      </div>
-                      <div className="text-sm text-gray-600 truncate">
-                        Original: <span className="font-mono">{url.originalUrl}</span>
-                      </div>
-                      <div className="text-xs text-gray-500">Created: {url.createdAt}</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2 ml-4">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => window.open(`/analytics/${url.shortCode}`, "_blank")}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => window.open(`/${url.shortCode}`, "_blank")}>
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
-                    <Button variant="destructive" size="sm" onClick={() => deleteUrl(url.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="flex items-center space-x-2 mb-4">
+            <Search className="h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search URLs..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="max-w-sm"
+            />
+          </div>
+
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Short Code</TableHead>
+                  <TableHead>Original URL</TableHead>
+                  <TableHead>Clicks</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredUrls.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                      No URLs found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredUrls.map((url) => (
+                    <TableRow key={url.id}>
+                      <TableCell className="font-mono">
+                        <Badge variant="secondary">{url.shortCode}</Badge>
+                      </TableCell>
+                      <TableCell className="max-w-xs truncate">{url.originalUrl}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{url.totalClicks}</Badge>
+                      </TableCell>
+                      <TableCell>{new Date(url.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center space-x-2">
+                          <Button variant="outline" size="sm" onClick={() => window.open(url.originalUrl, "_blank")}>
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                          <Button variant="destructive" size="sm" onClick={() => deleteUrl(url.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>
