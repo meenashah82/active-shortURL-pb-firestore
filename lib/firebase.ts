@@ -4,7 +4,6 @@ import { getFirestore, type Firestore } from "firebase/firestore"
 let app: FirebaseApp | null = null
 let db: Firestore | null = null
 
-// Get both Firebase app and Firestore db
 export function getFirebase(): { app: FirebaseApp | null; db: Firestore | null } {
   if (typeof window === "undefined") {
     return { app: null, db: null }
@@ -68,12 +67,6 @@ export function getFirebase(): { app: FirebaseApp | null; db: Firestore | null }
     db = null
     return { app: null, db: null }
   }
-}
-
-// Get just the Firebase app instance (new function to fix the error)
-export function getFirebaseApp(): FirebaseApp | null {
-  const { app } = getFirebase()
-  return app
 }
 
 // Export db for backward compatibility
