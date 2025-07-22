@@ -11,25 +11,18 @@ const firebaseConfig = {
 }
 
 // Initialize Firebase
-let app
-let db
+let app = null
+let db = null
 
 try {
-  // Check if Firebase is already initialized
-  if (getApps().length === 0) {
-    app = initializeApp(firebaseConfig)
-  } else {
-    app = getApp()
+  // Only initialize if we have the required config
+  if (firebaseConfig.apiKey && firebaseConfig.projectId) {
+    app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp()
+    db = getFirestore(app)
   }
-
-  // Initialize Firestore
-  db = getFirestore(app)
-
-  console.log("Firebase initialized successfully")
 } catch (error) {
-  console.error("Firebase initialization failed:", error)
-  app = null
-  db = null
+  console.error("Firebase initialization error:", error)
+  // Keep app and db as null
 }
 
 export { db }
