@@ -4,12 +4,8 @@ import { getFirestore, type Firestore } from "firebase/firestore"
 let app: FirebaseApp | null = null
 let db: Firestore | null = null
 
-// Get both Firebase app and Firestore db
-export function getFirebase(): { app: FirebaseApp | null; db: Firestore | null } {
-  if (typeof window === "undefined") {
-    return { app: null, db: null }
-  }
-
+// Initialize Firebase for both client and server
+function initializeFirebase() {
   if (app && db) {
     return { app, db }
   }
@@ -31,7 +27,7 @@ export function getFirebase(): { app: FirebaseApp | null; db: Firestore | null }
 
     if (missingVars.length > 0) {
       console.error("Missing Firebase environment variables:", missingVars)
-      return { app: null, db: null }
+      throw new Error(`Missing Firebase environment variables: ${missingVars.join(", ")}`)
     }
 
     // Initialize Firebase app
@@ -42,39 +38,33 @@ export function getFirebase(): { app: FirebaseApp | null; db: Firestore | null }
       app = getApps()[0]
     }
 
-    // Initialize Firestore with error handling
-    try {
-      db = getFirestore(app)
-      console.log("Firestore initialized successfully")
-    } catch (firestoreError: any) {
-      console.error("Firestore initialization failed:", firestoreError)
-
-      // Check for specific error messages
-      if (firestoreError.message?.includes("service not available")) {
-        console.error("Firestore service is not available. Please:")
-        console.error("1. Go to Firebase Console")
-        console.error("2. Navigate to Build > Firestore Database")
-        console.error("3. Click 'Create database' if not already created")
-        console.error("4. Choose 'Start in test mode' for now")
-      }
-
-      db = null
-    }
+    // Initialize Firestore
+    db = getFirestore(app)
+    console.log("Firestore initialized successfully")
 
     return { app, db }
   } catch (error: any) {
     console.error("Firebase initialization error:", error)
-    app = null
-    db = null
+    throw error
+  }
+}
+
+// Get both Firebase app and Firestore db (works on both client and server)
+export function getFirebase(): { app: FirebaseApp | null; db: Firestore | null } {
+  try {
+    return initializeFirebase()
+  } catch (error) {
+    console.error("Failed to get Firebase:", error)
     return { app: null, db: null }
   }
 }
 
-// Get just the Firebase app instance (new function to fix the error)
+// Get just the Firebase app instance
 export function getFirebaseApp(): FirebaseApp | null {
   const { app } = getFirebase()
   return app
 }
 
-// Export db for backward compatibility
-export { db }
+// Initialize and export db
+const { db: firestoreDb } = initializeFirebase()
+export { firestoreDb as db }
