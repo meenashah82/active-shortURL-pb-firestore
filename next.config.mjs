@@ -9,6 +9,9 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-};
+  experimental: {
+    serverComponentsExternalPackages: ['firebase-admin']
+  }
+}
 
-export default nextConfig;
+export default nextConfig
