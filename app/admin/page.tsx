@@ -5,7 +5,7 @@ import { AdminLogin } from "@/components/admin-login"
 import { AdminDashboard } from "@/components/admin-dashboard"
 import { AdminUserManagement } from "@/components/admin-user-management"
 import { getSession, clearSession, type AdminUser } from "@/lib/admin-auth"
-import { getFirebase } from "@/lib/firebase"
+import { db } from "@/lib/firebase"
 import { doc, getDoc } from "firebase/firestore"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -34,16 +34,21 @@ export default function AdminPage() {
 
         // Fetch the actual username from Firestore
         try {
-          const { db } = getFirebase()
           if (db) {
-            const userDoc = await getDoc(doc(db, "admins", session.userId))
+            console.log("Fetching user data for:", session.userId)
+            const userDocRef = doc(db, "admins", session.userId)
+            const userDoc = await getDoc(userDocRef)
+
             if (userDoc.exists()) {
               const userData = userDoc.data()
+              console.log("User data from Firestore:", userData)
               setDisplayUsername(userData.username || session.username)
             } else {
+              console.log("User document not found, using session username")
               setDisplayUsername(session.username)
             }
           } else {
+            console.log("Database not available, using session username")
             setDisplayUsername(session.username)
           }
         } catch (error) {
