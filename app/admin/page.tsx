@@ -5,8 +5,6 @@ import { AdminLogin } from "@/components/admin-login"
 import { AdminDashboard } from "@/components/admin-dashboard"
 import { AdminUserManagement } from "@/components/admin-user-management"
 import { getSession, clearSession, type AdminUser } from "@/lib/admin-auth"
-import { db } from "@/lib/firebase"
-import { doc, getDoc } from "firebase/firestore"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { LogOut, Shield, Link, Users } from "lucide-react"
@@ -34,7 +32,14 @@ export default function AdminPage() {
 
         // Fetch the actual username from Firestore
         try {
-          if (db) {
+          // Dynamic import to avoid SSR issues
+          const { getFirestore } = await import("firebase/firestore")
+          const { doc, getDoc } = await import("firebase/firestore")
+          const { getFirebaseApp } = await import("@/lib/firebase")
+
+          const app = getFirebaseApp()
+          if (app) {
+            const db = getFirestore(app)
             console.log("Fetching user data for:", session.userId)
             const userDocRef = doc(db, "admins", session.userId)
             const userDoc = await getDoc(userDocRef)
@@ -48,7 +53,7 @@ export default function AdminPage() {
               setDisplayUsername(session.username)
             }
           } else {
-            console.log("Database not available, using session username")
+            console.log("Firebase app not available, using session username")
             setDisplayUsername(session.username)
           }
         } catch (error) {
