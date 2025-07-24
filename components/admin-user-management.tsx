@@ -68,9 +68,13 @@ export function AdminUserManagement() {
   const fetchUsers = async () => {
     try {
       setIsLoading(true)
-      const usersData = await getAllAdminUsers()
-      setUsers(usersData)
       setError(null)
+      console.log("Fetching admin users...")
+
+      const usersData = await getAllAdminUsers()
+      console.log("Fetched users:", usersData)
+
+      setUsers(usersData)
     } catch (error) {
       console.error("Error fetching users:", error)
       setError("Failed to fetch users")
@@ -82,13 +86,18 @@ export function AdminUserManagement() {
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsCreating(true)
+    setError(null)
 
     try {
-      await createAdminUser(createForm.username, createForm.email, createForm.password, createForm.role)
+      const result = await createAdminUser(createForm.username, createForm.email, createForm.password, createForm.role)
 
-      setCreateForm({ username: "", email: "", password: "", role: "admin" })
-      setShowCreateDialog(false)
-      await fetchUsers()
+      if (result.success) {
+        setCreateForm({ username: "", email: "", password: "", role: "admin" })
+        setShowCreateDialog(false)
+        await fetchUsers()
+      } else {
+        setError(result.message)
+      }
     } catch (error) {
       console.error("Error creating user:", error)
       setError(error instanceof Error ? error.message : "Failed to create user")
@@ -101,17 +110,23 @@ export function AdminUserManagement() {
     e.preventDefault()
     if (!editingUser) return
 
+    setError(null)
+
     try {
-      await updateAdminUser(editingUser.id, {
+      const result = await updateAdminUser(editingUser.id, {
         username: editForm.username,
         email: editForm.email,
         role: editForm.role,
         isActive: editForm.isActive,
       })
 
-      setShowEditDialog(false)
-      setEditingUser(null)
-      await fetchUsers()
+      if (result.success) {
+        setShowEditDialog(false)
+        setEditingUser(null)
+        await fetchUsers()
+      } else {
+        setError(result.error || "Failed to update user")
+      }
     } catch (error) {
       console.error("Error updating user:", error)
       setError("Failed to update user")
@@ -128,9 +143,16 @@ export function AdminUserManagement() {
       return
     }
 
+    setError(null)
+
     try {
-      await deleteAdminUser(user.id)
-      await fetchUsers()
+      const result = await deleteAdminUser(user.id)
+
+      if (result.success) {
+        await fetchUsers()
+      } else {
+        setError(result.error || "Failed to delete user")
+      }
     } catch (error) {
       console.error("Error deleting user:", error)
       setError("Failed to delete user")
@@ -145,11 +167,17 @@ export function AdminUserManagement() {
       return
     }
 
+    setError(null)
+
     try {
-      await changePassword(passwordForm.userId, passwordForm.newPassword)
-      setPasswordForm({ userId: "", newPassword: "", confirmPassword: "" })
-      setShowPasswordDialog(false)
-      setError(null)
+      const result = await changePassword(passwordForm.userId, passwordForm.newPassword)
+
+      if (result.success) {
+        setPasswordForm({ userId: "", newPassword: "", confirmPassword: "" })
+        setShowPasswordDialog(false)
+      } else {
+        setError(result.error || "Failed to change password")
+      }
     } catch (error) {
       console.error("Error changing password:", error)
       setError("Failed to change password")
@@ -173,17 +201,24 @@ export function AdminUserManagement() {
   }
 
   useEffect(() => {
-    fetchUsers()
-
-    // Get current user session
+    // Get current user session first
     const session = getSession()
     if (session) {
-      const user = users.find((u) => u.id === session.userId)
-      setCurrentUser(user || null)
+      setCurrentUser({
+        id: session.userId,
+        username: session.username,
+        email: "",
+        role: session.role,
+        isActive: true,
+        createdAt: "",
+      })
     }
+
+    // Then fetch users
+    fetchUsers()
   }, [])
 
-  const canManageUsers = currentUser?.role === "superadmin"
+  const canManageUsers = currentUser?.role === "superadmin" || currentUser?.role === "admin"
 
   return (
     <div className="space-y-6">
@@ -282,7 +317,10 @@ export function AdminUserManagement() {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
             </div>
           ) : users.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">No admin users found</div>
+            <div className="text-center py-8 text-gray-500">
+              <p>No admin users found</p>
+              <p className="text-sm mt-2">Create your first admin user to get started</p>
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
@@ -325,7 +363,7 @@ export function AdminUserManagement() {
                           {user.isActive ? "Active" : "Inactive"}
                         </Badge>
                       </TableCell>
-                      <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell>{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "N/A"}</TableCell>
                       <TableCell>
                         <div className="flex space-x-1">
                           {canManageUsers && (
@@ -334,7 +372,7 @@ export function AdminUserManagement() {
                                 <Edit className="h-4 w-4" />
                               </Button>
                               <Button variant="ghost" size="sm" onClick={() => openPasswordDialog(user.id)}>
-                                Change Password
+                                <span className="text-xs">Change Password</span>
                               </Button>
                               {user.id !== currentUser?.id && (
                                 <Button
