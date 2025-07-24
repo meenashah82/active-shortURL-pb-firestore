@@ -5,6 +5,8 @@ import { AdminLogin } from "@/components/admin-login"
 import { AdminDashboard } from "@/components/admin-dashboard"
 import { AdminUserManagement } from "@/components/admin-user-management"
 import { getSession, clearSession, type AdminUser } from "@/lib/admin-auth"
+import { getFirebase } from "@/lib/firebase"
+import { doc, getDoc } from "firebase/firestore"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { LogOut, Shield, Link, Users } from "lucide-react"
@@ -13,31 +15,57 @@ import { Skeleton } from "@/components/ui/skeleton"
 export default function AdminPage() {
   const [user, setUser] = useState<AdminUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [displayUsername, setDisplayUsername] = useState<string>("")
 
   useEffect(() => {
-    const session = getSession()
-    if (session) {
-      // A simple user object from session data for display purposes
-      const sessionUser: AdminUser = {
-        id: session.userId,
-        username: session.username,
-        email: "", // Not stored in session
-        role: session.role,
-        isActive: true,
-        createdAt: "",
+    const loadUserData = async () => {
+      const session = getSession()
+      if (session) {
+        // Create user object from session
+        const sessionUser: AdminUser = {
+          id: session.userId,
+          username: session.username,
+          email: "", // Not stored in session
+          role: session.role,
+          isActive: true,
+          createdAt: "",
+        }
+        setUser(sessionUser)
+
+        // Fetch the actual username from Firestore
+        try {
+          const { db } = getFirebase()
+          if (db) {
+            const userDoc = await getDoc(doc(db, "admins", session.userId))
+            if (userDoc.exists()) {
+              const userData = userDoc.data()
+              setDisplayUsername(userData.username || session.username)
+            } else {
+              setDisplayUsername(session.username)
+            }
+          } else {
+            setDisplayUsername(session.username)
+          }
+        } catch (error) {
+          console.error("Error fetching username from Firestore:", error)
+          setDisplayUsername(session.username)
+        }
       }
-      setUser(sessionUser)
+      setIsLoading(false)
     }
-    setIsLoading(false)
+
+    loadUserData()
   }, [])
 
   const handleLogin = (loggedInUser: AdminUser) => {
     setUser(loggedInUser)
+    setDisplayUsername(loggedInUser.username)
   }
 
   const handleLogout = () => {
     clearSession()
     setUser(null)
+    setDisplayUsername("")
   }
 
   if (isLoading) {
@@ -65,7 +93,7 @@ export default function AdminPage() {
             </div>
             <div className="flex items-center space-x-4">
               <div className="text-sm text-gray-600">
-                Welcome, <span className="font-medium">{user.username}</span>
+                Welcome, <span className="font-medium">{displayUsername}</span>
                 <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">
                   {user.role}
                 </span>
