@@ -30,30 +30,59 @@ export default function AdminPage() {
         }
         setUser(sessionUser)
 
-        // Fetch the actual username from Firestore
+        // Try to fetch the actual username from Firestore using a safer approach
         try {
-          // Dynamic import to avoid SSR issues
-          const { getFirestore } = await import("firebase/firestore")
-          const { doc, getDoc } = await import("firebase/firestore")
-          const { getFirebaseApp } = await import("@/lib/firebase")
+          // Check if we're in the browser environment
+          if (typeof window !== "undefined") {
+            // Use a timeout to ensure Firebase is fully loaded
+            setTimeout(async () => {
+              try {
+                const { initializeApp, getApps } = await import("firebase/app")
+                const { getFirestore, doc, getDoc } = await import("firebase/firestore")
 
-          const app = getFirebaseApp()
-          if (app) {
-            const db = getFirestore(app)
-            console.log("Fetching user data for:", session.userId)
-            const userDocRef = doc(db, "admins", session.userId)
-            const userDoc = await getDoc(userDocRef)
+                // Get Firebase config from environment variables
+                const firebaseConfig = {
+                  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+                  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+                  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+                  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+                  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+                  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+                }
 
-            if (userDoc.exists()) {
-              const userData = userDoc.data()
-              console.log("User data from Firestore:", userData)
-              setDisplayUsername(userData.username || session.username)
-            } else {
-              console.log("User document not found, using session username")
-              setDisplayUsername(session.username)
-            }
+                // Initialize Firebase if not already initialized
+                let app
+                if (getApps().length === 0) {
+                  app = initializeApp(firebaseConfig)
+                } else {
+                  app = getApps()[0]
+                }
+
+                const db = getFirestore(app)
+                console.log("Fetching user data for:", session.userId)
+
+                const userDocRef = doc(db, "admins", session.userId)
+                const userDoc = await getDoc(userDocRef)
+
+                if (userDoc.exists()) {
+                  const userData = userDoc.data()
+                  console.log("User data from Firestore:", userData)
+                  if (userData.username) {
+                    setDisplayUsername(userData.username)
+                  } else {
+                    setDisplayUsername(session.username)
+                  }
+                } else {
+                  console.log("User document not found, using session username")
+                  setDisplayUsername(session.username)
+                }
+              } catch (error) {
+                console.error("Error in Firebase operation:", error)
+                setDisplayUsername(session.username)
+              }
+            }, 100)
           } else {
-            console.log("Firebase app not available, using session username")
+            // Server-side, just use session username
             setDisplayUsername(session.username)
           }
         } catch (error) {
