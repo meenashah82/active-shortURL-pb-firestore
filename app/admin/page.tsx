@@ -13,98 +13,31 @@ import { Skeleton } from "@/components/ui/skeleton"
 export default function AdminPage() {
   const [user, setUser] = useState<AdminUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [displayUsername, setDisplayUsername] = useState<string>("")
 
   useEffect(() => {
-    const loadUserData = async () => {
-      const session = getSession()
-      if (session) {
-        // Create user object from session
-        const sessionUser: AdminUser = {
-          id: session.userId,
-          username: session.username,
-          email: "", // Not stored in session
-          role: session.role,
-          isActive: true,
-          createdAt: "",
-        }
-        setUser(sessionUser)
-
-        // Try to fetch the actual username from Firestore using a safer approach
-        try {
-          // Check if we're in the browser environment
-          if (typeof window !== "undefined") {
-            // Use a timeout to ensure Firebase is fully loaded
-            setTimeout(async () => {
-              try {
-                const { initializeApp, getApps } = await import("firebase/app")
-                const { getFirestore, doc, getDoc } = await import("firebase/firestore")
-
-                // Get Firebase config from environment variables
-                const firebaseConfig = {
-                  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-                  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-                  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-                  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-                  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-                  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-                }
-
-                // Initialize Firebase if not already initialized
-                let app
-                if (getApps().length === 0) {
-                  app = initializeApp(firebaseConfig)
-                } else {
-                  app = getApps()[0]
-                }
-
-                const db = getFirestore(app)
-                console.log("Fetching user data for:", session.userId)
-
-                const userDocRef = doc(db, "admins", session.userId)
-                const userDoc = await getDoc(userDocRef)
-
-                if (userDoc.exists()) {
-                  const userData = userDoc.data()
-                  console.log("User data from Firestore:", userData)
-                  if (userData.username) {
-                    setDisplayUsername(userData.username)
-                  } else {
-                    setDisplayUsername(session.username)
-                  }
-                } else {
-                  console.log("User document not found, using session username")
-                  setDisplayUsername(session.username)
-                }
-              } catch (error) {
-                console.error("Error in Firebase operation:", error)
-                setDisplayUsername(session.username)
-              }
-            }, 100)
-          } else {
-            // Server-side, just use session username
-            setDisplayUsername(session.username)
-          }
-        } catch (error) {
-          console.error("Error fetching username from Firestore:", error)
-          setDisplayUsername(session.username)
-        }
+    const session = getSession()
+    if (session) {
+      // A simple user object from session data for display purposes
+      const sessionUser: AdminUser = {
+        id: session.userId,
+        username: session.username,
+        email: "", // Not stored in session
+        role: session.role,
+        isActive: true,
+        createdAt: "",
       }
-      setIsLoading(false)
+      setUser(sessionUser)
     }
-
-    loadUserData()
+    setIsLoading(false)
   }, [])
 
   const handleLogin = (loggedInUser: AdminUser) => {
     setUser(loggedInUser)
-    setDisplayUsername(loggedInUser.username)
   }
 
   const handleLogout = () => {
     clearSession()
     setUser(null)
-    setDisplayUsername("")
   }
 
   if (isLoading) {
@@ -132,7 +65,7 @@ export default function AdminPage() {
             </div>
             <div className="flex items-center space-x-4">
               <div className="text-sm text-gray-600">
-                Welcome, <span className="font-medium">{displayUsername}</span>
+                Welcome, <span className="font-medium">{user.username}</span>
                 <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">
                   {user.role}
                 </span>
