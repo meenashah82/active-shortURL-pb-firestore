@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { getFirebase } from "@/lib/firebase"
-import { collection, getDocs, deleteDoc, doc } from "firebase/firestore"
+import { collection, getDocs, deleteDoc, doc, onSnapshot } from "firebase/firestore"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -45,7 +45,7 @@ export function AdminDashboard() {
           originalUrl: data.originalUrl || "",
           shortCode: data.shortCode || "",
           createdAt: data.createdAt?.toDate() || new Date(),
-          totalClicks: data.totalClicks || 0,
+          totalClicks: 0, // Initialize with 0, will be updated by real-time listener
         })
       })
 
@@ -79,6 +79,45 @@ export function AdminDashboard() {
       setError(`Failed to delete URL: ${error.message}`)
     }
   }
+
+  // Set up real-time listeners for analytics updates
+  useEffect(() => {
+    const { db } = getFirebase()
+    if (!db || urls.length === 0) return
+
+    const unsubscribers: (() => void)[] = []
+
+    // Set up real-time listener for each URL's analytics
+    urls.forEach((url) => {
+      const analyticsRef = doc(db, "analytics", url.shortCode)
+
+      const unsubscribe = onSnapshot(
+        analyticsRef,
+        { includeMetadataChanges: true },
+        (doc) => {
+          if (doc.exists()) {
+            const analyticsData = doc.data()
+            const totalClicks = analyticsData.totalClicks || 0
+
+            // Update the specific URL's click count in state
+            setUrls((prevUrls) =>
+              prevUrls.map((prevUrl) => (prevUrl.shortCode === url.shortCode ? { ...prevUrl, totalClicks } : prevUrl)),
+            )
+          }
+        },
+        (error) => {
+          console.error(`Error listening to analytics for ${url.shortCode}:`, error)
+        },
+      )
+
+      unsubscribers.push(unsubscribe)
+    })
+
+    // Cleanup function
+    return () => {
+      unsubscribers.forEach((unsubscribe) => unsubscribe())
+    }
+  }, [urls.length]) // Re-run when URLs are loaded
 
   useEffect(() => {
     fetchUrls()
