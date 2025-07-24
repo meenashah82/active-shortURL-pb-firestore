@@ -223,15 +223,13 @@ export async function authenticateAdmin(
   }
 }
 
-// Get all admin users
-export async function getAllAdminUsers(): Promise<{ success: boolean; users?: AdminUser[]; error?: string }> {
+// Get all admin users - Fixed to return array directly
+export async function getAllAdminUsers(): Promise<AdminUser[]> {
   const { db } = getFirebase()
 
   if (!db) {
-    return {
-      success: false,
-      error: "Database connection not available",
-    }
+    console.error("Database connection not available")
+    return []
   }
 
   try {
@@ -251,16 +249,10 @@ export async function getAllAdminUsers(): Promise<{ success: boolean; users?: Ad
       })
     })
 
-    return {
-      success: true,
-      users,
-    }
+    return users
   } catch (error) {
     console.error("Error fetching admin users:", error)
-    return {
-      success: false,
-      error: "Failed to fetch admin users",
-    }
+    return []
   }
 }
 
