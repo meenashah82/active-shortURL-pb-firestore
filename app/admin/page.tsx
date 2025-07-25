@@ -42,10 +42,17 @@ export default function AdminPage() {
 
   if (isLoading) {
     return (
-      <div className="p-4 md:p-8">
-        <Skeleton className="h-12 w-1/4 mb-4" />
-        <Skeleton className="h-8 w-full" />
-        <Skeleton className="h-64 w-full mt-4" />
+      <div className="min-h-screen bg-white">
+        <div className="bg-purple-600 text-white py-4">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <Skeleton className="h-8 w-48 bg-purple-500" />
+          </div>
+        </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <Skeleton className="h-12 w-1/4 mb-4" />
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-64 w-full mt-4" />
+        </div>
       </div>
     )
   }
@@ -55,22 +62,29 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b">
+    <div className="min-h-screen bg-white">
+      <header className="bg-purple-600 text-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-2">
-              <Shield className="h-8 w-8 text-blue-600" />
-              <h1 className="text-2xl font-bold text-gray-900">Admin Panel</h1>
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-pink-500 rounded-lg flex items-center justify-center">
+                <Shield className="h-5 w-5 text-white" />
+              </div>
+              <h1 className="text-xl font-semibold text-white">Admin Panel</h1>
             </div>
             <div className="flex items-center space-x-4">
-              <div className="text-sm text-gray-600">
-                Welcome, <span className="font-medium">{user.username}</span>
-                <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">
+              <div className="text-sm text-purple-100">
+                Welcome, <span className="font-medium text-white">{user.username}</span>
+                <span className="ml-2 px-2 py-1 bg-pink-500 text-white rounded-full text-xs font-medium">
                   {user.role}
                 </span>
               </div>
-              <Button variant="outline" size="sm" onClick={handleLogout}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleLogout}
+                className="border-purple-300 text-white hover:bg-purple-700 hover:border-purple-400 bg-transparent"
+              >
                 <LogOut className="mr-2 h-4 w-4" />
                 Logout
               </Button>
@@ -79,14 +93,14 @@ export default function AdminPage() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+      <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <Tabs defaultValue="urls" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="urls">
+          <TabsList className="grid w-full grid-cols-2 bg-gray-100">
+            <TabsTrigger value="urls" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white">
               <Link className="mr-2 h-4 w-4" />
               URL Management
             </TabsTrigger>
-            <TabsTrigger value="users">
+            <TabsTrigger value="users" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white">
               <Users className="mr-2 h-4 w-4" />
               User Management
             </TabsTrigger>

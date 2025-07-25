@@ -227,77 +227,76 @@ export function AdminUserManagement() {
           <h2 className="text-2xl font-bold">User Management</h2>
           <p className="text-gray-600">Manage admin users and permissions</p>
         </div>
-        <div className="flex space-x-2">
+        {canManageUsers ? (
+          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+            <DialogTrigger asChild>
+              <Button>
+                <UserPlus className="mr-2 h-4 w-4" />
+                Add User
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Admin User</DialogTitle>
+                <DialogDescription>Add a new administrator to the system</DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleCreateUser} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="create-username">Username</Label>
+                  <Input
+                    id="create-username"
+                    value={createForm.username}
+                    onChange={(e) => setCreateForm({ ...createForm, username: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="create-email">Email</Label>
+                  <Input
+                    id="create-email"
+                    type="email"
+                    value={createForm.email}
+                    onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="create-password">Password</Label>
+                  <Input
+                    id="create-password"
+                    type="password"
+                    value={createForm.password}
+                    onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="create-role">Role</Label>
+                  <Select
+                    value={createForm.role}
+                    onValueChange={(value: "admin" | "superadmin") => setCreateForm({ ...createForm, role: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="superadmin">Super Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button type="submit" disabled={isCreating} className="w-full">
+                  {isCreating ? "Creating..." : "Create User"}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        ) : (
           <Button onClick={fetchUsers} disabled={isLoading} variant="outline">
             <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
-          {canManageUsers && (
-            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-              <DialogTrigger asChild>
-                <Button>
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  Add User
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Create New Admin User</DialogTitle>
-                  <DialogDescription>Add a new administrator to the system</DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleCreateUser} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="create-username">Username</Label>
-                    <Input
-                      id="create-username"
-                      value={createForm.username}
-                      onChange={(e) => setCreateForm({ ...createForm, username: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="create-email">Email</Label>
-                    <Input
-                      id="create-email"
-                      type="email"
-                      value={createForm.email}
-                      onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="create-password">Password</Label>
-                    <Input
-                      id="create-password"
-                      type="password"
-                      value={createForm.password}
-                      onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="create-role">Role</Label>
-                    <Select
-                      value={createForm.role}
-                      onValueChange={(value: "admin" | "superadmin") => setCreateForm({ ...createForm, role: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="admin">Admin</SelectItem>
-                        <SelectItem value="superadmin">Super Admin</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button type="submit" disabled={isCreating} className="w-full">
-                    {isCreating ? "Creating..." : "Create User"}
-                  </Button>
-                </form>
-              </DialogContent>
-            </Dialog>
-          )}
-        </div>
+        )}
       </div>
 
       {error && (

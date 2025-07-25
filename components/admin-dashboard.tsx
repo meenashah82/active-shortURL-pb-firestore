@@ -125,16 +125,16 @@ export function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="container mx-auto p-6">
-        <Card>
+      <div className="space-y-6">
+        <Card className="border-gray-200 shadow-sm">
           <CardHeader>
-            <CardTitle>Admin Dashboard</CardTitle>
-            <CardDescription>Loading URL data...</CardDescription>
+            <CardTitle className="text-gray-900">Admin Dashboard</CardTitle>
+            <CardDescription className="text-gray-600">Loading URL data...</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center space-x-2">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
-              <span>Loading...</span>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+              <span className="text-gray-600">Loading...</span>
             </div>
           </CardContent>
         </Card>
@@ -143,20 +143,17 @@ export function AdminDashboard() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6">
+      <div className="">
         <div>
-          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-          <p className="text-muted-foreground">Manage shortened URLs and view analytics</p>
+          <h1 className="text-2xl font-semibold text-gray-900">Admin Dashboard</h1>
+          <p className="text-gray-600 mt-1">Manage shortened URLs and view analytics</p>
         </div>
-        <Button onClick={fetchUrls} variant="outline">
-          Refresh
-        </Button>
       </div>
 
       {error && (
-        <Alert>
-          <AlertDescription>
+        <Alert className="border-red-200 bg-red-50">
+          <AlertDescription className="text-red-800">
             {error}
             {error.includes("Firestore is not available") && (
               <div className="mt-2">
@@ -174,33 +171,35 @@ export function AdminDashboard() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
+        <Card className="border-gray-200 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total URLs</CardTitle>
-            <ExternalLink className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-gray-600">Total URLs</CardTitle>
+            <ExternalLink className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{urls.length}</div>
+            <div className="text-2xl font-semibold text-gray-900">{urls.length}</div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-gray-200 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Clicks</CardTitle>
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-gray-600">Total Clicks</CardTitle>
+            <BarChart3 className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{urls.reduce((sum, url) => sum + url.totalClicks, 0)}</div>
+            <div className="text-2xl font-semibold text-gray-900">
+              {urls.reduce((sum, url) => sum + url.totalClicks, 0)}
+            </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-gray-200 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Average Clicks</CardTitle>
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-gray-600">Average Clicks</CardTitle>
+            <BarChart3 className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-2xl font-semibold text-gray-900">
               {urls.length > 0 ? Math.round(urls.reduce((sum, url) => sum + url.totalClicks, 0) / urls.length) : 0}
             </div>
           </CardContent>
@@ -208,63 +207,73 @@ export function AdminDashboard() {
       </div>
 
       {/* URLs Table */}
-      <Card>
+      <Card className="border-gray-200 shadow-sm">
         <CardHeader>
-          <CardTitle>All Shortened URLs</CardTitle>
-          <CardDescription>Manage and monitor your shortened URLs</CardDescription>
+          <CardTitle className="text-gray-900">All Shortened URLs</CardTitle>
+          <CardDescription className="text-gray-600">Manage and monitor your shortened URLs</CardDescription>
         </CardHeader>
         <CardContent>
           {urls.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-muted-foreground">No URLs found. Create your first shortened URL!</p>
+              <p className="text-gray-500">No URLs found. Create your first shortened URL!</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Short Code</TableHead>
-                    <TableHead>Original URL</TableHead>
-                    <TableHead>Clicks</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead>Actions</TableHead>
+                  <TableRow className="border-gray-200">
+                    <TableHead className="text-gray-600">Short Code</TableHead>
+                    <TableHead className="text-gray-600">Original URL</TableHead>
+                    <TableHead className="text-gray-600">Clicks</TableHead>
+                    <TableHead className="text-gray-600">Created</TableHead>
+                    <TableHead className="text-gray-600">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {urls.map((url) => (
-                    <TableRow key={url.id}>
+                    <TableRow key={url.id} className="border-gray-200">
                       <TableCell>
                         <div className="flex items-center space-x-2">
-                          <Badge variant="outline">{url.shortCode}</Badge>
+                          <Badge variant="outline" className="border-purple-300 text-purple-600">
+                            {url.shortCode}
+                          </Badge>
                           <a
                             href={`https://www.wodify.link/${url.shortCode}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-blue-500 hover:text-blue-700"
+                            className="text-purple-600 hover:text-purple-700"
                           >
                             <ExternalLink className="h-3 w-3" />
                           </a>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="max-w-xs truncate" title={url.originalUrl}>
+                        <div className="max-w-xs truncate text-gray-900" title={url.originalUrl}>
                           {url.originalUrl}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary">{url.totalClicks}</Badge>
+                        <Badge variant="secondary" className="bg-purple-100 text-purple-700">
+                          {url.totalClicks}
+                        </Badge>
                       </TableCell>
-                      <TableCell>{url.createdAt.toLocaleDateString()}</TableCell>
+                      <TableCell className="text-gray-600">{url.createdAt.toLocaleDateString()}</TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => window.open(`/analytics/${url.shortCode}`, "_blank")}
+                            className="border-purple-300 text-purple-600 hover:bg-purple-50"
                           >
                             <BarChart3 className="h-3 w-3" />
                           </Button>
-                          <Button size="sm" variant="destructive" onClick={() => deleteUrl(url.id, url.shortCode)}>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => deleteUrl(url.id, url.shortCode)}
+                            className="bg-red-600 hover:bg-red-700"
+                          >
                             <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
