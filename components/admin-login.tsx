@@ -28,13 +28,13 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
     setError(null)
 
     try {
-      const user = await authenticateAdmin(username, password)
+      const result = await authenticateAdmin(username, password)
 
-      if (user) {
-        setSession(user)
-        onLogin(user)
+      if (result.success && result.user) {
+        setSession(result.user)
+        onLogin(result.user)
       } else {
-        setError("Invalid username or password")
+        setError(result.message || "Invalid username or password")
       }
     } catch (error) {
       console.error("Login error:", error)
