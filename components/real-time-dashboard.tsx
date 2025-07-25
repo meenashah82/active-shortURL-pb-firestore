@@ -96,45 +96,53 @@ export function RealTimeDashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Page Header */}
+      <div className="">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">Real-Time Dashboard</h1>
+          <p className="text-gray-600 mt-1">Monitor your shortened URLs and view analytics in real-time</p>
+        </div>
+      </div>
+
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="border-purple-100 bg-white shadow-sm">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="border-gray-200 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-700 font-inter">Total URLs</CardTitle>
-            <BarChart3 className="h-4 w-4 text-purple-500" />
+            <CardTitle className="text-sm font-medium text-gray-600">Total URLs</CardTitle>
+            <BarChart3 className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900 font-inter">
+            <div className="text-2xl font-semibold text-gray-900">
               {loading ? <Skeleton className="h-8 w-16" /> : topUrls.length}
             </div>
-            <p className="text-xs text-gray-500 font-inter">Active short URLs</p>
+            <p className="text-xs text-gray-500">Active short URLs</p>
           </CardContent>
         </Card>
 
-        <Card className="border-purple-100 bg-white shadow-sm">
+        <Card className="border-gray-200 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-700 font-inter">Total Clicks</CardTitle>
-            <MousePointer className="h-4 w-4 text-purple-500" />
+            <CardTitle className="text-sm font-medium text-gray-600">Total Clicks</CardTitle>
+            <MousePointer className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900 font-inter">
+            <div className="text-2xl font-semibold text-gray-900">
               {loading ? (
                 <Skeleton className="h-8 w-16" />
               ) : (
                 topUrls.reduce((sum, url) => sum + url.clicks, 0).toLocaleString()
               )}
             </div>
-            <p className="text-xs text-gray-500 font-inter">Across all URLs</p>
+            <p className="text-xs text-gray-500">Across all URLs</p>
           </CardContent>
         </Card>
 
-        <Card className="border-purple-100 bg-white shadow-sm">
+        <Card className="border-gray-200 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-700 font-inter">Top Performer</CardTitle>
-            <TrendingUp className="h-4 w-4 text-purple-500" />
+            <CardTitle className="text-sm font-medium text-gray-600">Top Performer</CardTitle>
+            <TrendingUp className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900 font-inter">
+            <div className="text-2xl font-semibold text-gray-900">
               {loading ? (
                 <Skeleton className="h-8 w-16" />
               ) : topUrls.length > 0 ? (
@@ -143,7 +151,7 @@ export function RealTimeDashboard() {
                 "No data"
               )}
             </div>
-            <p className="text-xs text-gray-500 font-inter">
+            <p className="text-xs text-gray-500">
               {topUrls.length > 0 ? `/${topUrls[0].shortCode}` : "Create your first URL"}
             </p>
           </CardContent>
@@ -151,21 +159,16 @@ export function RealTimeDashboard() {
       </div>
 
       {/* Top URLs Table */}
-      <Card className="border-purple-100 bg-white shadow-sm">
+      <Card className="border-gray-200 shadow-sm">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-gray-900 font-inter">
-            <BarChart3 className="h-5 w-5 text-purple-600" />
-            Top Performing URLs
-          </CardTitle>
-          <CardDescription className="text-gray-600 font-inter">
-            Real-time view of your most clicked short URLs
-          </CardDescription>
+          <CardTitle className="text-gray-900">Top Performing URLs</CardTitle>
+          <CardDescription className="text-gray-600">Real-time view of your most clicked short URLs</CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
             <div className="space-y-4">
               {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex items-center justify-between p-4 border border-purple-100 rounded-lg">
+                <div key={i} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
                   <div className="space-y-2 flex-1">
                     <Skeleton className="h-4 w-32" />
                     <Skeleton className="h-3 w-64" />
@@ -180,10 +183,10 @@ export function RealTimeDashboard() {
             </div>
           ) : topUrls.length === 0 ? (
             <div className="text-center py-12">
-              <BarChart3 className="h-12 w-12 text-purple-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2 text-gray-900 font-inter">No URLs yet</h3>
-              <p className="text-gray-600 mb-4 font-inter">Create your first short URL to see analytics here</p>
-              <Button asChild className="bg-pink-500 hover:bg-pink-600 text-white font-inter">
+              <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2 text-gray-900">No URLs yet</h3>
+              <p className="text-gray-600 mb-4">Create your first short URL to see analytics here</p>
+              <Button asChild className="bg-purple-600 hover:bg-purple-700 text-white">
                 <a href="/">Create Short URL</a>
               </Button>
             </div>
@@ -192,17 +195,13 @@ export function RealTimeDashboard() {
               {topUrls.map((url, index) => (
                 <div
                   key={url.shortCode}
-                  className="flex items-center justify-between p-4 border border-purple-100 rounded-lg hover:bg-purple-50 transition-colors"
+                  className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <Badge
                         variant={index === 0 ? "default" : "secondary"}
-                        className={
-                          index === 0
-                            ? "bg-purple-600 text-white font-inter"
-                            : "bg-purple-100 text-purple-700 font-inter"
-                        }
+                        className={index === 0 ? "bg-purple-600 text-white" : "bg-purple-100 text-purple-700"}
                       >
                         #{index + 1}
                       </Badge>
@@ -210,15 +209,12 @@ export function RealTimeDashboard() {
                         /{url.shortCode}
                       </code>
                     </div>
-                    <p className="text-sm text-gray-600 truncate font-inter" title={url.originalUrl}>
+                    <p className="text-sm text-gray-600 truncate" title={url.originalUrl}>
                       {url.originalUrl}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 ml-4">
-                    <Badge
-                      variant="outline"
-                      className="flex items-center gap-1 border-purple-200 text-purple-700 font-inter"
-                    >
+                    <Badge variant="secondary" className="bg-purple-100 text-purple-700 flex items-center gap-1">
                       <MousePointer className="h-3 w-3" />
                       {url.clicks.toLocaleString()}
                     </Badge>
@@ -261,10 +257,10 @@ export function RealTimeDashboard() {
       <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-          <span className="font-inter">Real-time updates</span>
+          <span>Real-time updates</span>
         </div>
         <Clock className="h-4 w-4" />
-        <span className="font-inter">Last updated: {new Date().toLocaleTimeString()}</span>
+        <span>Last updated: {new Date().toLocaleTimeString()}</span>
       </div>
     </div>
   )

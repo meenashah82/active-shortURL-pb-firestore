@@ -313,7 +313,7 @@ export function AdminUserManagement() {
         <CardContent>
           {isLoading ? (
             <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
             </div>
           ) : users.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
@@ -339,7 +339,7 @@ export function AdminUserManagement() {
                       <TableCell>
                         <div className="flex items-center space-x-2">
                           {user.role === "superadmin" ? (
-                            <Shield className="h-4 w-4 text-blue-600" />
+                            <Shield className="h-4 w-4 text-purple-600" />
                           ) : (
                             <User className="h-4 w-4 text-gray-600" />
                           )}
