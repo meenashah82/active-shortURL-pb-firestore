@@ -104,15 +104,6 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
               {isLoading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
-
-          <div className="mt-6 text-center text-sm text-gray-600">
-            <p>Default credentials:</p>
-            <p className="font-mono text-xs bg-gray-100 p-2 rounded mt-1">
-              Username: superadmin
-              <br />
-              Password: changeme123
-            </p>
-          </div>
         </CardContent>
       </Card>
     </div>
