@@ -165,9 +165,11 @@ export async function authenticateAdmin(
   }
 
   try {
+    console.log("Attempting to authenticate user:", username)
     const userDoc = await getDoc(doc(db, ADMIN_COLLECTION, username.toLowerCase()))
 
     if (!userDoc.exists()) {
+      console.log("User document not found for:", username)
       return {
         success: false,
         message: "Invalid username or password",
@@ -175,6 +177,7 @@ export async function authenticateAdmin(
     }
 
     const userData = userDoc.data()
+    console.log("User data found:", { username: userData.username, isActive: userData.isActive })
 
     if (!userData.isActive) {
       return {
@@ -184,6 +187,7 @@ export async function authenticateAdmin(
     }
 
     const isValidPassword = await verifyPassword(password, userData.password)
+    console.log("Password verification result:", isValidPassword)
 
     if (!isValidPassword) {
       return {
@@ -207,7 +211,7 @@ export async function authenticateAdmin(
       isActive: userData.isActive,
     }
 
-    setSession(user)
+    console.log("Authentication successful for user:", user.username)
 
     return {
       success: true,
