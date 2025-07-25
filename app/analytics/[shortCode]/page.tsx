@@ -1,479 +1,462 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useParams } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import React from "react"
+
+import { useRef } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import {
-  BarChart3,
+  ArrowLeft,
   ExternalLink,
   Calendar,
-  Clock,
   Globe,
-  Smartphone,
-  Monitor,
-  MapPin,
-  TrendingUp,
-  Eye,
-  MousePointer,
-  Share2,
+  Loader2,
+  Zap,
+  Target,
+  Activity,
+  Wifi,
+  WifiOff,
+  RefreshCw,
 } from "lucide-react"
-import { useRealTimeAnalytics } from "@/hooks/use-real-time-analytics"
 import Link from "next/link"
+import { useRealTimeAnalytics } from "@/hooks/use-real-time-analytics"
+import { RealTimeClickTracker } from "@/lib/real-time-tracker"
 
-interface AnalyticsData {
-  shortCode: string
-  originalUrl: string
-  totalClicks: number
-  createdAt: string
-  clickHistory: Array<{
-    timestamp: string
-    userAgent: string
-    referer: string
-    ip: string
-    country?: string
-    city?: string
-    device?: string
-    browser?: string
-    os?: string
-  }>
-}
+export default function AnalyticsPage({
+  params,
+}: {
+  params: { shortCode: string }
+}) {
+  const { shortCode } = params
+  const { urlData, analyticsData, loading, error, connectionStatus, clickCount, isNewClick, lastUpdate } =
+    useRealTimeAnalytics(shortCode)
 
-export default function AnalyticsPage() {
-  const params = useParams()
-  const shortCode = params.shortCode as string
-  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const trackerRef = useRef<RealTimeClickTracker | null>(null)
 
-  // Use real-time analytics hook
-  const realTimeData = useRealTimeAnalytics(shortCode)
-
-  useEffect(() => {
-    const fetchAnalytics = async () => {
-      try {
-        setIsLoading(true)
-        setError(null)
-
-        const response = await fetch(`/api/analytics/${shortCode}`)
-
-        if (!response.ok) {
-          if (response.status === 404) {
-            throw new Error("Short URL not found")
-          }
-          throw new Error("Failed to fetch analytics")
-        }
-
-        const data = await response.json()
-        setAnalytics(data)
-      } catch (err) {
-        console.error("Error fetching analytics:", err)
-        setError(err instanceof Error ? err.message : "Failed to load analytics")
-      } finally {
-        setIsLoading(false)
+  // Initialize tracker for analytics page interactions
+  React.useEffect(() => {
+    trackerRef.current = new RealTimeClickTracker(shortCode)
+    return () => {
+      if (trackerRef.current) {
+        trackerRef.current.destroy()
       }
-    }
-
-    if (shortCode) {
-      fetchAnalytics()
     }
   }, [shortCode])
 
-  // Update analytics with real-time data
-  useEffect(() => {
-    if (realTimeData && analytics) {
-      setAnalytics((prev) =>
-        prev
-          ? {
-              ...prev,
-              totalClicks: realTimeData.totalClicks,
-              clickHistory: realTimeData.clickHistory || prev.clickHistory,
-            }
-          : null,
-      )
+  // Track analytics page interactions (does NOT increment click count)
+  const trackAnalyticsClick = async (element: string, coordinates?: { x: number; y: number }) => {
+    if (trackerRef.current) {
+      await trackerRef.current.trackClick("analytics_page", {
+        element,
+        coordinates,
+        timestamp: new Date().toISOString(),
+      })
     }
-  }, [realTimeData, analytics])
+  }
 
-  if (isLoading) {
+  const handleElementClick = (element: string) => (event: React.MouseEvent) => {
+    const rect = event.currentTarget.getBoundingClientRect()
+    const coordinates = {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    }
+    trackAnalyticsClick(element, coordinates)
+  }
+
+  if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading real-time analytics...</p>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span>Loading real-time analytics...</span>
         </div>
       </div>
     )
   }
 
-  if (error) {
+  if (error || !urlData) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Card className="w-full max-w-md border-gray-200">
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">Analytics Not Available</h2>
-              <p className="text-gray-600 mb-4">{error}</p>
-              <Link href="/">
-                <Button
-                  variant="outline"
-                  className="border-purple-200 text-purple-600 hover:bg-purple-50 bg-transparent"
-                >
-                  Back to Home
-                </Button>
-              </Link>
-            </div>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <Card className="max-w-md w-full mx-4">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl">Error Loading Analytics</CardTitle>
+          </CardHeader>
+          <CardContent className="text-center">
+            <p className="text-gray-600 mb-4">{error || "Failed to load analytics data"}</p>
+            <Link href="/">
+              <Button>Go to Homepage</Button>
+            </Link>
           </CardContent>
         </Card>
       </div>
     )
   }
 
-  if (!analytics) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Card className="w-full max-w-md border-gray-200">
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">No Data Found</h2>
-              <p className="text-gray-600 mb-4">No analytics data available for this short URL.</p>
-              <Link href="/">
-                <Button
-                  variant="outline"
-                  className="border-purple-200 text-purple-600 hover:bg-purple-50 bg-transparent"
-                >
-                  Back to Home
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
+  // Process analytics for display
+  const recentClicks = analyticsData?.clickEvents?.slice(-15).reverse() || []
+  const realTimeClicks = recentClicks.filter((click) => click.clickSource === "analytics_page")
 
-  // Process analytics data
-  const recentClicks = analytics.clickHistory.slice(-10).reverse()
-  const clicksByDay = analytics.clickHistory.reduce(
-    (acc, click) => {
-      const date = new Date(click.timestamp).toDateString()
-      acc[date] = (acc[date] || 0) + 1
-      return acc
-    },
-    {} as Record<string, number>,
-  )
+  const clicksByDay =
+    analyticsData?.clickEvents?.reduce(
+      (acc, click) => {
+        if (click.timestamp && click.timestamp.toDate) {
+          const date = click.timestamp.toDate().toDateString()
+          acc[date] = (acc[date] || 0) + 1
+        }
+        return acc
+      },
+      {} as Record<string, number>,
+    ) || {}
 
-  const deviceStats = analytics.clickHistory.reduce(
-    (acc, click) => {
-      const device = click.device || "Unknown"
-      acc[device] = (acc[device] || 0) + 1
-      return acc
-    },
-    {} as Record<string, number>,
-  )
+  const topReferrers =
+    analyticsData?.clickEvents
+      ?.filter((click) => click.referer && click.referer !== "")
+      .reduce(
+        (acc, click) => {
+          try {
+            const domain = new URL(click.referer!).hostname
+            acc[domain] = (acc[domain] || 0) + 1
+          } catch {
+            // Invalid URL, skip
+          }
+          return acc
+        },
+        {} as Record<string, number>,
+      ) || {}
 
-  const browserStats = analytics.clickHistory.reduce(
-    (acc, click) => {
-      const browser = click.browser || "Unknown"
-      acc[browser] = (acc[browser] || 0) + 1
-      return acc
-    },
-    {} as Record<string, number>,
-  )
-
-  const countryStats = analytics.clickHistory.reduce(
-    (acc, click) => {
-      const country = click.country || "Unknown"
-      acc[country] = (acc[country] || 0) + 1
-      return acc
-    },
-    {} as Record<string, number>,
-  )
+  const shortUrl = `${window.location.origin}/${shortCode}`
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-purple-600 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="bg-pink-500 p-2 rounded-lg">
-                <BarChart3 className="h-6 w-6 text-white" />
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto">
+          {/* Real-time Connection Status */}
+          <Card
+            className={`mb-6 border-l-4 ${
+              connectionStatus === "connected"
+                ? "border-l-green-500 bg-green-50"
+                : connectionStatus === "connecting"
+                  ? "border-l-yellow-500 bg-yellow-50"
+                  : "border-l-red-500 bg-red-50"
+            }`}
+          >
+            <CardContent className="py-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {connectionStatus === "connected" ? (
+                    <Wifi className="h-4 w-4 text-green-600" />
+                  ) : connectionStatus === "connecting" ? (
+                    <RefreshCw className="h-4 w-4 text-yellow-600 animate-spin" />
+                  ) : (
+                    <WifiOff className="h-4 w-4 text-red-600" />
+                  )}
+
+                  <span
+                    className={`text-sm font-medium ${
+                      connectionStatus === "connected"
+                        ? "text-green-700"
+                        : connectionStatus === "connecting"
+                          ? "text-yellow-700"
+                          : "text-red-700"
+                    }`}
+                  >
+                    {connectionStatus === "connected"
+                      ? "🔥 Real-time WebSocket connected - Clicks update instantly!"
+                      : connectionStatus === "connecting"
+                        ? "Connecting to Firestore WebSocket..."
+                        : "Connection lost - Attempting to reconnect..."}
+                  </span>
+
+                  {connectionStatus === "connected" && <Activity className="h-4 w-4 text-green-600 animate-pulse" />}
+                </div>
+
+                <div className="text-xs text-gray-600">
+                  {lastUpdate && <span>Last update: {lastUpdate.toLocaleTimeString()}</span>}
+                </div>
               </div>
-              <div>
-                <h1 className="text-2xl font-bold">Analytics Dashboard</h1>
-                <p className="text-purple-100">Real-time insights for your short URL</p>
-              </div>
-            </div>
+            </CardContent>
+          </Card>
+
+          {/* Header */}
+          <div className="flex items-center gap-4 mb-8">
             <Link href="/">
-              <Button
-                variant="outline"
-                className="border-purple-300 text-purple-100 hover:bg-purple-700 hover:border-purple-200 bg-transparent"
-              >
+              <Button variant="outline" size="sm" onClick={handleElementClick("back-button")}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Home
               </Button>
             </Link>
+            <h1 className="text-2xl font-bold text-gray-900">Real-Time Analytics Dashboard</h1>
           </div>
-        </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* URL Info Card */}
-        <Card className="mb-8 border-gray-200">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-gray-900">Short URL Details</CardTitle>
-                <CardDescription className="text-gray-600">Information about your shortened link</CardDescription>
-              </div>
-              <Badge variant="secondary" className="bg-purple-100 text-purple-800">
-                {analytics.totalClicks} {analytics.totalClicks === 1 ? "click" : "clicks"}
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center space-x-2">
-                <ExternalLink className="h-4 w-4 text-purple-600" />
-                <span className="font-medium text-gray-900">Short URL:</span>
-                <code className="bg-gray-100 px-2 py-1 rounded text-sm text-gray-800">
-                  {window.location.origin}/{analytics.shortCode}
-                </code>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Globe className="h-4 w-4 text-purple-600" />
-                <span className="font-medium text-gray-900">Original URL:</span>
-                <a
-                  href={analytics.originalUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-purple-600 hover:text-purple-800 underline break-all"
+          {/* Real-time Click Counter */}
+          <Card
+            className={`mb-8 transition-all duration-500 ${
+              isNewClick
+                ? "border-4 border-green-400 shadow-lg shadow-green-200 scale-[1.02]"
+                : "border-2 border-blue-200"
+            }`}
+          >
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Zap
+                  className={`h-6 w-6 transition-all duration-300 ${
+                    isNewClick ? "text-yellow-500 animate-bounce scale-125" : "text-blue-600"
+                  }`}
+                />
+                Total Clicks (Real-time)
+                {isNewClick && (
+                  <div className="flex items-center gap-1 text-green-600 animate-pulse">
+                    <Target className="h-4 w-4" />
+                    <span className="text-sm font-bold">LIVE UPDATE!</span>
+                  </div>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center">
+                <div
+                  className={`text-8xl font-bold transition-all duration-700 ${
+                    isNewClick ? "text-green-600 scale-110 drop-shadow-lg animate-pulse" : "text-blue-600"
+                  }`}
                 >
-                  {analytics.originalUrl}
-                </a>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Calendar className="h-4 w-4 text-purple-600" />
-                <span className="font-medium text-gray-900">Created:</span>
-                <span className="text-gray-600">
-                  {new Date(analytics.createdAt).toLocaleDateString()} at{" "}
-                  {new Date(analytics.createdAt).toLocaleTimeString()}
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="border-gray-200">
-            <CardContent className="pt-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <MousePointer className="h-6 w-6 text-purple-600" />
+                  {clickCount}
                 </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Total Clicks</p>
-                  <p className="text-2xl font-bold text-gray-900">{analytics.totalClicks}</p>
-                </div>
+                <p className="text-gray-600 mt-2 text-lg">
+                  Updates instantly via Firestore WebSocket when short URL is clicked
+                </p>
+                {isNewClick && (
+                  <div className="mt-4 p-4 bg-gradient-to-r from-green-100 to-blue-100 rounded-lg border-2 border-green-300">
+                    <div className="text-green-700 font-bold text-xl animate-bounce">
+                      🎉 Someone just clicked your short URL!
+                    </div>
+                    <div className="text-green-600 text-sm mt-2">
+                      Real-time update via Firestore WebSocket - No refresh needed!
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-gray-200">
-            <CardContent className="pt-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-pink-100 rounded-lg">
-                  <TrendingUp className="h-6 w-6 text-pink-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Unique Days</p>
-                  <p className="text-2xl font-bold text-gray-900">{Object.keys(clicksByDay).length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-gray-200">
-            <CardContent className="pt-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <Globe className="h-6 w-6 text-purple-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Countries</p>
-                  <p className="text-2xl font-bold text-gray-900">{Object.keys(countryStats).length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-gray-200">
-            <CardContent className="pt-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-pink-100 rounded-lg">
-                  <Monitor className="h-6 w-6 text-pink-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Devices</p>
-                  <p className="text-2xl font-bold text-gray-900">{Object.keys(deviceStats).length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Charts and Data */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          {/* Device Stats */}
-          <Card className="border-gray-200">
+          {/* URL Info */}
+          <Card className="mb-8">
             <CardHeader>
-              <CardTitle className="flex items-center text-gray-900">
-                <Smartphone className="h-5 w-5 mr-2 text-purple-600" />
-                Device Types
+              <CardTitle className="flex items-center gap-2">
+                <Globe className="h-5 w-5" />
+                URL Information
               </CardTitle>
-              <CardDescription className="text-gray-600">Breakdown of devices used to access your link</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700">Short URL:</label>
+                <div className="flex items-center gap-2 mt-1">
+                  <code className="flex-1 p-2 bg-gray-100 rounded text-sm">{shortUrl}</code>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={(e) => {
+                      handleElementClick("open-short-url")(e)
+                      window.open(shortUrl, "_blank")
+                    }}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Click this link to test real-time analytics updates!</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Original URL:</label>
+                <p className="text-sm text-gray-600 mt-1 break-all">{urlData.originalUrl}</p>
+              </div>
+              <div className="flex items-center gap-4 text-sm text-gray-600">
+                <div className="flex items-center gap-1">
+                  <Calendar className="h-4 w-4" />
+                  Created {urlData.createdAt?.toDate?.()?.toLocaleDateString() || "Unknown"}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Real-time Clicks Feed */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  Recent Clicks (Live WebSocket Feed)
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {recentClicks.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500 text-sm mb-2">No clicks yet</p>
+                    <p className="text-xs text-gray-400">
+                      Share your short URL to see real-time click analytics appear instantly!
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {recentClicks.map((click, index) => (
+                      <div
+                        key={click.id || index}
+                        className={`p-3 rounded-lg transition-all duration-500 ${
+                          index === 0 && isNewClick
+                            ? "bg-gradient-to-r from-green-100 to-blue-100 border-2 border-green-300 animate-pulse shadow-md"
+                            : click.clickSource === "analytics_page"
+                              ? "bg-blue-50 border border-blue-200"
+                              : "bg-gray-50"
+                        }`}
+                        onClick={handleElementClick(`click-item-${index}`)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm font-medium">
+                            {click.timestamp?.toDate?.()?.toLocaleString() || "Just now"}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {index === 0 && isNewClick && (
+                              <span className="text-green-600 text-xs font-bold animate-bounce">LIVE!</span>
+                            )}
+                            {click.clickSource === "analytics_page" && (
+                              <span className="text-blue-600 text-xs bg-blue-100 px-2 py-1 rounded">Analytics</span>
+                            )}
+                            {click.clickSource === "direct" && (
+                              <span className="text-green-600 text-xs bg-green-100 px-2 py-1 rounded">URL Click</span>
+                            )}
+                          </div>
+                        </div>
+                        {click.referer && (
+                          <div className="text-xs text-gray-600 mt-1">
+                            From: {(() => {
+                              try {
+                                return new URL(click.referer).hostname
+                              } catch {
+                                return click.referer
+                              }
+                            })()}
+                          </div>
+                        )}
+                        {click.sessionId && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            Session: {click.sessionId.substring(0, 8)}...
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Analytics Page Interactions */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Analytics Page Interactions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {realTimeClicks.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500 text-sm mb-2">No analytics interactions yet</p>
+                    <p className="text-xs text-gray-400">Click elements on this page to see interaction tracking</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {realTimeClicks.slice(0, 10).map((click, index) => (
+                      <div key={click.id || index} className="p-2 bg-blue-50 rounded border border-blue-200">
+                        <div className="text-sm font-medium">
+                          {click.timestamp?.toDate?.()?.toLocaleString() || "Just now"}
+                        </div>
+                        <div className="text-xs text-blue-600 mt-1">Element: {click.element || "Unknown"}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Test Real-time Tracking */}
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>Test Real-time WebSocket Updates</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {Object.entries(deviceStats).map(([device, count]) => (
-                  <div key={device} className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">{device}</span>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-24 bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-purple-600 h-2 rounded-full"
-                          style={{ width: `${(count / analytics.totalClicks) * 100}%` }}
-                        ></div>
-                      </div>
-                      <span className="text-sm font-medium text-gray-900">{count}</span>
-                    </div>
-                  </div>
-                ))}
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  onClick={(e) => {
+                    handleElementClick("test-button-1")(e)
+                    if (trackerRef.current) {
+                      trackerRef.current.trackClick("test", { testType: "button-1" })
+                    }
+                  }}
+                  variant="outline"
+                >
+                  Test Click 1
+                </Button>
+                <Button
+                  onClick={(e) => {
+                    handleElementClick("test-button-2")(e)
+                    if (trackerRef.current) {
+                      trackerRef.current.trackClick("test", { testType: "button-2" })
+                    }
+                  }}
+                  variant="outline"
+                >
+                  Test Click 2
+                </Button>
+                <Button
+                  onClick={(e) => {
+                    handleElementClick("simulate-multiple")(e)
+                    // Simulate multiple clicks
+                    if (trackerRef.current) {
+                      for (let i = 0; i < 3; i++) {
+                        setTimeout(() => {
+                          trackerRef.current?.trackClick("test", { testType: "multiple", index: i })
+                        }, i * 500)
+                      }
+                    }
+                  }}
+                  variant="outline"
+                >
+                  Simulate Multiple Clicks
+                </Button>
+              </div>
+              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                <p className="text-sm text-blue-800 font-medium">💡 How to test real-time updates:</p>
+                <ul className="text-xs text-blue-700 mt-2 space-y-1">
+                  <li>1. Open your short URL in a new tab/window</li>
+                  <li>2. Watch this page update instantly when you click the link</li>
+                  <li>3. No refresh needed - powered by Firestore WebSocket!</li>
+                </ul>
               </div>
             </CardContent>
           </Card>
 
-          {/* Browser Stats */}
-          <Card className="border-gray-200">
-            <CardHeader>
-              <CardTitle className="flex items-center text-gray-900">
-                <Monitor className="h-5 w-5 mr-2 text-purple-600" />
-                Browsers
-              </CardTitle>
-              <CardDescription className="text-gray-600">Browsers used to access your link</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {Object.entries(browserStats).map(([browser, count]) => (
-                  <div key={browser} className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">{browser}</span>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-24 bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-pink-600 h-2 rounded-full"
-                          style={{ width: `${(count / analytics.totalClicks) * 100}%` }}
-                        ></div>
+          {/* Clicks by Day */}
+          {Object.keys(clicksByDay).length > 0 && (
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle>Clicks by Day</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {Object.entries(clicksByDay)
+                    .sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime())
+                    .slice(0, 7)
+                    .map(([date, count]) => (
+                      <div
+                        key={date}
+                        className="flex justify-between items-center p-2 bg-gray-50 rounded cursor-pointer hover:bg-gray-100"
+                        onClick={handleElementClick(`day-${date}`)}
+                      >
+                        <span className="text-sm font-medium">{date}</span>
+                        <span className="text-sm text-gray-600">{count} clicks</span>
                       </div>
-                      <span className="text-sm font-medium text-gray-900">{count}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Geographic Data */}
-        <Card className="mb-8 border-gray-200">
-          <CardHeader>
-            <CardTitle className="flex items-center text-gray-900">
-              <MapPin className="h-5 w-5 mr-2 text-purple-600" />
-              Geographic Distribution
-            </CardTitle>
-            <CardDescription className="text-gray-600">Countries where your link was accessed</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Object.entries(countryStats).map(([country, count]) => (
-                <div key={country} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <span className="text-sm font-medium text-gray-900">{country}</span>
-                  <Badge variant="secondary" className="bg-purple-100 text-purple-800">
-                    {count} {count === 1 ? "click" : "clicks"}
-                  </Badge>
+                    ))}
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Recent Activity */}
-        <Card className="border-gray-200">
-          <CardHeader>
-            <CardTitle className="flex items-center text-gray-900">
-              <Clock className="h-5 w-5 mr-2 text-purple-600" />
-              Recent Activity
-            </CardTitle>
-            <CardDescription className="text-gray-600">Latest clicks on your short URL</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {recentClicks.length === 0 ? (
-              <div className="text-center py-8">
-                <Eye className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">No recent activity</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {recentClicks.map((click, index) => (
-                  <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2 bg-purple-100 rounded-lg">
-                        <MousePointer className="h-4 w-4 text-purple-600" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">
-                          {click.country || "Unknown"} • {click.device || "Unknown Device"}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {click.browser || "Unknown Browser"} • {click.os || "Unknown OS"}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm text-gray-600">{new Date(click.timestamp).toLocaleDateString()}</p>
-                      <p className="text-xs text-gray-500">{new Date(click.timestamp).toLocaleTimeString()}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Share Section */}
-        <Card className="border-gray-200">
-          <CardHeader>
-            <CardTitle className="flex items-center text-gray-900">
-              <Share2 className="h-5 w-5 mr-2 text-purple-600" />
-              Share Analytics
-            </CardTitle>
-            <CardDescription className="text-gray-600">Share this analytics page with others</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center space-x-4">
-              <code className="flex-1 bg-gray-100 px-3 py-2 rounded text-sm text-gray-800">{window.location.href}</code>
-              <Button
-                onClick={() => navigator.clipboard.writeText(window.location.href)}
-                variant="outline"
-                className="border-purple-200 text-purple-600 hover:bg-purple-50"
-              >
-                Copy Link
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
     </div>
   )
