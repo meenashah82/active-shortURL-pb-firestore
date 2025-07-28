@@ -1,5 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { doc, getDoc, runTransaction, serverTimestamp, arrayUnion, updateDoc, collection } from "firebase/firestore"
+import {
+  doc,
+  getDoc,
+  runTransaction,
+  serverTimestamp,
+  arrayUnion,
+  updateDoc,
+  collection,
+  setDoc,
+} from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
 interface UrlData {
@@ -103,12 +112,6 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
     }
 
     console.log(`✅ Redirect URL prepared: ${redirectUrl}`)
-
-    // Get headers for analytics
-    const userAgent = request.headers.get("user-agent") || ""
-    const referer = request.headers.get("referer") || ""
-    const forwardedFor = request.headers.get("x-forwarded-for") || ""
-    const ip = forwardedFor.split(",")[0]?.trim() || ""
 
     // Record the click analytics (don't let this fail the redirect)
     try {
@@ -221,7 +224,28 @@ async function recordClickAnalytics(shortCode: string, request: NextRequest) {
 
     console.log(`🔄 Recording click for ${shortCode} - Starting improved transaction`)
 
-    // Use transaction to update both analytics and create individual click record
+    // First, ensure the clicks document exists
+    const clicksRef = doc(db, "clicks", shortCode)
+    const clicksSnap = await getDoc(clicksRef)
+
+    if (!clicksSnap.exists()) {
+      console.log(`📝 Creating clicks document for: ${shortCode}`)
+      await setDoc(clicksRef, {
+        shortCode: shortCode,
+        createdAt: serverTimestamp(),
+        isActive: true,
+      })
+    }
+
+    // Create individual click record in shortcode_clicks subcollection
+    const shortcodeClicksRef = collection(db, "clicks", shortCode, "shortcode_clicks")
+    const individualClickRef = doc(shortcodeClicksRef, clickId)
+
+    console.log(`📝 Creating individual click record: ${clickId}`)
+    await setDoc(individualClickRef, individualClickData)
+    console.log(`✅ Individual click record created successfully`)
+
+    // Use transaction to update analytics
     await runTransaction(db, async (transaction) => {
       const analyticsDoc = await transaction.get(analyticsRef)
 
@@ -250,14 +274,9 @@ async function recordClickAnalytics(shortCode: string, request: NextRequest) {
           clickEvents: [clickEvent],
         })
       }
-
-      // Create individual click record in shortcode_clicks subcollection
-      const shortcodeClicksRef = collection(db, "clicks", shortCode, "shortcode_clicks")
-      const individualClickRef = doc(shortcodeClicksRef, clickId)
-      transaction.set(individualClickRef, individualClickData)
     })
 
-    console.log(`✅ Click analytics and individual click record created successfully for: ${shortCode}`)
+    console.log(`✅ Click analytics recorded successfully for: ${shortCode}`)
   } catch (error) {
     console.error(`❌ Error recording analytics for ${shortCode}:`, error)
 
