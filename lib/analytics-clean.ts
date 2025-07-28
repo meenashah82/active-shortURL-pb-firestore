@@ -132,9 +132,58 @@ export async function createShortUrl(shortCode: string, originalUrl: string, met
       isActive: true,
     }
 
+    // Create all main documents first
     await Promise.all([setDoc(urlRef, urlData), setDoc(analyticsRef, analyticsData), setDoc(clicksRef, clicksData)])
 
-    console.log(`✅ Clean URL structure created with clicks collection: ${shortCode}`)
+    console.log(`✅ Main documents created for: ${shortCode}`)
+
+    // Now create the shortcode_clicks subcollection with an initialization document
+    try {
+      const shortcodeClicksRef = collection(db, "clicks", shortCode, "shortcode_clicks")
+      const initClickId = `init-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+
+      const initClickData: IndividualClickData = {
+        id: initClickId,
+        timestamp: serverTimestamp(),
+        shortCode: shortCode,
+        userAgent: "System Initialization",
+        referer: "https://wodify.link",
+        ip: "127.0.0.1",
+        sessionId: `init-session-${Date.now()}`,
+        clickSource: "test",
+        method: "GET",
+        url: `https://wodify.link/${shortCode}`,
+        httpVersion: "HTTP/1.1",
+        host: "wodify.link",
+        contentType: "text/html",
+        accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        queryParameters: {},
+        pathParameters: { shortCode },
+        headers: {
+          "User-Agent": "System Initialization",
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          Host: "wodify.link",
+        },
+        device: {
+          type: "system",
+          browser: "System",
+          os: "System",
+          isMobile: false,
+        },
+      }
+
+      console.log(`🔄 Creating shortcode_clicks subcollection for: ${shortCode}`)
+      console.log(`📝 Path: clicks/${shortCode}/shortcode_clicks/${initClickId}`)
+
+      await setDoc(doc(shortcodeClicksRef, initClickId), initClickData)
+
+      console.log(`✅ Shortcode_clicks subcollection initialized for: ${shortCode}`)
+    } catch (subcollectionError) {
+      console.error(`❌ Error creating shortcode_clicks subcollection for ${shortCode}:`, subcollectionError)
+      // Don't throw here - the main URL creation should still succeed
+    }
+
+    console.log(`✅ Complete URL structure created with clicks collection and subcollection: ${shortCode}`)
   } catch (error) {
     console.error("❌ Error creating short URL:", error)
     throw error
