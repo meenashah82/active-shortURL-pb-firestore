@@ -57,6 +57,44 @@ export interface ClicksData {
   // This collection will be expanded in future steps
 }
 
+// Individual click document structure for shortcode_clicks subcollection
+export interface IndividualClickData {
+  id: string
+  timestamp: any
+  shortCode: string
+  userAgent?: string
+  referer?: string
+  ip?: string
+  sessionId?: string
+  clickSource?: "direct" | "analytics_page" | "test"
+  method?: string
+  url?: string
+  httpVersion?: string
+  host?: string
+  contentType?: string
+  accept?: string
+  authorization?: string
+  cookie?: string
+  contentLength?: string
+  connection?: string
+  body?: string
+  queryParameters?: Record<string, string>
+  pathParameters?: Record<string, string>
+  headers?: Record<string, string>
+  geolocation?: {
+    country?: string
+    region?: string
+    city?: string
+    timezone?: string
+  }
+  device?: {
+    type?: string
+    browser?: string
+    os?: string
+    isMobile?: boolean
+  }
+}
+
 // Create short URL - NO click tracking in URL document
 export async function createShortUrl(shortCode: string, originalUrl: string, metadata?: any): Promise<void> {
   try {
@@ -287,8 +325,8 @@ export function subscribeToTopUrls(
       const topUrls: Array<{ shortCode: string; clicks: number; originalUrl: string }> = []
 
       // Get URL data for each top analytics entry
-      for (const doc of snapshot.docs) {
-        const analyticsData = doc.data() as AnalyticsData
+      for (const urlDoc of snapshot.docs) {
+        const analyticsData = urlDoc.data() as AnalyticsData
         const urlData = await getUrlData(analyticsData.shortCode)
 
         if (urlData) {
@@ -388,6 +426,70 @@ export async function migrateToClicksCollection(): Promise<void> {
     console.log(`✅ Clicks collection migration complete: created ${migrations.length} documents`)
   } catch (error) {
     console.error("❌ Clicks collection migration error:", error)
+    throw error
+  }
+}
+
+// Migration function to create shortcode_clicks subcollections for existing clicks documents
+export async function migrateToShortcodeClicksSubcollections(): Promise<void> {
+  try {
+    console.log("🔄 Starting migration to create shortcode_clicks subcollections...")
+
+    const clicksQuery = query(collection(db, "clicks"))
+    const clicksSnapshot = await getDocs(clicksQuery)
+
+    let processedCount = 0
+
+    for (const clickDoc of clicksSnapshot.docs) {
+      const shortCode = clickDoc.id
+      console.log(`🔄 Processing clicks document for shortcode: ${shortCode}`)
+
+      // Create a sample click document in the shortcode_clicks subcollection
+      // This is just to establish the subcollection structure
+      const shortcodeClicksRef = collection(db, "clicks", shortCode, "shortcode_clicks")
+      const sampleClickId = `sample-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+
+      const sampleClickData: IndividualClickData = {
+        id: sampleClickId,
+        timestamp: serverTimestamp(),
+        shortCode: shortCode,
+        userAgent: "Sample User Agent (Migration)",
+        referer: "https://example.com",
+        ip: "127.0.0.1",
+        sessionId: `sample-session-${Date.now()}`,
+        clickSource: "test",
+        method: "GET",
+        url: `https://wodify.link/${shortCode}`,
+        httpVersion: "HTTP/1.1",
+        host: "wodify.link",
+        contentType: "text/html",
+        accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        queryParameters: {},
+        pathParameters: { shortCode },
+        headers: {
+          "User-Agent": "Sample User Agent (Migration)",
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          Host: "wodify.link",
+        },
+        device: {
+          type: "desktop",
+          browser: "Chrome",
+          os: "Windows",
+          isMobile: false,
+        },
+      }
+
+      await setDoc(doc(shortcodeClicksRef, sampleClickId), sampleClickData)
+      processedCount++
+
+      console.log(`✅ Created shortcode_clicks subcollection for: ${shortCode}`)
+    }
+
+    console.log(`✅ Shortcode clicks subcollections migration complete: processed ${processedCount} documents`)
+    console.log("📝 Note: Sample click documents were created to establish the subcollection structure.")
+    console.log("📝 These sample documents can be removed once real click tracking begins.")
+  } catch (error) {
+    console.error("❌ Shortcode clicks subcollections migration error:", error)
     throw error
   }
 }
