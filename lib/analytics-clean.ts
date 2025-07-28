@@ -49,6 +49,14 @@ export interface AnalyticsData {
   // ❌ REMOVE any other click-related fields
 }
 
+// New Clicks collection data structure
+export interface ClicksData {
+  shortCode: string
+  createdAt: any
+  isActive: boolean
+  // This collection will be expanded in future steps
+}
+
 // Create short URL - NO click tracking in URL document
 export async function createShortUrl(shortCode: string, originalUrl: string, metadata?: any): Promise<void> {
   try {
@@ -56,6 +64,7 @@ export async function createShortUrl(shortCode: string, originalUrl: string, met
 
     const urlRef = doc(db, "urls", shortCode)
     const analyticsRef = doc(db, "analytics", shortCode)
+    const clicksRef = doc(db, "clicks", shortCode)
 
     const expiresAt = new Date()
     expiresAt.setDate(expiresAt.getDate() + 30)
@@ -78,12 +87,36 @@ export async function createShortUrl(shortCode: string, originalUrl: string, met
       clickEvents: [],
     }
 
-    await Promise.all([setDoc(urlRef, urlData), setDoc(analyticsRef, analyticsData)])
+    // New clicks collection document
+    const clicksData: ClicksData = {
+      shortCode,
+      createdAt: serverTimestamp(),
+      isActive: true,
+    }
 
-    console.log(`✅ Clean URL structure created: ${shortCode}`)
+    await Promise.all([setDoc(urlRef, urlData), setDoc(analyticsRef, analyticsData), setDoc(clicksRef, clicksData)])
+
+    console.log(`✅ Clean URL structure created with clicks collection: ${shortCode}`)
   } catch (error) {
     console.error("❌ Error creating short URL:", error)
     throw error
+  }
+}
+
+// Get clicks data
+export async function getClicksData(shortCode: string): Promise<ClicksData | null> {
+  try {
+    const clicksRef = doc(db, "clicks", shortCode)
+    const clicksSnap = await getDoc(clicksRef)
+
+    if (!clicksSnap.exists()) {
+      return null
+    }
+
+    return clicksSnap.data() as ClicksData
+  } catch (error) {
+    console.error("Error getting clicks data:", error)
+    return null
   }
 }
 
@@ -311,6 +344,50 @@ export async function migrateToCleanArchitecture(): Promise<void> {
     console.log(`✅ Migration complete: cleaned ${migrations.length} URL documents`)
   } catch (error) {
     console.error("❌ Migration error:", error)
+    throw error
+  }
+}
+
+// Migration function to create clicks collection for existing shortcodes
+export async function migrateToClicksCollection(): Promise<void> {
+  try {
+    console.log("🔄 Starting migration to create clicks collection...")
+
+    const urlsQuery = query(collection(db, "urls"))
+    const urlsSnapshot = await getDocs(urlsQuery)
+
+    const migrations: Promise<void>[] = []
+
+    urlsSnapshot.forEach((doc) => {
+      const urlData = doc.data()
+      const shortCode = doc.id
+
+      console.log(`🔄 Creating clicks document for: ${shortCode}`)
+
+      const migration = runTransaction(db, async (transaction) => {
+        const clicksRef = doc(db, "clicks", shortCode)
+
+        // Check if clicks document already exists
+        const clicksDoc = await transaction.get(clicksRef)
+
+        if (!clicksDoc.exists()) {
+          const clicksData: ClicksData = {
+            shortCode,
+            createdAt: urlData.createdAt || serverTimestamp(),
+            isActive: urlData.isActive !== undefined ? urlData.isActive : true,
+          }
+
+          transaction.set(clicksRef, clicksData)
+        }
+      })
+
+      migrations.push(migration)
+    })
+
+    await Promise.all(migrations)
+    console.log(`✅ Clicks collection migration complete: created ${migrations.length} documents`)
+  } catch (error) {
+    console.error("❌ Clicks collection migration error:", error)
     throw error
   }
 }

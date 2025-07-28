@@ -11,38 +11,12 @@ interface UrlData {
   expiresAt: any
 }
 
-interface EnhancedClickEvent {
-  id: string
-  timestamp: any
-  userAgent: string
-  referer: string
-  ip: string
-  sessionId: string
-  clickSource: "direct" | "analytics_page" | "test"
-  realTime: boolean
-  // Enhanced tracking fields
-  method?: string
-  url?: string
-  httpVersion?: string
-  host?: string
-  contentType?: string
-  accept?: string
-  authorization?: string
-  cookie?: string
-  contentLength?: string
-  connection?: string
-  body?: string
-  queryParameters?: Record<string, string>
-  pathParameters?: Record<string, string>
-  headers?: Record<string, string>
-}
-
 interface AnalyticsData {
   shortCode: string
   totalClicks: number
   createdAt: any
   lastClickAt?: any
-  clickEvents: EnhancedClickEvent[]
+  clickEvents: any[]
 }
 
 export async function GET(request: NextRequest, { params }: { params: { shortCode: string } }) {
@@ -93,20 +67,17 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
 
     console.log(`✅ Redirect URL prepared: ${redirectUrl}`)
 
-    // Get headers for analytics (existing functionality)
+    // Get headers for analytics
     const userAgent = request.headers.get("user-agent") || ""
     const referer = request.headers.get("referer") || ""
     const forwardedFor = request.headers.get("x-forwarded-for") || ""
     const ip = forwardedFor.split(",")[0]?.trim() || ""
 
-    // Capture enhanced request information
-    const enhancedRequestInfo = captureEnhancedRequestInfo(request, shortCode, userAgent, referer, ip)
-
     // Record the click analytics (don't let this fail the redirect)
     try {
-      console.log(`📊 Recording enhanced click analytics for: ${shortCode}`)
-      await recordEnhancedClickAnalytics(shortCode, enhancedRequestInfo)
-      console.log(`✅ Enhanced click analytics recorded successfully`)
+      console.log(`📊 Recording click analytics for: ${shortCode}`)
+      await recordClickAnalytics(shortCode, userAgent, referer, ip)
+      console.log(`✅ Click analytics recorded successfully`)
     } catch (analyticsError) {
       console.error("⚠️ Analytics recording failed (but continuing redirect):", analyticsError)
     }
@@ -131,77 +102,22 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
   }
 }
 
-function captureEnhancedRequestInfo(
-  request: NextRequest,
-  shortCode: string,
-  userAgent: string,
-  referer: string,
-  ip: string,
-): EnhancedClickEvent {
-  // Extract all headers
-  const headers: Record<string, string> = {}
-  request.headers.forEach((value, key) => {
-    headers[key] = value
-  })
-
-  // Extract query parameters
-  const url = new URL(request.url)
-  const queryParameters: Record<string, string> = {}
-  url.searchParams.forEach((value, key) => {
-    queryParameters[key] = value
-  })
-
-  // Extract path parameters (from the URL path)
-  const pathParameters: Record<string, string> = {
-    shortCode: shortCode,
-  }
-
-  // Create enhanced click event (maintaining existing structure + new fields)
-  const enhancedClickEvent: EnhancedClickEvent = {
-    // Existing fields (maintain compatibility)
-    id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    timestamp: serverTimestamp(),
-    userAgent: userAgent.substring(0, 200),
-    referer: referer.substring(0, 200),
-    ip: ip.substring(0, 15),
-    sessionId: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    clickSource: "direct" as const,
-    realTime: true,
-
-    // Enhanced fields (new)
-    method: request.method || "GET",
-    url: request.url || "",
-    httpVersion: "HTTP/1.1", // Default, as Next.js doesn't expose this directly
-    host: request.headers.get("host") || "",
-    contentType: request.headers.get("content-type") || "",
-    accept: request.headers.get("accept") || "",
-    authorization: request.headers.get("authorization") ? "***PRESENT***" : "",
-    cookie: request.headers.get("cookie") ? "***PRESENT***" : "",
-    contentLength: request.headers.get("content-length") || "",
-    connection: request.headers.get("connection") || "",
-    body: "", // GET requests typically don't have body
-    queryParameters,
-    pathParameters,
-    headers,
-  }
-
-  console.log(`📋 Enhanced click event created:`, {
-    id: enhancedClickEvent.id,
-    method: enhancedClickEvent.method,
-    host: enhancedClickEvent.host,
-    userAgent: enhancedClickEvent.userAgent.substring(0, 50),
-    headersCount: Object.keys(headers).length,
-    queryParamsCount: Object.keys(queryParameters).length,
-  })
-
-  return enhancedClickEvent
-}
-
-async function recordEnhancedClickAnalytics(shortCode: string, clickEvent: EnhancedClickEvent) {
+async function recordClickAnalytics(shortCode: string, userAgent: string, referer: string, ip: string) {
   try {
     const analyticsRef = doc(db, "analytics", shortCode)
 
-    console.log(`🔄 Recording enhanced click for ${shortCode} - Starting improved transaction`)
+    const clickEvent = {
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      timestamp: serverTimestamp(),
+      userAgent: userAgent.substring(0, 200),
+      referer: referer.substring(0, 200),
+      ip: ip.substring(0, 15),
+      sessionId: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      clickSource: "direct" as const,
+      realTime: true,
+    }
+
+    console.log(`🔄 Recording click for ${shortCode} - Starting improved transaction`)
 
     // Use a more robust transaction approach
     await runTransaction(db, async (transaction) => {
@@ -214,7 +130,7 @@ async function recordEnhancedClickAnalytics(shortCode: string, clickEvent: Enhan
 
         console.log(`📈 Incrementing totalClicks: ${currentClicks} → ${newClickCount}`)
 
-        // Update with explicit new value and enhanced click event
+        // Update with explicit new value instead of increment()
         transaction.update(analyticsRef, {
           totalClicks: newClickCount,
           lastClickAt: serverTimestamp(),
@@ -223,7 +139,7 @@ async function recordEnhancedClickAnalytics(shortCode: string, clickEvent: Enhan
       } else {
         console.log(`📝 Creating new analytics document for: ${shortCode}`)
 
-        // Create new analytics document with enhanced tracking
+        // Create new analytics document
         transaction.set(analyticsRef, {
           shortCode,
           totalClicks: 1,
@@ -234,9 +150,9 @@ async function recordEnhancedClickAnalytics(shortCode: string, clickEvent: Enhan
       }
     })
 
-    console.log(`✅ Enhanced click analytics recorded successfully for: ${shortCode}`)
+    console.log(`✅ Click analytics recorded successfully for: ${shortCode}`)
   } catch (error) {
-    console.error(`❌ Error recording enhanced analytics for ${shortCode}:`, error)
+    console.error(`❌ Error recording analytics for ${shortCode}:`, error)
 
     // Fallback: try a simple update without transaction
     try {
@@ -251,7 +167,6 @@ async function recordEnhancedClickAnalytics(shortCode: string, clickEvent: Enhan
         await updateDoc(analyticsRef, {
           totalClicks: newCount,
           lastClickAt: serverTimestamp(),
-          clickEvents: arrayUnion(clickEvent),
         })
 
         console.log(`✅ Fallback update successful: ${newCount}`)
