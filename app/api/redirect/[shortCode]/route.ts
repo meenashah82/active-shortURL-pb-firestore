@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { doc, getDoc, runTransaction, serverTimestamp, arrayUnion, updateDoc } from "firebase/firestore"
+import { doc, getDoc, runTransaction, serverTimestamp, arrayUnion, updateDoc, collection } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
 interface UrlData {
@@ -17,6 +17,43 @@ interface AnalyticsData {
   createdAt: any
   lastClickAt?: any
   clickEvents: any[]
+}
+
+interface IndividualClickData {
+  id: string
+  timestamp: any
+  shortCode: string
+  userAgent?: string
+  referer?: string
+  ip?: string
+  sessionId?: string
+  clickSource?: "direct" | "analytics_page" | "test"
+  method?: string
+  url?: string
+  httpVersion?: string
+  host?: string
+  contentType?: string
+  accept?: string
+  authorization?: string
+  cookie?: string
+  contentLength?: string
+  connection?: string
+  body?: string
+  queryParameters?: Record<string, string>
+  pathParameters?: Record<string, string>
+  headers?: Record<string, string>
+  geolocation?: {
+    country?: string
+    region?: string
+    city?: string
+    timezone?: string
+  }
+  device?: {
+    type?: string
+    browser?: string
+    os?: string
+    isMobile?: boolean
+  }
 }
 
 export async function GET(request: NextRequest, { params }: { params: { shortCode: string } }) {
@@ -76,7 +113,7 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
     // Record the click analytics (don't let this fail the redirect)
     try {
       console.log(`📊 Recording click analytics for: ${shortCode}`)
-      await recordClickAnalytics(shortCode, userAgent, referer, ip)
+      await recordClickAnalytics(shortCode, request)
       console.log(`✅ Click analytics recorded successfully`)
     } catch (analyticsError) {
       console.error("⚠️ Analytics recording failed (but continuing redirect):", analyticsError)
@@ -102,24 +139,89 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
   }
 }
 
-async function recordClickAnalytics(shortCode: string, userAgent: string, referer: string, ip: string) {
+async function recordClickAnalytics(shortCode: string, request: NextRequest) {
   try {
     const analyticsRef = doc(db, "analytics", shortCode)
 
+    // Extract comprehensive request information
+    const userAgent = request.headers.get("user-agent") || ""
+    const referer = request.headers.get("referer") || ""
+    const forwardedFor = request.headers.get("x-forwarded-for") || ""
+    const ip = forwardedFor.split(",")[0]?.trim() || request.headers.get("x-real-ip") || ""
+    const host = request.headers.get("host") || ""
+    const accept = request.headers.get("accept") || ""
+    const contentType = request.headers.get("content-type") || ""
+    const authorization = request.headers.get("authorization") || ""
+    const cookie = request.headers.get("cookie") || ""
+    const contentLength = request.headers.get("content-length") || ""
+    const connection = request.headers.get("connection") || ""
+
+    // Parse URL for query parameters
+    const url = new URL(request.url)
+    const queryParameters: Record<string, string> = {}
+    url.searchParams.forEach((value, key) => {
+      queryParameters[key] = value
+    })
+
+    // Extract all headers
+    const headers: Record<string, string> = {}
+    request.headers.forEach((value, key) => {
+      headers[key] = value
+    })
+
+    // Parse user agent for device information
+    const deviceInfo = parseUserAgent(userAgent)
+
+    // Create unique click ID
+    const clickId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    const sessionId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+
+    // Create comprehensive click event for analytics collection (existing functionality)
     const clickEvent = {
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: clickId,
       timestamp: serverTimestamp(),
       userAgent: userAgent.substring(0, 200),
       referer: referer.substring(0, 200),
       ip: ip.substring(0, 15),
-      sessionId: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      sessionId: sessionId,
       clickSource: "direct" as const,
       realTime: true,
     }
 
+    // Create detailed individual click data for shortcode_clicks subcollection
+    const individualClickData: IndividualClickData = {
+      id: clickId,
+      timestamp: serverTimestamp(),
+      shortCode: shortCode,
+      userAgent: userAgent,
+      referer: referer,
+      ip: ip,
+      sessionId: sessionId,
+      clickSource: "direct",
+      method: request.method,
+      url: request.url,
+      httpVersion: "HTTP/1.1", // Next.js doesn't expose this directly
+      host: host,
+      contentType: contentType,
+      accept: accept,
+      authorization: authorization ? "[REDACTED]" : "", // Security: redact auth tokens
+      cookie: cookie ? "[REDACTED]" : "", // Security: redact cookies
+      contentLength: contentLength,
+      connection: connection,
+      body: "", // GET requests typically don't have body
+      queryParameters: queryParameters,
+      pathParameters: { shortCode: shortCode },
+      headers: {
+        ...headers,
+        authorization: headers.authorization ? "[REDACTED]" : undefined,
+        cookie: headers.cookie ? "[REDACTED]" : undefined,
+      },
+      device: deviceInfo,
+    }
+
     console.log(`🔄 Recording click for ${shortCode} - Starting improved transaction`)
 
-    // Use a more robust transaction approach
+    // Use transaction to update both analytics and create individual click record
     await runTransaction(db, async (transaction) => {
       const analyticsDoc = await transaction.get(analyticsRef)
 
@@ -130,7 +232,7 @@ async function recordClickAnalytics(shortCode: string, userAgent: string, refere
 
         console.log(`📈 Incrementing totalClicks: ${currentClicks} → ${newClickCount}`)
 
-        // Update with explicit new value instead of increment()
+        // Update analytics with explicit new value instead of increment()
         transaction.update(analyticsRef, {
           totalClicks: newClickCount,
           lastClickAt: serverTimestamp(),
@@ -148,9 +250,14 @@ async function recordClickAnalytics(shortCode: string, userAgent: string, refere
           clickEvents: [clickEvent],
         })
       }
+
+      // Create individual click record in shortcode_clicks subcollection
+      const shortcodeClicksRef = collection(db, "clicks", shortCode, "shortcode_clicks")
+      const individualClickRef = doc(shortcodeClicksRef, clickId)
+      transaction.set(individualClickRef, individualClickData)
     })
 
-    console.log(`✅ Click analytics recorded successfully for: ${shortCode}`)
+    console.log(`✅ Click analytics and individual click record created successfully for: ${shortCode}`)
   } catch (error) {
     console.error(`❌ Error recording analytics for ${shortCode}:`, error)
 
@@ -177,4 +284,43 @@ async function recordClickAnalytics(shortCode: string, userAgent: string, refere
 
     throw error
   }
+}
+
+function parseUserAgent(userAgent: string) {
+  // Simple user agent parsing - you could use a library like 'ua-parser-js' for more accuracy
+  const device = {
+    type: "desktop",
+    browser: "Unknown",
+    os: "Unknown",
+    isMobile: false,
+  }
+
+  if (userAgent) {
+    // Detect mobile
+    if (/Mobile|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent)) {
+      device.isMobile = true
+      device.type = "mobile"
+    }
+
+    // Detect tablet
+    if (/iPad|Android(?!.*Mobile)/i.test(userAgent)) {
+      device.type = "tablet"
+    }
+
+    // Detect browser
+    if (userAgent.includes("Chrome")) device.browser = "Chrome"
+    else if (userAgent.includes("Firefox")) device.browser = "Firefox"
+    else if (userAgent.includes("Safari")) device.browser = "Safari"
+    else if (userAgent.includes("Edge")) device.browser = "Edge"
+    else if (userAgent.includes("Opera")) device.browser = "Opera"
+
+    // Detect OS
+    if (userAgent.includes("Windows")) device.os = "Windows"
+    else if (userAgent.includes("Mac OS")) device.os = "macOS"
+    else if (userAgent.includes("Linux")) device.os = "Linux"
+    else if (userAgent.includes("Android")) device.os = "Android"
+    else if (userAgent.includes("iOS")) device.os = "iOS"
+  }
+
+  return device
 }
