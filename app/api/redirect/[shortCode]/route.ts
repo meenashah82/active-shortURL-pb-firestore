@@ -175,11 +175,11 @@ async function recordClickAnalytics(shortCode: string, request: NextRequest) {
     // Parse user agent for device information
     const deviceInfo = parseUserAgent(userAgent)
 
-    // Create unique click ID
-    const clickId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-    const sessionId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    // Create unique click ID for EVERY click (this ensures a new document each time)
+    const clickId = `click-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    const sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
 
-    console.log(`📝 Generated click ID: ${clickId}`)
+    console.log(`📝 Generated unique click ID: ${clickId}`)
 
     // Create detailed individual click data for shortcode_clicks subcollection
     const individualClickData: IndividualClickData = {
@@ -226,7 +226,7 @@ async function recordClickAnalytics(shortCode: string, request: NextRequest) {
 
     console.log(`🔄 Recording detailed click data for ${shortCode}`)
 
-    // Step 1: Ensure clicks document exists and create individual click record
+    // Step 1: Ensure clicks document exists and create NEW individual click record for EVERY click
     const clicksRef = doc(db, "clicks", shortCode)
 
     try {
@@ -243,13 +243,15 @@ async function recordClickAnalytics(shortCode: string, request: NextRequest) {
         console.log(`✅ Clicks document created for: ${shortCode}`)
       }
 
-      // Create individual click record in shortcode_clicks subcollection
+      // ALWAYS create a NEW individual click record in shortcode_clicks subcollection for EVERY click
       const shortcodeClicksRef = collection(db, "clicks", shortCode, "shortcode_clicks")
-      const individualClickRef = doc(shortcodeClicksRef, clickId)
+      const individualClickRef = doc(shortcodeClicksRef, clickId) // Use unique clickId as document ID
 
-      console.log(`📝 Creating individual click record at path: clicks/${shortCode}/shortcode_clicks/${clickId}`)
+      console.log(`📝 Creating NEW individual click record at path: clicks/${shortCode}/shortcode_clicks/${clickId}`)
+      console.log(`🔄 This is click record #${clickId} for shortcode: ${shortCode}`)
+
       await setDoc(individualClickRef, individualClickData)
-      console.log(`✅ Individual click record created successfully with ID: ${clickId}`)
+      console.log(`✅ NEW individual click record created successfully with unique ID: ${clickId}`)
     } catch (clickError) {
       console.error(`❌ Error creating individual click record:`, clickError)
       // Continue with analytics update even if individual click fails
@@ -289,7 +291,7 @@ async function recordClickAnalytics(shortCode: string, request: NextRequest) {
     })
 
     console.log(`✅ Analytics updated successfully for: ${shortCode}`)
-    console.log(`✅ Complete click recording finished for: ${shortCode}`)
+    console.log(`✅ Complete click recording finished for: ${shortCode} - NEW document created for this click`)
   } catch (error) {
     console.error(`❌ Error in recordClickAnalytics for ${shortCode}:`, error)
 
