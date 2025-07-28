@@ -144,7 +144,7 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
 
 async function recordClickAnalytics(shortCode: string, request: NextRequest) {
   try {
-    const analyticsRef = doc(db, "analytics", shortCode)
+    console.log(`🔄 Starting click recording for ${shortCode}`)
 
     // Extract comprehensive request information
     const userAgent = request.headers.get("user-agent") || ""
@@ -179,17 +179,7 @@ async function recordClickAnalytics(shortCode: string, request: NextRequest) {
     const clickId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     const sessionId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
 
-    // Create comprehensive click event for analytics collection (existing functionality)
-    const clickEvent = {
-      id: clickId,
-      timestamp: serverTimestamp(),
-      userAgent: userAgent.substring(0, 200),
-      referer: referer.substring(0, 200),
-      ip: ip.substring(0, 15),
-      sessionId: sessionId,
-      clickSource: "direct" as const,
-      realTime: true,
-    }
+    console.log(`📝 Generated click ID: ${clickId}`)
 
     // Create detailed individual click data for shortcode_clicks subcollection
     const individualClickData: IndividualClickData = {
@@ -203,15 +193,15 @@ async function recordClickAnalytics(shortCode: string, request: NextRequest) {
       clickSource: "direct",
       method: request.method,
       url: request.url,
-      httpVersion: "HTTP/1.1", // Next.js doesn't expose this directly
+      httpVersion: "HTTP/1.1",
       host: host,
       contentType: contentType,
       accept: accept,
-      authorization: authorization ? "[REDACTED]" : "", // Security: redact auth tokens
-      cookie: cookie ? "[REDACTED]" : "", // Security: redact cookies
+      authorization: authorization ? "[REDACTED]" : "",
+      cookie: cookie ? "[REDACTED]" : "",
       contentLength: contentLength,
       connection: connection,
-      body: "", // GET requests typically don't have body
+      body: "",
       queryParameters: queryParameters,
       pathParameters: { shortCode: shortCode },
       headers: {
@@ -222,30 +212,54 @@ async function recordClickAnalytics(shortCode: string, request: NextRequest) {
       device: deviceInfo,
     }
 
-    console.log(`🔄 Recording click for ${shortCode} - Starting improved transaction`)
-
-    // First, ensure the clicks document exists
-    const clicksRef = doc(db, "clicks", shortCode)
-    const clicksSnap = await getDoc(clicksRef)
-
-    if (!clicksSnap.exists()) {
-      console.log(`📝 Creating clicks document for: ${shortCode}`)
-      await setDoc(clicksRef, {
-        shortCode: shortCode,
-        createdAt: serverTimestamp(),
-        isActive: true,
-      })
+    // Create comprehensive click event for analytics collection (existing functionality)
+    const clickEvent = {
+      id: clickId,
+      timestamp: serverTimestamp(),
+      userAgent: userAgent.substring(0, 200),
+      referer: referer.substring(0, 200),
+      ip: ip.substring(0, 15),
+      sessionId: sessionId,
+      clickSource: "direct" as const,
+      realTime: true,
     }
 
-    // Create individual click record in shortcode_clicks subcollection
-    const shortcodeClicksRef = collection(db, "clicks", shortCode, "shortcode_clicks")
-    const individualClickRef = doc(shortcodeClicksRef, clickId)
+    console.log(`🔄 Recording detailed click data for ${shortCode}`)
 
-    console.log(`📝 Creating individual click record: ${clickId}`)
-    await setDoc(individualClickRef, individualClickData)
-    console.log(`✅ Individual click record created successfully`)
+    // Step 1: Ensure clicks document exists and create individual click record
+    const clicksRef = doc(db, "clicks", shortCode)
 
-    // Use transaction to update analytics
+    try {
+      // Check if clicks document exists
+      const clicksSnap = await getDoc(clicksRef)
+
+      if (!clicksSnap.exists()) {
+        console.log(`📝 Creating clicks document for: ${shortCode}`)
+        await setDoc(clicksRef, {
+          shortCode: shortCode,
+          createdAt: serverTimestamp(),
+          isActive: true,
+        })
+        console.log(`✅ Clicks document created for: ${shortCode}`)
+      }
+
+      // Create individual click record in shortcode_clicks subcollection
+      const shortcodeClicksRef = collection(db, "clicks", shortCode, "shortcode_clicks")
+      const individualClickRef = doc(shortcodeClicksRef, clickId)
+
+      console.log(`📝 Creating individual click record at path: clicks/${shortCode}/shortcode_clicks/${clickId}`)
+      await setDoc(individualClickRef, individualClickData)
+      console.log(`✅ Individual click record created successfully with ID: ${clickId}`)
+    } catch (clickError) {
+      console.error(`❌ Error creating individual click record:`, clickError)
+      // Continue with analytics update even if individual click fails
+    }
+
+    // Step 2: Update analytics collection (existing functionality)
+    console.log(`🔄 Updating analytics for ${shortCode}`)
+
+    const analyticsRef = doc(db, "analytics", shortCode)
+
     await runTransaction(db, async (transaction) => {
       const analyticsDoc = await transaction.get(analyticsRef)
 
@@ -256,7 +270,6 @@ async function recordClickAnalytics(shortCode: string, request: NextRequest) {
 
         console.log(`📈 Incrementing totalClicks: ${currentClicks} → ${newClickCount}`)
 
-        // Update analytics with explicit new value instead of increment()
         transaction.update(analyticsRef, {
           totalClicks: newClickCount,
           lastClickAt: serverTimestamp(),
@@ -265,7 +278,6 @@ async function recordClickAnalytics(shortCode: string, request: NextRequest) {
       } else {
         console.log(`📝 Creating new analytics document for: ${shortCode}`)
 
-        // Create new analytics document
         transaction.set(analyticsRef, {
           shortCode,
           totalClicks: 1,
@@ -276,13 +288,14 @@ async function recordClickAnalytics(shortCode: string, request: NextRequest) {
       }
     })
 
-    console.log(`✅ Click analytics recorded successfully for: ${shortCode}`)
+    console.log(`✅ Analytics updated successfully for: ${shortCode}`)
+    console.log(`✅ Complete click recording finished for: ${shortCode}`)
   } catch (error) {
-    console.error(`❌ Error recording analytics for ${shortCode}:`, error)
+    console.error(`❌ Error in recordClickAnalytics for ${shortCode}:`, error)
 
-    // Fallback: try a simple update without transaction
+    // Fallback: try a simple analytics update without transaction
     try {
-      console.log(`🔄 Attempting fallback update for ${shortCode}`)
+      console.log(`🔄 Attempting fallback analytics update for ${shortCode}`)
       const analyticsRef = doc(db, "analytics", shortCode)
       const analyticsSnap = await getDoc(analyticsRef)
 
@@ -295,10 +308,10 @@ async function recordClickAnalytics(shortCode: string, request: NextRequest) {
           lastClickAt: serverTimestamp(),
         })
 
-        console.log(`✅ Fallback update successful: ${newCount}`)
+        console.log(`✅ Fallback analytics update successful: ${newCount}`)
       }
     } catch (fallbackError) {
-      console.error(`❌ Fallback also failed:`, fallbackError)
+      console.error(`❌ Fallback analytics update also failed:`, fallbackError)
     }
 
     throw error
@@ -306,7 +319,6 @@ async function recordClickAnalytics(shortCode: string, request: NextRequest) {
 }
 
 function parseUserAgent(userAgent: string) {
-  // Simple user agent parsing - you could use a library like 'ua-parser-js' for more accuracy
   const device = {
     type: "desktop",
     browser: "Unknown",
