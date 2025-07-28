@@ -319,15 +319,15 @@ export async function migrateToCleanArchitecture(): Promise<void> {
 
     const migrations: Promise<void>[] = []
 
-    urlsSnapshot.forEach((doc) => {
-      const urlData = doc.data()
+    urlsSnapshot.forEach((urlDoc) => {
+      const urlData = urlDoc.data()
 
       // If URL document has clicks field, remove it
       if ("clicks" in urlData) {
-        console.log(`🧹 Removing redundant clicks field from URL: ${doc.id}`)
+        console.log(`🧹 Removing redundant clicks field from URL: ${urlDoc.id}`)
 
         const migration = runTransaction(db, async (transaction) => {
-          const urlRef = doc.ref
+          const urlRef = urlDoc.ref
 
           // Remove clicks field from URL document
           const cleanUrlData = { ...urlData }
@@ -358,9 +358,9 @@ export async function migrateToClicksCollection(): Promise<void> {
 
     const migrations: Promise<void>[] = []
 
-    urlsSnapshot.forEach((doc) => {
-      const urlData = doc.data()
-      const shortCode = doc.id
+    urlsSnapshot.forEach((urlDoc) => {
+      const urlData = urlDoc.data()
+      const shortCode = urlDoc.id
 
       console.log(`🔄 Creating clicks document for: ${shortCode}`)
 
