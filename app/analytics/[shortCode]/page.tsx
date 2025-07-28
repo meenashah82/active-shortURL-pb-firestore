@@ -288,13 +288,15 @@ export default function AnalyticsPage({
           </Card>
 
           <div className="grid md:grid-cols-2 gap-6">
-            {/* Real-time Clicks Feed with Detailed Information */}
+            {/* Real-time Clicks Feed with Enhanced Information */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Server className="h-5 w-5" />
-                  Detailed Click Tracking (Live WebSocket Feed)
+                  Recent Clicks (Live WebSocket Feed)
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <Badge variant="secondary" className="ml-2">
+                    Enhanced Tracking
+                  </Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -332,6 +334,13 @@ export default function AnalyticsPage({
                             {click.clickSource === "direct" && (
                               <span className="text-green-600 text-xs bg-green-100 px-2 py-1 rounded">URL Click</span>
                             )}
+                            {/* Show enhanced tracking indicator */}
+                            {(click.method || click.headers) && (
+                              <Badge variant="outline" className="text-xs">
+                                <Server className="h-3 w-3 mr-1" />
+                                Enhanced
+                              </Badge>
+                            )}
                             <Button
                               size="sm"
                               variant="ghost"
@@ -354,7 +363,7 @@ export default function AnalyticsPage({
                               <Badge variant="outline" className="mr-2">
                                 {click.method}
                               </Badge>
-                              {click.host}
+                              {click.host || "Unknown Host"}
                             </div>
                           )}
                           {click.userAgent && (
@@ -363,6 +372,17 @@ export default function AnalyticsPage({
                             </div>
                           )}
                           {click.ip && <div className="text-xs text-gray-600">IP: {click.ip}</div>}
+                          {click.referer && (
+                            <div className="text-xs text-gray-600">
+                              From: {(() => {
+                                try {
+                                  return new URL(click.referer).hostname
+                                } catch {
+                                  return click.referer
+                                }
+                              })()}
+                            </div>
+                          )}
                         </div>
 
                         {/* Expanded Details */}
@@ -375,62 +395,83 @@ export default function AnalyticsPage({
 
                             <div className="space-y-3 text-xs">
                               {/* HTTP Details */}
-                              <div>
-                                <h5 className="font-medium text-gray-700 mb-1">HTTP Details</h5>
-                                <div className="grid grid-cols-2 gap-2">
-                                  <div>
-                                    Method: <code className="bg-gray-100 px-1 rounded">{click.method || "N/A"}</code>
-                                  </div>
-                                  <div>
-                                    HTTP Version:{" "}
-                                    <code className="bg-gray-100 px-1 rounded">{click.httpVersion || "N/A"}</code>
-                                  </div>
-                                  <div>
-                                    Host: <code className="bg-gray-100 px-1 rounded">{click.host || "N/A"}</code>
-                                  </div>
-                                  <div>
-                                    Connection:{" "}
-                                    <code className="bg-gray-100 px-1 rounded">{click.connection || "N/A"}</code>
+                              {(click.method || click.httpVersion || click.host || click.connection) && (
+                                <div>
+                                  <h5 className="font-medium text-gray-700 mb-1">HTTP Details</h5>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    {click.method && (
+                                      <div>
+                                        Method: <code className="bg-gray-100 px-1 rounded">{click.method}</code>
+                                      </div>
+                                    )}
+                                    {click.httpVersion && (
+                                      <div>
+                                        HTTP Version:{" "}
+                                        <code className="bg-gray-100 px-1 rounded">{click.httpVersion}</code>
+                                      </div>
+                                    )}
+                                    {click.host && (
+                                      <div>
+                                        Host: <code className="bg-gray-100 px-1 rounded">{click.host}</code>
+                                      </div>
+                                    )}
+                                    {click.connection && (
+                                      <div>
+                                        Connection: <code className="bg-gray-100 px-1 rounded">{click.connection}</code>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
-                              </div>
+                              )}
 
                               {/* Headers */}
-                              <div>
-                                <h5 className="font-medium text-gray-700 mb-1">Key Headers</h5>
-                                <div className="space-y-1">
-                                  {click.contentType && (
-                                    <div>
-                                      Content-Type:{" "}
-                                      <code className="bg-gray-100 px-1 rounded">{click.contentType}</code>
-                                    </div>
-                                  )}
-                                  {click.accept && (
-                                    <div>
-                                      Accept:{" "}
-                                      <code className="bg-gray-100 px-1 rounded">
-                                        {click.accept.substring(0, 50)}...
-                                      </code>
-                                    </div>
-                                  )}
-                                  {click.referer && (
-                                    <div>
-                                      Referer: <code className="bg-gray-100 px-1 rounded">{click.referer}</code>
-                                    </div>
-                                  )}
-                                  {click.contentLength && (
-                                    <div>
-                                      Content-Length:{" "}
-                                      <code className="bg-gray-100 px-1 rounded">{click.contentLength}</code>
-                                    </div>
-                                  )}
-                                  {click.authorization && (
-                                    <div>
-                                      Authorization: <code className="bg-gray-100 px-1 rounded">***REDACTED***</code>
-                                    </div>
-                                  )}
+                              {(click.contentType ||
+                                click.accept ||
+                                click.referer ||
+                                click.contentLength ||
+                                click.authorization ||
+                                click.cookie) && (
+                                <div>
+                                  <h5 className="font-medium text-gray-700 mb-1">Key Headers</h5>
+                                  <div className="space-y-1">
+                                    {click.contentType && (
+                                      <div>
+                                        Content-Type:{" "}
+                                        <code className="bg-gray-100 px-1 rounded">{click.contentType}</code>
+                                      </div>
+                                    )}
+                                    {click.accept && (
+                                      <div>
+                                        Accept:{" "}
+                                        <code className="bg-gray-100 px-1 rounded">
+                                          {click.accept.substring(0, 50)}...
+                                        </code>
+                                      </div>
+                                    )}
+                                    {click.referer && (
+                                      <div>
+                                        Referer: <code className="bg-gray-100 px-1 rounded">{click.referer}</code>
+                                      </div>
+                                    )}
+                                    {click.contentLength && (
+                                      <div>
+                                        Content-Length:{" "}
+                                        <code className="bg-gray-100 px-1 rounded">{click.contentLength}</code>
+                                      </div>
+                                    )}
+                                    {click.authorization && (
+                                      <div>
+                                        Authorization: <code className="bg-gray-100 px-1 rounded">***PRESENT***</code>
+                                      </div>
+                                    )}
+                                    {click.cookie && (
+                                      <div>
+                                        Cookie: <code className="bg-gray-100 px-1 rounded">***PRESENT***</code>
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
+                              )}
 
                               {/* Parameters */}
                               {click.queryParameters && Object.keys(click.queryParameters).length > 0 && (
@@ -462,7 +503,9 @@ export default function AnalyticsPage({
                               {/* All Headers */}
                               {click.headers && Object.keys(click.headers).length > 0 && (
                                 <div>
-                                  <h5 className="font-medium text-gray-700 mb-1">All Headers</h5>
+                                  <h5 className="font-medium text-gray-700 mb-1">
+                                    All Headers ({Object.keys(click.headers).length})
+                                  </h5>
                                   <div className="max-h-32 overflow-y-auto space-y-1">
                                     {Object.entries(click.headers).map(([key, value]) => (
                                       <div key={key} className="text-xs">
@@ -483,14 +526,18 @@ export default function AnalyticsPage({
                               {/* Session Info */}
                               <div>
                                 <h5 className="font-medium text-gray-700 mb-1">Session Info</h5>
-                                <div>
-                                  Session ID:{" "}
-                                  <code className="bg-gray-100 px-1 rounded">
-                                    {click.sessionId?.substring(0, 16)}...
-                                  </code>
-                                </div>
-                                <div>
-                                  Full URL: <code className="bg-gray-100 px-1 rounded">{click.url}</code>
+                                <div className="space-y-1">
+                                  <div>
+                                    Session ID:{" "}
+                                    <code className="bg-gray-100 px-1 rounded">
+                                      {click.sessionId?.substring(0, 16)}...
+                                    </code>
+                                  </div>
+                                  {click.url && (
+                                    <div>
+                                      Full URL: <code className="bg-gray-100 px-1 rounded">{click.url}</code>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -577,12 +624,12 @@ export default function AnalyticsPage({
                 </Button>
               </div>
               <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                <p className="text-sm text-blue-800 font-medium">💡 How to test real-time updates:</p>
+                <p className="text-sm text-blue-800 font-medium">💡 How to test enhanced tracking:</p>
                 <ul className="text-xs text-blue-700 mt-2 space-y-1">
                   <li>1. Open your short URL in a new tab/window</li>
                   <li>2. Watch this page update instantly when you click the link</li>
-                  <li>3. No refresh needed - powered by Firestore WebSocket!</li>
-                  <li>4. Click the expand button on any click to see detailed HTTP information</li>
+                  <li>3. Click the expand button on any click to see detailed HTTP information</li>
+                  <li>4. Enhanced tracking captures Method, Headers, Parameters, and more!</li>
                 </ul>
               </div>
             </CardContent>
