@@ -290,9 +290,12 @@ export async function recordClick(shortCode: string, userAgent: string, referer:
   try {
     const analyticsRef = doc(db, "analytics", shortCode)
 
+    // ✅ FIX: Use Timestamp.now() instead of serverTimestamp() for arrayUnion
+    const now = Timestamp.now()
+
     const clickEvent: ClickEvent = {
       id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      timestamp: serverTimestamp(),
+      timestamp: now, // ✅ Use regular timestamp instead of serverTimestamp()
       userAgent: userAgent.substring(0, 200),
       referer: referer.substring(0, 200),
       ip: ip.substring(0, 15),

@@ -59,9 +59,12 @@ export default function DebugTotalClicks() {
 
         console.log(`📊 Document exists: ${analyticsDoc.exists()}`)
 
+        // ✅ FIX: Use Timestamp.now() instead of serverTimestamp() for arrayUnion
+        const now = new Date()
+
         const clickEvent = {
           id: `test-${Date.now()}`,
-          timestamp: serverTimestamp(),
+          timestamp: now, // ✅ Use regular Date instead of serverTimestamp()
           userAgent: "Test User Agent",
           referer: "Debug Page",
           ip: "127.0.0.1",

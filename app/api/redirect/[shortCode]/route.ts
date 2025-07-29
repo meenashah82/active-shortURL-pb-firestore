@@ -8,6 +8,7 @@ import {
   collection,
   setDoc,
   increment,
+  Timestamp,
 } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
@@ -90,10 +91,10 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
 
     console.log(`✅ Redirect URL prepared: ${redirectUrl}`)
 
-    // Record the click analytics - SIMPLIFIED VERSION
+    // Record the click analytics - FIXED VERSION
     try {
       console.log(`📊 Recording click analytics for: ${shortCode}`)
-      await recordClickAnalyticsSimplified(shortCode, request)
+      await recordClickAnalyticsFixed(shortCode, request)
       console.log(`✅ Click analytics recorded successfully`)
     } catch (analyticsError) {
       console.error("⚠️ Analytics recording failed:", analyticsError)
@@ -119,13 +120,16 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
   }
 }
 
-async function recordClickAnalyticsSimplified(shortCode: string, request: NextRequest) {
+async function recordClickAnalyticsFixed(shortCode: string, request: NextRequest) {
   try {
-    console.log(`🔄 SIMPLIFIED: Starting click recording for ${shortCode}`)
+    console.log(`🔄 FIXED: Starting click recording for ${shortCode}`)
 
     // Create unique click ID
     const clickId = `click-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     const sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+
+    // ✅ FIX: Use Timestamp.now() instead of serverTimestamp() for arrayUnion
+    const now = Timestamp.now()
 
     console.log(`📝 Generated click ID: ${clickId}`)
 
@@ -135,7 +139,7 @@ async function recordClickAnalyticsSimplified(shortCode: string, request: NextRe
 
     const individualClickData: IndividualClickData = {
       id: clickId,
-      timestamp: serverTimestamp(),
+      timestamp: serverTimestamp(), // This is OK for setDoc
       shortCode: shortCode,
       userAgent: request.headers.get("user-agent") || "",
       referer: request.headers.get("referer") || "",
@@ -164,18 +168,15 @@ async function recordClickAnalyticsSimplified(shortCode: string, request: NextRe
     await setDoc(individualClickRef, individualClickData)
     console.log(`✅ Individual click document created: ${clickId}`)
 
-    // STEP 2: Update analytics with SIMPLEST possible approach
-    console.log(`🔄 SIMPLIFIED: Updating analytics for ${shortCode}`)
+    // STEP 2: Update analytics with FIXED timestamp issue
+    console.log(`🔄 FIXED: Updating analytics for ${shortCode}`)
 
     const analyticsRef = doc(db, "analytics", shortCode)
 
-    // Check if analytics document exists first
-    const analyticsSnap = await getDoc(analyticsRef)
-    console.log(`📊 Analytics document exists: ${analyticsSnap.exists()}`)
-
+    // ✅ FIX: Create click event with regular timestamp for arrayUnion
     const clickEvent = {
       id: clickId,
-      timestamp: serverTimestamp(),
+      timestamp: now, // ✅ Use Timestamp.now() instead of serverTimestamp()
       userAgent: (request.headers.get("user-agent") || "").substring(0, 200),
       referer: (request.headers.get("referer") || "").substring(0, 200),
       ip: (request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "").substring(0, 15),
@@ -183,41 +184,37 @@ async function recordClickAnalyticsSimplified(shortCode: string, request: NextRe
       clickSource: "direct" as const,
     }
 
-    if (analyticsSnap.exists()) {
-      console.log(`📈 SIMPLIFIED: Analytics exists, using simple transaction`)
-      const currentData = analyticsSnap.data() as AnalyticsData
-      console.log(`📊 Current totalClicks: ${currentData.totalClicks || 0}`)
+    // Use transaction to update analytics
+    await runTransaction(db, async (transaction) => {
+      console.log(`🔄 Inside analytics transaction`)
 
-      // Use the simplest possible transaction
-      await runTransaction(db, async (transaction) => {
-        console.log(`🔄 Inside simple transaction`)
+      const analyticsDoc = await transaction.get(analyticsRef)
+      console.log(`📊 Analytics document exists: ${analyticsDoc.exists()}`)
 
-        // Re-read the document inside the transaction
-        const freshDoc = await transaction.get(analyticsRef)
-        if (freshDoc.exists()) {
-          const freshData = freshDoc.data() as AnalyticsData
-          console.log(`📊 Fresh totalClicks in transaction: ${freshData.totalClicks || 0}`)
+      if (analyticsDoc.exists()) {
+        const currentData = analyticsDoc.data() as AnalyticsData
+        console.log(`📊 Current totalClicks: ${currentData.totalClicks || 0}`)
 
-          transaction.update(analyticsRef, {
-            totalClicks: increment(1),
-            lastClickAt: serverTimestamp(),
-            clickEvents: arrayUnion(clickEvent),
-          })
-          console.log(`✅ Simple update queued`)
-        }
-      })
-      console.log(`✅ Simple transaction completed`)
-    } else {
-      console.log(`📝 SIMPLIFIED: Creating new analytics document`)
-      await setDoc(analyticsRef, {
-        shortCode,
-        totalClicks: 1,
-        createdAt: serverTimestamp(),
-        lastClickAt: serverTimestamp(),
-        clickEvents: [clickEvent],
-      })
-      console.log(`✅ New analytics document created`)
-    }
+        transaction.update(analyticsRef, {
+          totalClicks: increment(1), // ✅ This should work now
+          lastClickAt: serverTimestamp(), // ✅ This is OK for update()
+          clickEvents: arrayUnion(clickEvent), // ✅ Now using regular timestamp
+        })
+        console.log(`✅ Analytics update queued`)
+      } else {
+        console.log(`📝 Creating new analytics document`)
+        transaction.set(analyticsRef, {
+          shortCode,
+          totalClicks: 1,
+          createdAt: serverTimestamp(), // ✅ This is OK for set()
+          lastClickAt: serverTimestamp(), // ✅ This is OK for set()
+          clickEvents: [clickEvent], // ✅ Using regular timestamp
+        })
+        console.log(`✅ Analytics creation queued`)
+      }
+    })
+
+    console.log(`✅ Analytics transaction completed`)
 
     // VERIFICATION: Check if the update worked
     console.log(`🔍 VERIFICATION: Checking analytics after update`)
@@ -229,9 +226,9 @@ async function recordClickAnalyticsSimplified(shortCode: string, request: NextRe
       console.log(`❌ VERIFICATION FAILED: Analytics document missing`)
     }
 
-    console.log(`🎯 SIMPLIFIED: Click recording completed for ${shortCode}`)
+    console.log(`🎯 FIXED: Click recording completed for ${shortCode}`)
   } catch (error) {
-    console.error(`❌ SIMPLIFIED: Error in recordClickAnalytics for ${shortCode}:`, error)
+    console.error(`❌ FIXED: Error in recordClickAnalytics for ${shortCode}:`, error)
     throw error
   }
 }
