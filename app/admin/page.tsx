@@ -43,9 +43,9 @@ export default function AdminPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-white">
-        <div className="bg-purple-600 text-white py-4">
+        <div className="bg-electric-violet text-white py-4">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <Skeleton className="h-8 w-48 bg-purple-500" />
+            <Skeleton className="h-8 w-48 bg-violet-pink" />
           </div>
         </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -63,19 +63,19 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <header className="bg-purple-600 text-white shadow-sm">
+      <header className="bg-electric-violet text-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-pink-500 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-violet-pink rounded-lg flex items-center justify-center">
                 <Shield className="h-5 w-5 text-white" />
               </div>
               <h1 className="text-xl font-semibold text-white">Admin Panel</h1>
             </div>
             <div className="flex items-center space-x-4">
-              <div className="text-sm text-purple-100">
+              <div className="text-sm text-white">
                 Welcome, <span className="font-medium text-white">{user.username}</span>
-                <span className="ml-2 px-2 py-1 bg-pink-500 text-white rounded-full text-xs font-medium">
+                <span className="ml-2 px-2 py-1 bg-violet-pink text-white rounded-full text-xs font-medium">
                   {user.role}
                 </span>
               </div>
@@ -83,7 +83,7 @@ export default function AdminPage() {
                 variant="outline"
                 size="sm"
                 onClick={handleLogout}
-                className="border-purple-300 text-white hover:bg-purple-700 hover:border-purple-400 bg-transparent"
+                className="border-white text-white hover:bg-white hover:text-electric-violet bg-transparent"
               >
                 <LogOut className="mr-2 h-4 w-4" />
                 Logout
@@ -95,12 +95,15 @@ export default function AdminPage() {
 
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <Tabs defaultValue="urls" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 bg-gray-100">
-            <TabsTrigger value="urls" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white">
+          <TabsList className="grid w-full grid-cols-2 bg-light-gray">
+            <TabsTrigger value="urls" className="data-[state=active]:bg-electric-violet data-[state=active]:text-white">
               <Link className="mr-2 h-4 w-4" />
               URL Management
             </TabsTrigger>
-            <TabsTrigger value="users" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white">
+            <TabsTrigger
+              value="users"
+              className="data-[state=active]:bg-electric-violet data-[state=active]:text-white"
+            >
               <Users className="mr-2 h-4 w-4" />
               User Management
             </TabsTrigger>

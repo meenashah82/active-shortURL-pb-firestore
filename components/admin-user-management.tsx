@@ -224,59 +224,72 @@ export function AdminUserManagement() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold">User Management</h2>
-          <p className="text-gray-600">Manage admin users and permissions</p>
+          <h2 className="text-2xl font-bold text-tundora">User Management</h2>
+          <p className="text-secondary-gray">Manage admin users and permissions</p>
         </div>
         {canManageUsers ? (
           <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
             <DialogTrigger asChild>
-              <Button>
+              <Button className="bg-electric-violet hover:bg-electric-violet/90 text-white">
                 <UserPlus className="mr-2 h-4 w-4" />
                 Add User
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Create New Admin User</DialogTitle>
-                <DialogDescription>Add a new administrator to the system</DialogDescription>
+                <DialogTitle className="text-tundora">Create New Admin User</DialogTitle>
+                <DialogDescription className="text-secondary-gray">
+                  Add a new administrator to the system
+                </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleCreateUser} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="create-username">Username</Label>
+                  <Label htmlFor="create-username" className="text-tundora">
+                    Username
+                  </Label>
                   <Input
                     id="create-username"
                     value={createForm.username}
                     onChange={(e) => setCreateForm({ ...createForm, username: e.target.value })}
                     required
+                    className="border-light-purple"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="create-email">Email</Label>
+                  <Label htmlFor="create-email" className="text-tundora">
+                    Email
+                  </Label>
                   <Input
                     id="create-email"
                     type="email"
                     value={createForm.email}
                     onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
                     required
+                    className="border-light-purple"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="create-password">Password</Label>
+                  <Label htmlFor="create-password" className="text-tundora">
+                    Password
+                  </Label>
                   <Input
                     id="create-password"
                     type="password"
                     value={createForm.password}
                     onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
                     required
+                    className="border-light-purple"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="create-role">Role</Label>
+                  <Label htmlFor="create-role" className="text-tundora">
+                    Role
+                  </Label>
                   <Select
                     value={createForm.role}
                     onValueChange={(value: "admin" | "superadmin") => setCreateForm({ ...createForm, role: value })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="border-light-purple">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -285,14 +298,23 @@ export function AdminUserManagement() {
                     </SelectContent>
                   </Select>
                 </div>
-                <Button type="submit" disabled={isCreating} className="w-full">
+                <Button
+                  type="submit"
+                  disabled={isCreating}
+                  className="w-full bg-electric-violet hover:bg-electric-violet/90 text-white"
+                >
                   {isCreating ? "Creating..." : "Create User"}
                 </Button>
               </form>
             </DialogContent>
           </Dialog>
         ) : (
-          <Button onClick={fetchUsers} disabled={isLoading} variant="outline">
+          <Button
+            onClick={fetchUsers}
+            disabled={isLoading}
+            variant="outline"
+            className="border-light-purple text-tundora hover:bg-light-purple bg-transparent"
+          >
             <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
@@ -305,18 +327,20 @@ export function AdminUserManagement() {
         </Alert>
       )}
 
-      <Card>
+      <Card className="border-light-purple">
         <CardHeader>
-          <CardTitle>Admin Users ({users.length})</CardTitle>
-          <CardDescription>Manage administrator accounts and permissions</CardDescription>
+          <CardTitle className="text-tundora">Admin Users ({users.length})</CardTitle>
+          <CardDescription className="text-secondary-gray">
+            Manage administrator accounts and permissions
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-electric-violet"></div>
             </div>
           ) : users.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-secondary-gray">
               <p>No admin users found</p>
               <p className="text-sm mt-2">Create your first admin user to get started</p>
             </div>
@@ -324,53 +348,75 @@ export function AdminUserManagement() {
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead>Actions</TableHead>
+                  <TableRow className="border-light-purple">
+                    <TableHead className="text-secondary-gray">User</TableHead>
+                    <TableHead className="text-secondary-gray">Email</TableHead>
+                    <TableHead className="text-secondary-gray">Role</TableHead>
+                    <TableHead className="text-secondary-gray">Status</TableHead>
+                    <TableHead className="text-secondary-gray">Created</TableHead>
+                    <TableHead className="text-secondary-gray">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {users.map((user) => (
-                    <TableRow key={user.id}>
+                    <TableRow key={user.id} className="border-light-purple">
                       <TableCell>
                         <div className="flex items-center space-x-2">
                           {user.role === "superadmin" ? (
-                            <Shield className="h-4 w-4 text-purple-600" />
+                            <Shield className="h-4 w-4 text-electric-violet" />
                           ) : (
-                            <User className="h-4 w-4 text-gray-600" />
+                            <User className="h-4 w-4 text-secondary-gray" />
                           )}
-                          <span className="font-medium">{user.username}</span>
+                          <span className="font-medium text-tundora">{user.username}</span>
                           {user.id === currentUser?.id && (
-                            <Badge variant="outline" className="text-xs">
+                            <Badge variant="outline" className="text-xs border-light-purple text-electric-violet">
                               You
                             </Badge>
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>{user.email}</TableCell>
+                      <TableCell className="text-secondary-gray">{user.email}</TableCell>
                       <TableCell>
-                        <Badge variant={user.role === "superadmin" ? "default" : "secondary"}>
+                        <Badge
+                          variant={user.role === "superadmin" ? "default" : "secondary"}
+                          className={
+                            user.role === "superadmin"
+                              ? "bg-electric-violet text-white"
+                              : "bg-light-purple text-electric-violet"
+                          }
+                        >
                           {user.role === "superadmin" ? "Super Admin" : "Admin"}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={user.isActive ? "default" : "destructive"}>
+                        <Badge
+                          variant={user.isActive ? "default" : "destructive"}
+                          className={user.isActive ? "bg-electric-violet text-white" : ""}
+                        >
                           {user.isActive ? "Active" : "Inactive"}
                         </Badge>
                       </TableCell>
-                      <TableCell>{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "N/A"}</TableCell>
+                      <TableCell className="text-secondary-gray">
+                        {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "N/A"}
+                      </TableCell>
                       <TableCell>
                         <div className="flex space-x-1">
                           {canManageUsers && (
                             <>
-                              <Button variant="ghost" size="sm" onClick={() => openEditDialog(user)}>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openEditDialog(user)}
+                                className="text-tundora hover:bg-light-purple"
+                              >
                                 <Edit className="h-4 w-4" />
                               </Button>
-                              <Button variant="ghost" size="sm" onClick={() => openPasswordDialog(user.id)}>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openPasswordDialog(user.id)}
+                                className="text-tundora hover:bg-light-purple"
+                              >
                                 <span className="text-xs">Change Password</span>
                               </Button>
                               {user.id !== currentUser?.id && (
@@ -378,7 +424,7 @@ export function AdminUserManagement() {
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => handleDeleteUser(user)}
-                                  className="text-red-600 hover:text-red-800"
+                                  className="text-red-600 hover:text-red-800 hover:bg-red-50"
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
@@ -400,36 +446,46 @@ export function AdminUserManagement() {
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit User</DialogTitle>
-            <DialogDescription>Update user information and permissions</DialogDescription>
+            <DialogTitle className="text-tundora">Edit User</DialogTitle>
+            <DialogDescription className="text-secondary-gray">
+              Update user information and permissions
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleEditUser} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-username">Username</Label>
+              <Label htmlFor="edit-username" className="text-tundora">
+                Username
+              </Label>
               <Input
                 id="edit-username"
                 value={editForm.username}
                 onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
                 required
+                className="border-light-purple"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-email">Email</Label>
+              <Label htmlFor="edit-email" className="text-tundora">
+                Email
+              </Label>
               <Input
                 id="edit-email"
                 type="email"
                 value={editForm.email}
                 onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                 required
+                className="border-light-purple"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-role">Role</Label>
+              <Label htmlFor="edit-role" className="text-tundora">
+                Role
+              </Label>
               <Select
                 value={editForm.role}
                 onValueChange={(value: "admin" | "superadmin") => setEditForm({ ...editForm, role: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="border-light-purple">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -444,9 +500,11 @@ export function AdminUserManagement() {
                 checked={editForm.isActive}
                 onCheckedChange={(checked) => setEditForm({ ...editForm, isActive: checked })}
               />
-              <Label htmlFor="edit-active">Active</Label>
+              <Label htmlFor="edit-active" className="text-tundora">
+                Active
+              </Label>
             </div>
-            <Button type="submit" className="w-full">
+            <Button type="submit" className="w-full bg-electric-violet hover:bg-electric-violet/90 text-white">
               Update User
             </Button>
           </form>
@@ -457,31 +515,37 @@ export function AdminUserManagement() {
       <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Change Password</DialogTitle>
-            <DialogDescription>Set a new password for this user</DialogDescription>
+            <DialogTitle className="text-tundora">Change Password</DialogTitle>
+            <DialogDescription className="text-secondary-gray">Set a new password for this user</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleChangePassword} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="new-password">New Password</Label>
+              <Label htmlFor="new-password" className="text-tundora">
+                New Password
+              </Label>
               <Input
                 id="new-password"
                 type="password"
                 value={passwordForm.newPassword}
                 onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
                 required
+                className="border-light-purple"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirm-password">Confirm Password</Label>
+              <Label htmlFor="confirm-password" className="text-tundora">
+                Confirm Password
+              </Label>
               <Input
                 id="confirm-password"
                 type="password"
                 value={passwordForm.confirmPassword}
                 onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
                 required
+                className="border-light-purple"
               />
             </div>
-            <Button type="submit" className="w-full">
+            <Button type="submit" className="w-full bg-electric-violet hover:bg-electric-violet/90 text-white">
               Change Password
             </Button>
           </form>
