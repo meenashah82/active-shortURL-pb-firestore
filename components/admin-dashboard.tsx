@@ -8,7 +8,20 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Trash2, ExternalLink, BarChart3 } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { Trash2, ExternalLink, BarChart3, AlertTriangle } from "lucide-react"
+import { getSession } from "@/lib/admin-auth"
+import { removeAllClicksData } from "@/lib/admin"
 
 interface UrlData {
   id: string
@@ -22,6 +35,12 @@ export function AdminDashboard() {
   const [urls, setUrls] = useState<UrlData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteResult, setDeleteResult] = useState<string | null>(null)
+
+  // Check if current user is superadmin
+  const session = getSession()
+  const isSuperAdmin = session?.role === "superadmin"
 
   const fetchUrls = async () => {
     try {
@@ -77,6 +96,34 @@ export function AdminDashboard() {
     } catch (error: any) {
       console.error("Error deleting URL:", error)
       setError(`Failed to delete URL: ${error.message}`)
+    }
+  }
+
+  const handleRemoveAllData = async () => {
+    setIsDeleting(true)
+    setDeleteResult(null)
+    setError(null)
+
+    try {
+      const result = await removeAllClicksData()
+
+      if (result.success) {
+        setDeleteResult(
+          `Successfully deleted all data:\n` +
+            `• URLs: ${result.deletedCounts.urls}\n` +
+            `• Analytics: ${result.deletedCounts.analytics}\n` +
+            `• Clicks: ${result.deletedCounts.clicks}\n` +
+            `• Subcollections: ${result.deletedCounts.subcollections}`,
+        )
+        // Refresh the URLs list
+        setUrls([])
+      } else {
+        setError(`Failed to delete all data: ${result.error}`)
+      }
+    } catch (error: any) {
+      setError(`Error during deletion: ${error.message}`)
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -144,11 +191,53 @@ export function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="">
+      <div className="flex justify-between items-start">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Admin Dashboard</h1>
           <p className="text-gray-600 mt-1">Manage shortened URLs and view analytics</p>
         </div>
+
+        {/* Super Admin Only: Remove All Data Button */}
+        {isSuperAdmin && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" className="bg-red-600 hover:bg-red-700" disabled={isDeleting}>
+                <AlertTriangle className="mr-2 h-4 w-4" />
+                {isDeleting ? "Deleting..." : "Remove All Data"}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center text-red-600">
+                  <AlertTriangle className="mr-2 h-5 w-5" />
+                  Dangerous Operation
+                </AlertDialogTitle>
+                <AlertDialogDescription className="space-y-2">
+                  <p className="font-semibold">This will permanently delete ALL data from:</p>
+                  <ul className="list-disc list-inside space-y-1 text-sm">
+                    <li>All shortened URLs</li>
+                    <li>All analytics data</li>
+                    <li>All click tracking data</li>
+                    <li>All subcollection data</li>
+                  </ul>
+                  <p className="text-red-600 font-semibold mt-4">
+                    This action cannot be undone. Are you absolutely sure?
+                  </p>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleRemoveAllData}
+                  className="bg-red-600 hover:bg-red-700"
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? "Deleting..." : "Yes, Delete Everything"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
       </div>
 
       {error && (
@@ -166,6 +255,12 @@ export function AdminDashboard() {
               </div>
             )}
           </AlertDescription>
+        </Alert>
+      )}
+
+      {deleteResult && (
+        <Alert className="border-green-200 bg-green-50">
+          <AlertDescription className="text-green-800 whitespace-pre-line">{deleteResult}</AlertDescription>
         </Alert>
       )}
 
