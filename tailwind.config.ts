@@ -84,7 +84,6 @@ const config: Config = {
         "light-purple": "#D9D8FD",
         tundora: "#4D475B",
         "light-gray": "#F5F5F5",
-        "secondary-gray": "#94909C",
       },
       borderRadius: {
         lg: "var(--radius)",

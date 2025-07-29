@@ -38,7 +38,16 @@ export default function AnalyticsPage({ params }: { params: { shortCode: string 
   const [testClicks, setTestClicks] = useState(0)
 
   // Use real-time analytics hook
-  const { data: realTimeData, isConnected } = useRealTimeAnalytics(params.shortCode)
+  const {
+    urlData,
+    analyticsData,
+    loading: rtLoading,
+    error: rtError,
+    connectionStatus,
+    clickCount,
+    isNewClick,
+    lastUpdate,
+  } = useRealTimeAnalytics(params.shortCode)
 
   useEffect(() => {
     fetchAnalytics()
@@ -46,10 +55,32 @@ export default function AnalyticsPage({ params }: { params: { shortCode: string 
 
   // Update analytics when real-time data changes
   useEffect(() => {
-    if (realTimeData) {
-      setAnalytics((prev) => (prev ? { ...prev, ...realTimeData } : null))
+    if (urlData && analyticsData) {
+      const combinedData: AnalyticsData = {
+        shortCode: params.shortCode,
+        originalUrl: urlData.originalUrl,
+        totalClicks: clickCount,
+        createdAt: urlData.createdAt,
+        lastClickAt: analyticsData.lastClickAt,
+        clicksByDay: {},
+        recentClicks:
+          analyticsData.clickEvents?.slice(-10).map((event, index) => ({
+            id: event.id || `event-${index}`,
+            timestamp: event.timestamp,
+            userAgent: event.userAgent || "Unknown",
+            referer: event.referer || "Direct",
+            ip: event.ip || "",
+            country: "",
+            city: "",
+            device: "",
+            browser: "",
+            os: "",
+          })) || [],
+      }
+      setAnalytics(combinedData)
+      setLoading(false)
     }
-  }, [realTimeData])
+  }, [urlData, analyticsData, clickCount, params.shortCode])
 
   const fetchAnalytics = async () => {
     try {
@@ -61,7 +92,31 @@ export default function AnalyticsPage({ params }: { params: { shortCode: string 
       }
 
       const data = await response.json()
-      setAnalytics(data)
+
+      // Transform the API response to match our interface
+      const transformedAnalytics: AnalyticsData = {
+        shortCode: params.shortCode,
+        originalUrl: data.urlData?.originalUrl || "",
+        totalClicks: data.urlData?.clicks || 0,
+        createdAt: data.urlData?.createdAt || new Date().toISOString(),
+        lastClickAt: data.analyticsData?.lastClickAt,
+        clicksByDay: {},
+        recentClicks:
+          data.analyticsData?.clickEvents?.slice(-10).map((event: any, index: number) => ({
+            id: event.id || `event-${index}`,
+            timestamp: event.timestamp,
+            userAgent: event.userAgent || "Unknown",
+            referer: event.referer || "Direct",
+            ip: event.ip || "",
+            country: "",
+            city: "",
+            device: "",
+            browser: "",
+            os: "",
+          })) || [],
+      }
+
+      setAnalytics(transformedAnalytics)
 
       // Add interaction
       addInteraction("Loaded analytics page")
@@ -95,27 +150,27 @@ export default function AnalyticsPage({ params }: { params: { shortCode: string 
     return <Monitor className="h-4 w-4" />
   }
 
-  if (loading) {
+  if (loading || rtLoading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center font-source-sans">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-electric-violet mx-auto mb-4"></div>
-          <p className="text-secondary-gray">Loading real-time analytics...</p>
+          <p className="text-secondary-gray body-text">Loading real-time analytics...</p>
         </div>
       </div>
     )
   }
 
-  if (error || !analytics) {
+  if (error || rtError || !analytics) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-white font-source-sans">
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-4xl mx-auto">
             <div className="mb-6">
               <Link href="/">
                 <Button
                   variant="outline"
-                  className="border-light-purple text-tundora hover:bg-light-purple bg-transparent"
+                  className="border-light-purple text-tundora hover:bg-light-purple bg-transparent links-semi-bold"
                 >
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back to Home
@@ -125,14 +180,19 @@ export default function AnalyticsPage({ params }: { params: { shortCode: string 
 
             <Card className="border-light-purple">
               <CardHeader>
-                <CardTitle className="text-tundora flex items-center gap-2">
+                <CardTitle className="text-tundora flex items-center gap-2 title-semi-bold">
                   <Globe className="h-5 w-5" />
                   Error Loading Analytics
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-secondary-gray mb-4">{error || "Analytics data not found for this short code."}</p>
-                <Button onClick={fetchAnalytics} className="bg-electric-violet hover:bg-electric-violet/90 text-white">
+                <p className="text-secondary-gray mb-4 body-text">
+                  {error || rtError || "Analytics data not found for this short code."}
+                </p>
+                <Button
+                  onClick={fetchAnalytics}
+                  className="bg-electric-violet hover:bg-electric-violet/90 text-white links-semi-bold"
+                >
                   Try Again
                 </Button>
               </CardContent>
@@ -143,8 +203,10 @@ export default function AnalyticsPage({ params }: { params: { shortCode: string 
     )
   }
 
+  const isConnected = connectionStatus === "connected"
+
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white font-source-sans">
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto">
           {/* Header */}
@@ -153,15 +215,15 @@ export default function AnalyticsPage({ params }: { params: { shortCode: string 
               <Link href="/">
                 <Button
                   variant="outline"
-                  className="border-light-purple text-tundora hover:bg-light-purple bg-transparent"
+                  className="border-light-purple text-tundora hover:bg-light-purple bg-transparent links-semi-bold"
                 >
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back to Home
                 </Button>
               </Link>
               <div>
-                <h1 className="text-3xl font-bold text-tundora">Real-Time Analytics Dashboard</h1>
-                <p className="text-secondary-gray mt-1">
+                <h1 className="section-title-h3 text-tundora">Real-Time Analytics Dashboard</h1>
+                <p className="text-secondary-gray mt-1 body-text">
                   Short code: <code className="bg-light-gray px-2 py-1 rounded text-sm">{params.shortCode}</code>
                 </p>
               </div>
@@ -182,16 +244,16 @@ export default function AnalyticsPage({ params }: { params: { shortCode: string 
               {/* Total Clicks Card */}
               <Card className="border-light-purple">
                 <CardHeader>
-                  <CardTitle className="text-tundora flex items-center gap-2">
+                  <CardTitle className="text-tundora flex items-center gap-2 title-semi-bold">
                     <Globe className="h-5 w-5" />
                     Total Clicks (Real-time)
                   </CardTitle>
-                  <CardDescription className="text-secondary-gray">
+                  <CardDescription className="text-secondary-gray body-text">
                     Live click tracking with WebSocket updates
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-4xl font-bold text-electric-violet mb-2">
+                  <div className={`text-4xl font-bold text-electric-violet mb-2 ${isNewClick ? "animate-pulse" : ""}`}>
                     {analytics.totalClicks.toLocaleString()}
                   </div>
                   <p className="text-sm text-secondary-gray">
@@ -205,7 +267,7 @@ export default function AnalyticsPage({ params }: { params: { shortCode: string 
               {/* URL Information */}
               <Card className="border-light-purple">
                 <CardHeader>
-                  <CardTitle className="text-tundora flex items-center gap-2">
+                  <CardTitle className="text-tundora flex items-center gap-2 title-semi-bold">
                     <ExternalLink className="h-5 w-5" />
                     URL Information
                   </CardTitle>
@@ -215,12 +277,17 @@ export default function AnalyticsPage({ params }: { params: { shortCode: string 
                     <label className="text-sm font-medium text-tundora">Short URL</label>
                     <div className="flex items-center gap-2 mt-1">
                       <code className="bg-light-gray px-3 py-2 rounded flex-1 text-sm text-tundora">
-                        {`${window.location.origin}/${params.shortCode}`}
+                        {typeof window !== "undefined"
+                          ? `${window.location.origin}/${params.shortCode}`
+                          : `/${params.shortCode}`}
                       </code>
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => navigator.clipboard.writeText(`${window.location.origin}/${params.shortCode}`)}
+                        onClick={() =>
+                          typeof window !== "undefined" &&
+                          navigator.clipboard.writeText(`${window.location.origin}/${params.shortCode}`)
+                        }
                         className="border-light-purple text-tundora hover:bg-light-purple"
                       >
                         Copy
@@ -255,11 +322,11 @@ export default function AnalyticsPage({ params }: { params: { shortCode: string 
               {/* Recent Clicks */}
               <Card className="border-light-purple">
                 <CardHeader>
-                  <CardTitle className="text-tundora flex items-center gap-2">
+                  <CardTitle className="text-tundora flex items-center gap-2 title-semi-bold">
                     <Clock className="h-5 w-5" />
                     Recent Clicks (Live WebSocket Feed)
                   </CardTitle>
-                  <CardDescription className="text-secondary-gray">
+                  <CardDescription className="text-secondary-gray body-text">
                     Real-time click events as they happen
                   </CardDescription>
                 </CardHeader>
@@ -289,7 +356,7 @@ export default function AnalyticsPage({ params }: { params: { shortCode: string 
                       ))}
                     </div>
                   ) : (
-                    <p className="text-secondary-gray text-center py-8">No clicks recorded yet</p>
+                    <p className="text-secondary-gray text-center py-8 body-text">No clicks recorded yet</p>
                   )}
                 </CardContent>
               </Card>
@@ -300,8 +367,8 @@ export default function AnalyticsPage({ params }: { params: { shortCode: string 
               {/* Analytics Page Interactions */}
               <Card className="border-light-purple">
                 <CardHeader>
-                  <CardTitle className="text-tundora text-lg">Analytics Page Interactions</CardTitle>
-                  <CardDescription className="text-secondary-gray">
+                  <CardTitle className="text-tundora sub-headings-semi-bold">Analytics Page Interactions</CardTitle>
+                  <CardDescription className="text-secondary-gray body-text">
                     Track your interactions with this page
                   </CardDescription>
                 </CardHeader>
@@ -324,8 +391,12 @@ export default function AnalyticsPage({ params }: { params: { shortCode: string 
               {/* Test Real-time Updates */}
               <Card className="border-light-purple">
                 <CardHeader>
-                  <CardTitle className="text-tundora text-lg">Test Real-time WebSocket Updates</CardTitle>
-                  <CardDescription className="text-secondary-gray">Test the real-time functionality</CardDescription>
+                  <CardTitle className="text-tundora sub-headings-semi-bold">
+                    Test Real-time WebSocket Updates
+                  </CardTitle>
+                  <CardDescription className="text-secondary-gray body-text">
+                    Test the real-time functionality
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="text-center">
@@ -333,7 +404,7 @@ export default function AnalyticsPage({ params }: { params: { shortCode: string 
                     <p className="text-sm text-secondary-gray mb-4">Test button clicks</p>
                     <Button
                       onClick={handleTestClick}
-                      className="w-full bg-violet-pink hover:bg-violet-pink/90 text-white"
+                      className="w-full bg-violet-pink hover:bg-violet-pink/90 text-white links-semi-bold"
                     >
                       Test Click
                     </Button>
@@ -355,6 +426,12 @@ export default function AnalyticsPage({ params }: { params: { shortCode: string 
                       <span className="text-tundora">Page Loaded:</span>
                       <span className="text-secondary-gray">{new Date().toLocaleTimeString()}</span>
                     </div>
+                    {lastUpdate && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-tundora">Last Update:</span>
+                        <span className="text-secondary-gray">{lastUpdate.toLocaleTimeString()}</span>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -363,7 +440,7 @@ export default function AnalyticsPage({ params }: { params: { shortCode: string 
               {analytics.clicksByDay && Object.keys(analytics.clicksByDay).length > 0 && (
                 <Card className="border-light-purple">
                   <CardHeader>
-                    <CardTitle className="text-tundora text-lg flex items-center gap-2">
+                    <CardTitle className="text-tundora sub-headings-semi-bold flex items-center gap-2">
                       <Calendar className="h-4 w-4" />
                       Clicks by Day
                     </CardTitle>

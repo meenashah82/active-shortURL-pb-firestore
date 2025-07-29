@@ -64,8 +64,8 @@ export function LinkHistory({ refreshTrigger }: LinkHistoryProps) {
     return (
       <Card className="w-full border-light-purple shadow-sm">
         <CardHeader>
-          <CardTitle className="text-tundora">Recent URLs</CardTitle>
-          <CardDescription className="text-secondary-gray">Loading your shortened URLs...</CardDescription>
+          <CardTitle className="text-title-semi-bold text-tundora">Recent URLs</CardTitle>
+          <CardDescription className="text-body-regular text-tundora">Loading your shortened URLs...</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
@@ -82,12 +82,14 @@ export function LinkHistory({ refreshTrigger }: LinkHistoryProps) {
     return (
       <Card className="w-full border-light-purple shadow-sm">
         <CardHeader>
-          <CardTitle className="text-tundora">Recent URLs</CardTitle>
-          <CardDescription className="text-secondary-gray">Your shortened URLs will appear here</CardDescription>
+          <CardTitle className="text-title-semi-bold text-tundora">Recent URLs</CardTitle>
+          <CardDescription className="text-body-regular text-tundora">
+            Your shortened URLs will appear here
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="text-center py-8">
-            <p className="text-secondary-gray">No URLs shortened yet. Create your first short URL above!</p>
+            <p className="text-body-regular text-tundora">No URLs shortened yet. Create your first short URL above!</p>
           </div>
         </CardContent>
       </Card>
@@ -97,8 +99,8 @@ export function LinkHistory({ refreshTrigger }: LinkHistoryProps) {
   return (
     <Card className="w-full border-light-purple shadow-sm">
       <CardHeader>
-        <CardTitle className="text-tundora">Recent URLs</CardTitle>
-        <CardDescription className="text-secondary-gray">
+        <CardTitle className="text-title-semi-bold text-tundora">Recent URLs</CardTitle>
+        <CardDescription className="text-body-regular text-tundora">
           Your recently shortened URLs ({urls.length} total)
         </CardDescription>
       </CardHeader>
@@ -112,22 +114,20 @@ export function LinkHistory({ refreshTrigger }: LinkHistoryProps) {
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-2">
-                    <h3 className="font-medium text-tundora truncate">{urlData.shortUrl}</h3>
-                    <span className="text-xs text-secondary-gray bg-light-gray px-2 py-1 rounded">
+                    <h3 className="text-link-semi-bold text-tundora truncate">{urlData.shortUrl}</h3>
+                    <span className="text-sm text-tundora bg-light-gray px-2 py-1 rounded">
                       {urlData.totalClicks} clicks
                     </span>
                   </div>
-                  <p className="text-sm text-secondary-gray truncate mb-2">{urlData.originalUrl}</p>
-                  <p className="text-xs text-secondary-gray">
-                    Created {new Date(urlData.createdAt).toLocaleDateString()}
-                  </p>
+                  <p className="text-body-regular text-tundora truncate mb-2">{urlData.originalUrl}</p>
+                  <p className="text-sm text-tundora">Created {new Date(urlData.createdAt).toLocaleDateString()}</p>
                 </div>
                 <div className="flex gap-2">
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => copyToClipboard(urlData.shortUrl)}
-                    className="border-light-purple text-tundora hover:bg-light-purple"
+                    className="border-light-purple text-tundora hover:bg-light-purple text-link-semi-bold"
                   >
                     <Copy className="h-4 w-4" />
                   </Button>
@@ -135,7 +135,7 @@ export function LinkHistory({ refreshTrigger }: LinkHistoryProps) {
                     size="sm"
                     variant="outline"
                     onClick={() => window.open(urlData.shortUrl, "_blank")}
-                    className="border-light-purple text-tundora hover:bg-light-purple"
+                    className="border-light-purple text-tundora hover:bg-light-purple text-link-semi-bold"
                   >
                     <ExternalLink className="h-4 w-4" />
                   </Button>
@@ -143,7 +143,7 @@ export function LinkHistory({ refreshTrigger }: LinkHistoryProps) {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="border-light-purple text-tundora hover:bg-light-purple bg-transparent"
+                      className="border-light-purple text-tundora hover:bg-light-purple bg-transparent text-link-semi-bold"
                     >
                       <BarChart3 className="h-4 w-4" />
                     </Button>

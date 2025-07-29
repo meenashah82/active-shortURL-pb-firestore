@@ -53,7 +53,7 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
             <div className="w-8 h-8 bg-violet-pink rounded-lg flex items-center justify-center">
               <Shield className="h-5 w-5 text-white" />
             </div>
-            <span className="text-lg font-semibold">Admin Portal</span>
+            <span className="text-sub-header-semi-bold">Admin Portal</span>
           </div>
         </div>
       </div>
@@ -68,14 +68,16 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
               </div>
             </div>
             <div className="space-y-2">
-              <CardTitle className="text-2xl font-semibold text-tundora">Admin Login</CardTitle>
-              <CardDescription className="text-tundora">Sign in to access the admin dashboard</CardDescription>
+              <CardTitle className="text-h2-section text-tundora">Admin Login</CardTitle>
+              <CardDescription className="text-body-regular text-tundora">
+                Sign in to access the admin dashboard
+              </CardDescription>
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="username" className="text-sm font-medium text-tundora">
+                <Label htmlFor="username" className="text-link-semi-bold text-tundora">
                   Username
                 </Label>
                 <Input
@@ -86,12 +88,12 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
                   required
                   disabled={isLoading}
                   placeholder="Enter your username"
-                  className="h-11 border-light-purple focus:border-electric-violet focus:ring-electric-violet"
+                  className="h-11 border-light-purple focus:border-electric-violet focus:ring-electric-violet text-body-regular"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-medium text-tundora">
+                <Label htmlFor="password" className="text-link-semi-bold text-tundora">
                   Password
                 </Label>
                 <div className="relative">
@@ -103,7 +105,7 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
                     required
                     disabled={isLoading}
                     placeholder="Enter your password"
-                    className="h-11 border-light-purple focus:border-electric-violet focus:ring-electric-violet pr-10"
+                    className="h-11 border-light-purple focus:border-electric-violet focus:ring-electric-violet pr-10 text-body-regular"
                   />
                   <Button
                     type="button"
@@ -120,13 +122,13 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
 
               {error && (
                 <Alert variant="destructive" className="border-red-200 bg-red-50">
-                  <AlertDescription className="text-red-700">{error}</AlertDescription>
+                  <AlertDescription className="text-red-700 text-body-regular">{error}</AlertDescription>
                 </Alert>
               )}
 
               <Button
                 type="submit"
-                className="w-full h-11 bg-electric-violet hover:bg-electric-violet/90 text-white font-medium"
+                className="w-full h-11 bg-electric-violet hover:bg-electric-violet/90 text-white text-link-semi-bold"
                 disabled={isLoading}
               >
                 {isLoading ? "Signing in..." : "Sign In"}

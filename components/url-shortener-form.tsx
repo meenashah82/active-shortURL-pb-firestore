@@ -75,8 +75,10 @@ export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
   return (
     <Card className="w-full border-light-purple shadow-sm">
       <CardHeader>
-        <CardTitle className="text-tundora">URL Shortener</CardTitle>
-        <CardDescription className="text-tundora">Enter a long URL to create a short, shareable link</CardDescription>
+        <CardTitle className="text-title-semi-bold text-tundora">URL Shortener</CardTitle>
+        <CardDescription className="text-body-regular text-tundora">
+          Enter a long URL to create a short, shareable link
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -86,13 +88,13 @@ export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
               placeholder="https://example.com/very-long-url"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              className="flex-1 border-light-purple"
+              className="flex-1 border-light-purple text-body-regular"
               required
             />
             <Button
               type="submit"
               disabled={isLoading}
-              className="bg-electric-violet hover:bg-electric-violet/90 text-white"
+              className="bg-electric-violet hover:bg-electric-violet/90 text-white text-link-semi-bold"
             >
               {isLoading ? (
                 <>
@@ -110,15 +112,15 @@ export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
           <div className="p-4 bg-light-gray rounded-lg border border-light-purple">
             <div className="flex items-center justify-between gap-2">
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-tundora mb-1">Your shortened URL:</p>
-                <p className="text-sm text-tundora truncate">{shortUrl}</p>
+                <p className="text-link-semi-bold text-tundora mb-1">Your shortened URL:</p>
+                <p className="text-body-regular text-tundora truncate">{shortUrl}</p>
               </div>
               <div className="flex gap-2">
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={copyToClipboard}
-                  className="border-light-purple text-tundora hover:bg-light-purple bg-transparent"
+                  className="border-light-purple text-tundora hover:bg-light-purple bg-transparent text-link-semi-bold"
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
@@ -126,7 +128,7 @@ export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
                   size="sm"
                   variant="outline"
                   onClick={() => window.open(shortUrl, "_blank")}
-                  className="border-light-purple text-tundora hover:bg-light-purple"
+                  className="border-light-purple text-tundora hover:bg-light-purple text-link-semi-bold"
                 >
                   <ExternalLink className="h-4 w-4" />
                 </Button>
