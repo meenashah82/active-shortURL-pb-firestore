@@ -39,24 +39,6 @@ interface IndividualClickData {
   clickSource?: "direct" | "analytics_page" | "test"
   method?: string
   url?: string
-  httpVersion?: string
-  host?: string
-  contentType?: string
-  accept?: string
-  authorization?: string
-  cookie?: string
-  contentLength?: string
-  connection?: string
-  body?: string
-  queryParameters?: Record<string, string>
-  pathParameters?: Record<string, string>
-  headers?: Record<string, string>
-  geolocation?: {
-    country?: string
-    region?: string
-    city?: string
-    timezone?: string
-  }
   device?: {
     type?: string
     browser?: string
@@ -81,12 +63,7 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
     }
 
     const urlData = urlSnap.data() as UrlData
-    console.log(`📄 URL data found:`, {
-      shortCode,
-      originalUrl: urlData.originalUrl,
-      isActive: urlData.isActive,
-      hasExpiry: !!urlData.expiresAt,
-    })
+    console.log(`📄 URL data found for: ${shortCode}`)
 
     // Check if URL has expired or is inactive
     if (!urlData.isActive) {
@@ -113,18 +90,18 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
 
     console.log(`✅ Redirect URL prepared: ${redirectUrl}`)
 
-    // Record the click analytics - THIS MUST HAPPEN FOR EVERY CLICK
+    // Record the click analytics - SIMPLIFIED VERSION
     try {
       console.log(`📊 Recording click analytics for: ${shortCode}`)
-      await recordClickAnalytics(shortCode, request)
+      await recordClickAnalyticsSimplified(shortCode, request)
       console.log(`✅ Click analytics recorded successfully`)
     } catch (analyticsError) {
-      console.error("⚠️ Analytics recording failed (but continuing redirect):", analyticsError)
+      console.error("⚠️ Analytics recording failed:", analyticsError)
     }
 
     console.log(`🚀 Redirect successful for: ${shortCode}`)
 
-    // Return JSON response with redirect URL (keeping existing behavior)
+    // Return JSON response with redirect URL
     return NextResponse.json({
       redirectUrl,
       success: true,
@@ -142,83 +119,35 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
   }
 }
 
-async function recordClickAnalytics(shortCode: string, request: NextRequest) {
+async function recordClickAnalyticsSimplified(shortCode: string, request: NextRequest) {
   try {
-    console.log(`🔄 Starting click recording for ${shortCode}`)
+    console.log(`🔄 SIMPLIFIED: Starting click recording for ${shortCode}`)
 
-    // Extract comprehensive request information
-    const userAgent = request.headers.get("user-agent") || ""
-    const referer = request.headers.get("referer") || ""
-    const forwardedFor = request.headers.get("x-forwarded-for") || ""
-    const ip = forwardedFor.split(",")[0]?.trim() || request.headers.get("x-real-ip") || ""
-    const host = request.headers.get("host") || ""
-    const accept = request.headers.get("accept") || ""
-    const contentType = request.headers.get("content-type") || ""
-    const authorization = request.headers.get("authorization") || ""
-    const cookie = request.headers.get("cookie") || ""
-    const contentLength = request.headers.get("content-length") || ""
-    const connection = request.headers.get("connection") || ""
-
-    // Parse URL for query parameters
-    const url = new URL(request.url)
-    const queryParameters: Record<string, string> = {}
-    url.searchParams.forEach((value, key) => {
-      queryParameters[key] = value
-    })
-
-    // Extract all headers
-    const headers: Record<string, string> = {}
-    request.headers.forEach((value, key) => {
-      headers[key] = value
-    })
-
-    // Parse user agent for device information
-    const deviceInfo = parseUserAgent(userAgent)
-
-    // Create unique click ID for EVERY click - this ensures a new document each time
+    // Create unique click ID
     const clickId = `click-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     const sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
 
-    console.log(`📝 Generated unique click ID: ${clickId}`)
+    console.log(`📝 Generated click ID: ${clickId}`)
 
-    // Create detailed individual click data for shortcode_clicks subcollection
+    // STEP 1: Create individual click document (MANDATORY)
+    const shortcodeClicksRef = collection(db, "clicks", shortCode, "shortcode_clicks")
+    const individualClickRef = doc(shortcodeClicksRef, clickId)
+
     const individualClickData: IndividualClickData = {
       id: clickId,
       timestamp: serverTimestamp(),
       shortCode: shortCode,
-      userAgent: userAgent,
-      referer: referer,
-      ip: ip,
+      userAgent: request.headers.get("user-agent") || "",
+      referer: request.headers.get("referer") || "",
+      ip: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "",
       sessionId: sessionId,
       clickSource: "direct",
       method: request.method,
       url: request.url,
-      httpVersion: "HTTP/1.1",
-      host: host,
-      contentType: contentType,
-      accept: accept,
-      authorization: authorization ? "[REDACTED]" : "",
-      cookie: cookie ? "[REDACTED]" : "",
-      contentLength: contentLength,
-      connection: connection,
-      body: "",
-      queryParameters: queryParameters,
-      pathParameters: { shortCode: shortCode },
-      headers: {
-        ...headers,
-        authorization: headers.authorization ? "[REDACTED]" : undefined,
-        cookie: headers.cookie ? "[REDACTED]" : undefined,
-      },
-      device: deviceInfo,
+      device: parseUserAgent(request.headers.get("user-agent") || ""),
     }
 
-    // STEP 1: ALWAYS create a NEW individual click record for EVERY click (MANDATORY)
-    const shortcodeClicksRef = collection(db, "clicks", shortCode, "shortcode_clicks")
-    const individualClickRef = doc(shortcodeClicksRef, clickId)
-
-    console.log(`📝 CREATING NEW CLICK DOCUMENT: clicks/${shortCode}/shortcode_clicks/${clickId}`)
-
-    // First, ensure the parent clicks document exists
+    // Ensure parent clicks document exists
     const clicksRef = doc(db, "clicks", shortCode)
     const clicksSnap = await getDoc(clicksRef)
 
@@ -229,133 +158,80 @@ async function recordClickAnalytics(shortCode: string, request: NextRequest) {
         createdAt: serverTimestamp(),
         isActive: true,
       })
-      console.log(`✅ Parent clicks document created for: ${shortCode}`)
     }
 
-    // NOW CREATE THE INDIVIDUAL CLICK DOCUMENT - THIS IS MANDATORY FOR EVERY CLICK
+    // Create individual click document
     await setDoc(individualClickRef, individualClickData)
-    console.log(`✅ ✅ ✅ NEW INDIVIDUAL CLICK DOCUMENT CREATED: ${clickId}`)
-    console.log(`📍 Document path: clicks/${shortCode}/shortcode_clicks/${clickId}`)
+    console.log(`✅ Individual click document created: ${clickId}`)
 
-    // STEP 2: Update analytics using the EXACT same pattern as lib/analytics-clean.ts
-    console.log(`🔄 Starting analytics update for ${shortCode}`)
+    // STEP 2: Update analytics with SIMPLEST possible approach
+    console.log(`🔄 SIMPLIFIED: Updating analytics for ${shortCode}`)
 
     const analyticsRef = doc(db, "analytics", shortCode)
+
+    // Check if analytics document exists first
+    const analyticsSnap = await getDoc(analyticsRef)
+    console.log(`📊 Analytics document exists: ${analyticsSnap.exists()}`)
 
     const clickEvent = {
       id: clickId,
       timestamp: serverTimestamp(),
-      userAgent: userAgent.substring(0, 200),
-      referer: referer.substring(0, 200),
-      ip: ip.substring(0, 15),
+      userAgent: (request.headers.get("user-agent") || "").substring(0, 200),
+      referer: (request.headers.get("referer") || "").substring(0, 200),
+      ip: (request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "").substring(0, 15),
       sessionId: sessionId,
       clickSource: "direct" as const,
     }
 
-    // Use the EXACT same transaction pattern as the working recordClick function
-    await runTransaction(db, async (transaction) => {
-      console.log(`🔄 Inside transaction for analytics update: ${shortCode}`)
+    if (analyticsSnap.exists()) {
+      console.log(`📈 SIMPLIFIED: Analytics exists, using simple transaction`)
+      const currentData = analyticsSnap.data() as AnalyticsData
+      console.log(`📊 Current totalClicks: ${currentData.totalClicks || 0}`)
 
-      const analyticsDoc = await transaction.get(analyticsRef)
-      console.log(`📊 Analytics document exists: ${analyticsDoc.exists()}`)
+      // Use the simplest possible transaction
+      await runTransaction(db, async (transaction) => {
+        console.log(`🔄 Inside simple transaction`)
 
-      if (analyticsDoc.exists()) {
-        console.log(`📈 Updating existing analytics document with increment(1)`)
-        const currentData = analyticsDoc.data() as AnalyticsData
-        console.log(`📊 Current totalClicks before increment: ${currentData.totalClicks || 0}`)
+        // Re-read the document inside the transaction
+        const freshDoc = await transaction.get(analyticsRef)
+        if (freshDoc.exists()) {
+          const freshData = freshDoc.data() as AnalyticsData
+          console.log(`📊 Fresh totalClicks in transaction: ${freshData.totalClicks || 0}`)
 
-        transaction.update(analyticsRef, {
-          totalClicks: increment(1),
-          lastClickAt: serverTimestamp(),
-          clickEvents: arrayUnion(clickEvent),
-        })
-        console.log(`✅ Analytics update transaction queued`)
-      } else {
-        console.log(`📝 Creating new analytics document with totalClicks: 1`)
-        transaction.set(analyticsRef, {
-          shortCode,
-          totalClicks: 1,
-          createdAt: serverTimestamp(),
-          lastClickAt: serverTimestamp(),
-          clickEvents: [clickEvent],
-        })
-        console.log(`✅ Analytics creation transaction queued`)
-      }
-    })
-
-    console.log(`✅ Analytics transaction completed successfully for: ${shortCode}`)
-
-    // STEP 3: Update URLs collection (optional, for backward compatibility)
-    console.log(`🔄 Starting URLs update for ${shortCode}`)
-
-    const urlRef = doc(db, "urls", shortCode)
-
-    await runTransaction(db, async (transaction) => {
-      console.log(`🔄 Inside transaction for URLs update: ${shortCode}`)
-
-      const urlDoc = await transaction.get(urlRef)
-      console.log(`📄 URL document exists: ${urlDoc.exists()}`)
-
-      if (urlDoc.exists()) {
-        console.log(`📈 Updating URL document with increment(1)`)
-        const currentData = urlDoc.data()
-        console.log(`📄 Current clicks before increment: ${currentData.clicks || 0}`)
-
-        transaction.update(urlRef, {
-          clicks: increment(1),
-          lastClickAt: serverTimestamp(),
-        })
-        console.log(`✅ URL update transaction queued`)
-      } else {
-        console.log(`⚠️ URL document doesn't exist, skipping URL update`)
-      }
-    })
-
-    console.log(`✅ URLs transaction completed successfully for: ${shortCode}`)
-
-    // Verify the analytics update worked
-    console.log(`🔍 Verifying analytics update for: ${shortCode}`)
-    const verifyAnalyticsSnap = await getDoc(analyticsRef)
-    if (verifyAnalyticsSnap.exists()) {
-      const verifyData = verifyAnalyticsSnap.data() as AnalyticsData
-      console.log(`✅ VERIFICATION: Analytics totalClicks is now: ${verifyData.totalClicks}`)
+          transaction.update(analyticsRef, {
+            totalClicks: increment(1),
+            lastClickAt: serverTimestamp(),
+            clickEvents: arrayUnion(clickEvent),
+          })
+          console.log(`✅ Simple update queued`)
+        }
+      })
+      console.log(`✅ Simple transaction completed`)
     } else {
-      console.log(`❌ VERIFICATION FAILED: Analytics document doesn't exist after update`)
+      console.log(`📝 SIMPLIFIED: Creating new analytics document`)
+      await setDoc(analyticsRef, {
+        shortCode,
+        totalClicks: 1,
+        createdAt: serverTimestamp(),
+        lastClickAt: serverTimestamp(),
+        clickEvents: [clickEvent],
+      })
+      console.log(`✅ New analytics document created`)
     }
 
-    console.log(
-      `🎯 SUMMARY: Individual click document created successfully at clicks/${shortCode}/shortcode_clicks/${clickId}`,
-    )
+    // VERIFICATION: Check if the update worked
+    console.log(`🔍 VERIFICATION: Checking analytics after update`)
+    const verifySnap = await getDoc(analyticsRef)
+    if (verifySnap.exists()) {
+      const verifyData = verifySnap.data() as AnalyticsData
+      console.log(`✅ VERIFICATION SUCCESS: totalClicks is now ${verifyData.totalClicks}`)
+    } else {
+      console.log(`❌ VERIFICATION FAILED: Analytics document missing`)
+    }
+
+    console.log(`🎯 SIMPLIFIED: Click recording completed for ${shortCode}`)
   } catch (error) {
-    console.error(`❌ Error in recordClickAnalytics for ${shortCode}:`, error)
-
-    // Even if analytics fails, we should still try to create the individual click document
-    // This is a fallback to ensure we don't lose click data
-    try {
-      const clickId = `fallback-click-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-      const shortcodeClicksRef = collection(db, "clicks", shortCode, "shortcode_clicks")
-      const individualClickRef = doc(shortcodeClicksRef, clickId)
-
-      const fallbackClickData: IndividualClickData = {
-        id: clickId,
-        timestamp: serverTimestamp(),
-        shortCode: shortCode,
-        userAgent: request.headers.get("user-agent") || "",
-        referer: request.headers.get("referer") || "",
-        ip: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "",
-        sessionId: `fallback-session-${Date.now()}`,
-        clickSource: "direct",
-        method: request.method,
-        url: request.url,
-        device: parseUserAgent(request.headers.get("user-agent") || ""),
-      }
-
-      await setDoc(individualClickRef, fallbackClickData)
-      console.log(`✅ FALLBACK: Individual click document created: ${clickId}`)
-    } catch (fallbackError) {
-      console.error(`❌ CRITICAL: Failed to create fallback click document:`, fallbackError)
-    }
-
+    console.error(`❌ SIMPLIFIED: Error in recordClickAnalytics for ${shortCode}:`, error)
     throw error
   }
 }
