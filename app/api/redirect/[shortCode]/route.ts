@@ -122,10 +122,14 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
       console.error("⚠️ Analytics recording failed (but continuing redirect):", analyticsError)
     }
 
-    console.log(`🚀 Redirecting to: ${redirectUrl}`)
+    console.log(`🚀 Redirect successful for: ${shortCode}`)
 
-    // Return actual HTTP redirect response (not JSON)
-    return NextResponse.redirect(redirectUrl, { status: 302 })
+    // Return the redirect URL for client-side redirection (keeping existing behavior)
+    return NextResponse.json({
+      redirectUrl,
+      success: true,
+      shortCode,
+    })
   } catch (error) {
     console.error("❌ Redirect error:", error)
     return NextResponse.json(

@@ -1,54 +1,54 @@
 "use client"
 
-import { useState } from "react"
-
-import { useEffect } from "react"
-import { useParams } from "next/navigation"
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Loader2, AlertCircle } from "lucide-react"
 import Link from "next/link"
 
-export default function RedirectPage() {
-  const params = useParams()
-  const shortCode = params.shortCode as string
+export default function RedirectPage({
+  params,
+}: {
+  params: { shortCode: string }
+}) {
+  const { shortCode } = params
+  const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (shortCode) {
-      async function fetchAndRedirect() {
-        try {
-          console.log(`Fetching URL data for ${shortCode}`)
-          const response = await fetch(`/api/redirect/${shortCode}`)
+    async function fetchAndRedirect() {
+      try {
+        console.log(`Fetching URL data for ${shortCode}`)
+        const response = await fetch(`/api/redirect/${shortCode}`)
 
-          if (!response.ok) {
-            if (response.status === 404) {
-              setError("Link not found")
-              return
-            }
-            throw new Error(`Error ${response.status}: ${response.statusText}`)
+        if (!response.ok) {
+          if (response.status === 404) {
+            setError("Link not found")
+            return
           }
-
-          const data = await response.json()
-          console.log("Redirect data:", data)
-
-          if (data.redirectUrl) {
-            console.log(`Redirecting to ${data.redirectUrl}`)
-            window.location.href = data.redirectUrl
-          } else {
-            setError("Invalid redirect data")
-          }
-        } catch (err) {
-          console.error("Redirect error:", err)
-          setError(err instanceof Error ? err.message : "An error occurred")
-        } finally {
-          setLoading(false)
+          throw new Error(`Error ${response.status}: ${response.statusText}`)
         }
-      }
 
-      fetchAndRedirect()
+        const data = await response.json()
+        console.log("Redirect data:", data)
+
+        if (data.redirectUrl) {
+          console.log(`Redirecting to ${data.redirectUrl}`)
+          window.location.href = data.redirectUrl
+        } else {
+          setError("Invalid redirect data")
+        }
+      } catch (err) {
+        console.error("Redirect error:", err)
+        setError(err instanceof Error ? err.message : "An error occurred")
+      } finally {
+        setLoading(false)
+      }
     }
+
+    fetchAndRedirect()
   }, [shortCode])
 
   if (loading) {
