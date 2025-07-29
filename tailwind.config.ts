@@ -10,6 +10,23 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        "source-sans": ["Source Sans Pro", "sans-serif"],
+      },
+      fontSize: {
+        "h1-hero": ["50px", { lineHeight: "1.2", fontWeight: "700" }],
+        "h2-section": ["40px", { lineHeight: "1.2", fontWeight: "600" }],
+        "h3-section": ["35px", { lineHeight: "1.2", fontWeight: "600" }],
+        "title-semi-bold": ["24px", { lineHeight: "1.3", fontWeight: "600" }],
+        "sub-header-semi-bold": ["24px", { lineHeight: "1.3", fontWeight: "600" }],
+        "sub-heading-semi-bold": ["22px", { lineHeight: "1.3", fontWeight: "600" }],
+        "sub-heading-regular": ["22px", { lineHeight: "1.3", fontWeight: "400" }],
+        "body-regular": ["18px", { lineHeight: "1.5", fontWeight: "400" }],
+        "body-italic": ["18px", { lineHeight: "1.5", fontWeight: "400", fontStyle: "italic" }],
+        "link-semi-bold": ["16px", { lineHeight: "1.4", fontWeight: "600" }],
+        "quote-italic": ["18px", { lineHeight: "1.5", fontWeight: "400", fontStyle: "italic" }],
+        "card-quote": ["20px", { lineHeight: "1.4", fontWeight: "400" }],
+      },
       colors: {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",

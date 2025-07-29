@@ -24,7 +24,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={inter.variable}>
-      <body>
+      <head>
+        <link
+          href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro:ital,wght@0,400;0,600;0,700;1,400;1,600&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body style={{ fontFamily: "Source Sans Pro, sans-serif" }}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
           {children}
           <Toaster />
