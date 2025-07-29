@@ -14,73 +14,80 @@ body {
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
+    --background: 0 0% 100%; /* White #FFFFFF */
+    --foreground: 240 12% 32%; /* Tundora #4D475B */
+    --card: 0 0% 100%; /* White #FFFFFF */
+    --card-foreground: 240 12% 32%; /* Tundora #4D475B */
+    --popover: 0 0% 100%; /* White #FFFFFF */
+    --popover-foreground: 240 12% 32%; /* Tundora #4D475B */
+    --primary: 262 65% 55%; /* Electric Violet #833ADF */
+    --primary-foreground: 0 0% 100%; /* White #FFFFFF */
+    --secondary: 262 85% 92%; /* Light Purple #D9D8FD */
+    --secondary-foreground: 240 12% 32%; /* Tundora #4D475B */
+    --muted: 262 85% 92%; /* Light Purple #D9D8FD */
+    --muted-foreground: 240 12% 32%; /* Tundora #4D475B */
+    --accent: 262 85% 92%; /* Light Purple #D9D8FD */
+    --accent-foreground: 240 12% 32%; /* Tundora #4D475B */
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+    --border: 262 85% 92%; /* Light Purple #D9D8FD */
+    --input: 262 85% 92%; /* Light Purple #D9D8FD */
+    --ring: 262 65% 55%; /* Electric Violet #833ADF */
+    --chart-1: 262 65% 55%; /* Electric Violet #833ADF */
+    --chart-2: 336 89% 56%; /* Violet Pink #F22C7C */
+    --chart-3: 262 85% 92%; /* Light Purple #D9D8FD */
+    --chart-4: 240 12% 32%; /* Tundora #4D475B */
+    --chart-5: 0 0% 100%; /* White #FFFFFF */
     --radius: 0.5rem;
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 0 0% 100%; /* White #FFFFFF */
+    --sidebar-foreground: 240 12% 32%; /* Tundora #4D475B */
+    --sidebar-primary: 262 65% 55%; /* Electric Violet #833ADF */
+    --sidebar-primary-foreground: 0 0% 100%; /* White #FFFFFF */
+    --sidebar-accent: 262 85% 92%; /* Light Purple #D9D8FD */
+    --sidebar-accent-foreground: 240 12% 32%; /* Tundora #4D475B */
+    --sidebar-border: 262 85% 92%; /* Light Purple #D9D8FD */
+    --sidebar-ring: 262 65% 55%; /* Electric Violet #833ADF */
+
+    /* Custom Wodify Colors */
+    --electric-violet: 262 65% 55%; /* #833ADF */
+    --violet-pink: 336 89% 56%; /* #F22C7C */
+    --light-purple: 262 85% 92%; /* #D9D8FD */
+    --tundora: 240 12% 32%; /* #4D475B */
   }
+
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
+    --background: 240 12% 32%; /* Tundora #4D475B */
+    --foreground: 0 0% 100%; /* White #FFFFFF */
+    --card: 240 12% 32%; /* Tundora #4D475B */
+    --card-foreground: 0 0% 100%; /* White #FFFFFF */
+    --popover: 240 12% 32%; /* Tundora #4D475B */
+    --popover-foreground: 0 0% 100%; /* White #FFFFFF */
+    --primary: 262 65% 55%; /* Electric Violet #833ADF */
+    --primary-foreground: 0 0% 100%; /* White #FFFFFF */
+    --secondary: 262 85% 92%; /* Light Purple #D9D8FD */
+    --secondary-foreground: 240 12% 32%; /* Tundora #4D475B */
+    --muted: 262 85% 92%; /* Light Purple #D9D8FD */
+    --muted-foreground: 240 12% 32%; /* Tundora #4D475B */
+    --accent: 262 85% 92%; /* Light Purple #D9D8FD */
+    --accent-foreground: 240 12% 32%; /* Tundora #4D475B */
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --border: 262 85% 92%; /* Light Purple #D9D8FD */
+    --input: 262 85% 92%; /* Light Purple #D9D8FD */
+    --ring: 262 65% 55%; /* Electric Violet #833ADF */
+    --chart-1: 262 65% 55%; /* Electric Violet #833ADF */
+    --chart-2: 336 89% 56%; /* Violet Pink #F22C7C */
+    --chart-3: 262 85% 92%; /* Light Purple #D9D8FD */
+    --chart-4: 0 0% 100%; /* White #FFFFFF */
+    --chart-5: 240 12% 32%; /* Tundora #4D475B */
+    --sidebar-background: 240 12% 32%; /* Tundora #4D475B */
+    --sidebar-foreground: 0 0% 100%; /* White #FFFFFF */
+    --sidebar-primary: 262 65% 55%; /* Electric Violet #833ADF */
+    --sidebar-primary-foreground: 0 0% 100%; /* White #FFFFFF */
+    --sidebar-accent: 262 85% 92%; /* Light Purple #D9D8FD */
+    --sidebar-accent-foreground: 240 12% 32%; /* Tundora #4D475B */
+    --sidebar-border: 262 85% 92%; /* Light Purple #D9D8FD */
+    --sidebar-ring: 262 65% 55%; /* Electric Violet #833ADF */
   }
 }
 
@@ -90,5 +97,60 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Custom Wodify Color Classes */
+@layer utilities {
+  .bg-electric-violet {
+    background-color: #833adf;
+  }
+  .bg-violet-pink {
+    background-color: #f22c7c;
+  }
+  .bg-light-purple {
+    background-color: #d9d8fd;
+  }
+  .bg-tundora {
+    background-color: #4d475b;
+  }
+
+  .text-electric-violet {
+    color: #833adf;
+  }
+  .text-violet-pink {
+    color: #f22c7c;
+  }
+  .text-light-purple {
+    color: #d9d8fd;
+  }
+  .text-tundora {
+    color: #4d475b;
+  }
+
+  .border-electric-violet {
+    border-color: #833adf;
+  }
+  .border-violet-pink {
+    border-color: #f22c7c;
+  }
+  .border-light-purple {
+    border-color: #d9d8fd;
+  }
+  .border-tundora {
+    border-color: #4d475b;
+  }
+
+  .hover\:bg-electric-violet:hover {
+    background-color: #833adf;
+  }
+  .hover\:bg-violet-pink:hover {
+    background-color: #f22c7c;
+  }
+  .hover\:bg-light-purple:hover {
+    background-color: #d9d8fd;
+  }
+  .hover\:bg-tundora:hover {
+    background-color: #4d475b;
   }
 }
