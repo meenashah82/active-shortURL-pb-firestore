@@ -1,52 +1,53 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Separator } from "@/components/ui/separator"
+import { doc, getDoc, updateDoc, increment, serverTimestamp, arrayUnion, Timestamp } from "firebase/firestore"
 import { db } from "@/lib/firebase"
-import { doc, getDoc, runTransaction, increment, serverTimestamp, arrayUnion } from "firebase/firestore"
-import { RefreshCw, Target, AlertCircle, CheckCircle } from "lucide-react"
 
-export default function DebugTotalClicks() {
+interface AnalyticsData {
+  shortCode: string
+  totalClicks: number
+  createdAt: any
+  lastClickAt?: any
+  clickEvents: any[]
+}
+
+export default function DebugTotalClicksPage() {
   const [shortCode, setShortCode] = useState("")
-  const [result, setResult] = useState<any>(null)
   const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState<string>("")
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null)
 
-  const checkAnalyticsDoc = async () => {
-    if (!shortCode) return
-
-    setLoading(true)
+  const fetchAnalyticsData = async (code: string) => {
     try {
-      const analyticsRef = doc(db, "analytics", shortCode)
+      const analyticsRef = doc(db, "analytics", code)
       const analyticsSnap = await getDoc(analyticsRef)
 
       if (analyticsSnap.exists()) {
-        const data = analyticsSnap.data()
-        setResult({
-          exists: true,
-          data,
-          timestamp: new Date().toISOString(),
-        })
+        const data = analyticsSnap.data() as AnalyticsData
+        setAnalyticsData(data)
+        return data
       } else {
-        setResult({
-          exists: false,
-          message: "Analytics document does not exist",
-          timestamp: new Date().toISOString(),
-        })
+        setAnalyticsData(null)
+        return null
       }
     } catch (error) {
-      setResult({
-        error: error.message,
-        timestamp: new Date().toISOString(),
-      })
-    } finally {
-      setLoading(false)
+      console.error("Error fetching analytics:", error)
+      setAnalyticsData(null)
+      return null
     }
   }
 
   const testDirectIncrement = async () => {
-    if (!shortCode) return
+    if (!shortCode) {
+      setResult("Please enter a short code")
+      return
+    }
 
     setLoading(true)
     try {
@@ -54,278 +55,211 @@ export default function DebugTotalClicks() {
 
       const analyticsRef = doc(db, "analytics", shortCode)
 
-      await runTransaction(db, async (transaction) => {
-        const analyticsDoc = await transaction.get(analyticsRef)
+      // Check if document exists first
+      const beforeSnap = await getDoc(analyticsRef)
+      console.log(`📊 Before - Document exists: ${beforeSnap.exists()}`)
 
-        console.log(`📊 Document exists: ${analyticsDoc.exists()}`)
+      if (beforeSnap.exists()) {
+        const beforeData = beforeSnap.data() as AnalyticsData
+        console.log(`📊 Before - totalClicks: ${beforeData.totalClicks}`)
+      }
 
-        // ✅ FIX: Use Timestamp.now() instead of serverTimestamp() for arrayUnion
-        const now = new Date()
+      // Create click event with regular timestamp (not serverTimestamp)
+      const now = Timestamp.now()
+      const clickEvent = {
+        id: `test-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: now, // ✅ Use regular timestamp for arrayUnion
+        userAgent: "Debug Test User Agent",
+        referer: "https://debug.test",
+        ip: "127.0.0.1",
+        sessionId: `debug-session-${Date.now()}`,
+        clickSource: "test" as const,
+      }
 
-        const clickEvent = {
-          id: `test-${Date.now()}`,
-          timestamp: now, // ✅ Use regular Date instead of serverTimestamp()
-          userAgent: "Test User Agent",
-          referer: "Debug Page",
-          ip: "127.0.0.1",
-          sessionId: `test-${Date.now()}`,
-          clickSource: "test" as const,
-        }
-
-        if (analyticsDoc.exists()) {
-          const currentData = analyticsDoc.data()
-          console.log(`📈 Current totalClicks: ${currentData.totalClicks || 0}`)
-
-          transaction.update(analyticsRef, {
-            totalClicks: increment(1),
-            lastClickAt: serverTimestamp(),
-            clickEvents: arrayUnion(clickEvent),
-          })
-          console.log(`✅ Update transaction queued`)
-        } else {
-          console.log(`📝 Creating new analytics document`)
-          transaction.set(analyticsRef, {
-            shortCode,
-            totalClicks: 1,
-            createdAt: serverTimestamp(),
-            lastClickAt: serverTimestamp(),
-            clickEvents: [clickEvent],
-          })
-          console.log(`✅ Set transaction queued`)
-        }
+      // Perform the increment
+      await updateDoc(analyticsRef, {
+        totalClicks: increment(1),
+        lastClickAt: serverTimestamp(), // ✅ This is OK for direct field update
+        clickEvents: arrayUnion(clickEvent), // ✅ Using regular timestamp
       })
 
-      console.log(`✅ Transaction completed`)
+      console.log(`✅ Direct increment completed`)
 
       // Verify the result
-      const verifySnap = await getDoc(analyticsRef)
-      if (verifySnap.exists()) {
-        const verifyData = verifySnap.data()
-        console.log(`🔍 Verification: totalClicks is now ${verifyData.totalClicks}`)
-
-        setResult({
-          success: true,
-          message: `Direct increment test completed. totalClicks is now: ${verifyData.totalClicks}`,
-          data: verifyData,
-          timestamp: new Date().toISOString(),
-        })
+      const afterSnap = await getDoc(analyticsRef)
+      if (afterSnap.exists()) {
+        const afterData = afterSnap.data() as AnalyticsData
+        console.log(`📊 After - totalClicks: ${afterData.totalClicks}`)
+        setResult(`✅ Success! totalClicks incremented to: ${afterData.totalClicks}`)
+        await fetchAnalyticsData(shortCode)
       } else {
-        setResult({
-          error: "Document doesn't exist after transaction",
-          timestamp: new Date().toISOString(),
-        })
+        setResult("❌ Document not found after increment")
       }
     } catch (error) {
-      console.error(`❌ Direct increment test failed:`, error)
-      setResult({
-        error: error.message,
-        timestamp: new Date().toISOString(),
-      })
+      console.error("❌ Direct increment error:", error)
+      setResult(`❌ Error: ${error instanceof Error ? error.message : "Unknown error"}`)
     } finally {
       setLoading(false)
     }
   }
 
   const testRedirectAPI = async () => {
-    if (!shortCode) return
+    if (!shortCode) {
+      setResult("Please enter a short code")
+      return
+    }
 
     setLoading(true)
     try {
-      console.log(`🔗 Testing redirect API for: ${shortCode}`)
+      console.log(`🧪 Testing redirect API for: ${shortCode}`)
 
       const response = await fetch(`/api/redirect/${shortCode}`)
       const data = await response.json()
 
       console.log(`📡 API Response:`, data)
 
-      setResult({
-        apiTest: true,
-        status: response.status,
-        response: data,
-        timestamp: new Date().toISOString(),
-      })
+      if (response.ok) {
+        setResult(
+          `✅ API Test Result\nStatus: ${response.status}\nSuccess: ${data.success ? "Yes" : "No"}\nRedirect URL: ${data.redirectUrl}`,
+        )
 
-      // Check analytics after API call
-      setTimeout(async () => {
-        const analyticsRef = doc(db, "analytics", shortCode)
-        const analyticsSnap = await getDoc(analyticsRef)
-        if (analyticsSnap.exists()) {
-          const analyticsData = analyticsSnap.data()
-          console.log(`🔍 Analytics after API call: totalClicks = ${analyticsData.totalClicks}`)
-        }
-      }, 2000)
+        // Refresh analytics data after API call
+        setTimeout(async () => {
+          await fetchAnalyticsData(shortCode)
+        }, 1000)
+      } else {
+        setResult(`❌ API Error\nStatus: ${response.status}\nError: ${data.error}`)
+      }
     } catch (error) {
-      setResult({
-        error: error.message,
-        timestamp: new Date().toISOString(),
-      })
+      console.error("❌ API test error:", error)
+      setResult(`❌ API Test Error: ${error instanceof Error ? error.message : "Unknown error"}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const refreshAnalytics = async () => {
+    if (!shortCode) return
+
+    setLoading(true)
+    try {
+      await fetchAnalyticsData(shortCode)
+      setResult("📊 Analytics data refreshed")
+    } catch (error) {
+      setResult(`❌ Refresh error: ${error instanceof Error ? error.message : "Unknown error"}`)
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-4">🔧 Debug totalClicks Issue</h1>
-        <p className="text-gray-600">Debug why totalClicks field is not updating in Firestore</p>
-      </div>
-
-      <Card className="mb-6">
+    <div className="container mx-auto p-6 max-w-4xl">
+      <Card>
         <CardHeader>
-          <CardTitle>Debug Tools</CardTitle>
+          <CardTitle>🧪 Debug totalClicks Issue</CardTitle>
+          <CardDescription>
+            Test if totalClicks increment is working properly in the analytics collection
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <label className="text-sm font-medium">Short Code:</label>
+        <CardContent className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="shortCode">Short Code</Label>
             <Input
+              id="shortCode"
               value={shortCode}
               onChange={(e) => setShortCode(e.target.value)}
-              placeholder="Enter short code (e.g., abc123)"
+              placeholder="Enter short code (e.g., 6yRi4j)"
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-            <Button onClick={checkAnalyticsDoc} disabled={loading || !shortCode}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Check Analytics Doc
+          <div className="flex gap-4 flex-wrap">
+            <Button onClick={testDirectIncrement} disabled={loading || !shortCode} variant="default">
+              {loading ? "Testing..." : "Test Direct Increment"}
             </Button>
 
-            <Button onClick={testDirectIncrement} disabled={loading || !shortCode} variant="outline">
-              <Target className="h-4 w-4 mr-2" />
-              Test Direct Increment
+            <Button onClick={testRedirectAPI} disabled={loading || !shortCode} variant="secondary">
+              {loading ? "Testing..." : "Test Redirect API"}
             </Button>
 
-            <Button onClick={testRedirectAPI} disabled={loading || !shortCode} variant="outline">
-              <AlertCircle className="h-4 w-4 mr-2" />
-              Test Redirect API
+            <Button onClick={refreshAnalytics} disabled={loading || !shortCode} variant="outline">
+              {loading ? "Refreshing..." : "Refresh Analytics"}
             </Button>
           </div>
 
-          <div className="text-xs text-gray-500 space-y-1">
-            <p>
-              <strong>Debug Steps:</strong>
-            </p>
-            <p>1. Check if analytics document exists and see current totalClicks</p>
-            <p>2. Test direct increment to see if Firestore increment() works</p>
-            <p>3. Test the redirect API to see if it updates analytics</p>
-            <p>4. Check browser console for detailed logs</p>
-          </div>
-        </CardContent>
-      </Card>
+          {result && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Test Result</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <pre className="whitespace-pre-wrap text-sm bg-gray-100 p-3 rounded">{result}</pre>
+              </CardContent>
+            </Card>
+          )}
 
-      {result && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Debug Results</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {result.exists === true && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <h3 className="font-medium text-green-800 mb-2 flex items-center">
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Analytics Document Found
-                  </h3>
-                  <div className="text-sm text-green-700 space-y-1">
-                    <p>
-                      <strong>Total Clicks:</strong> {result.data.totalClicks}
-                    </p>
-                    <p>
-                      <strong>Click Events:</strong> {result.data.clickEvents?.length || 0}
-                    </p>
-                    <p>
-                      <strong>Last Click:</strong> {result.data.lastClickAt?.toDate?.()?.toLocaleString() || "Never"}
-                    </p>
-                    <p>
-                      <strong>Created:</strong> {result.data.createdAt?.toDate?.()?.toLocaleString() || "Unknown"}
-                    </p>
+          <Separator />
+
+          {analyticsData && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">📊 Current Analytics Data</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 text-sm">
+                  <div>
+                    <strong>Short Code:</strong> {analyticsData.shortCode}
+                  </div>
+                  <div>
+                    <strong>Total Clicks:</strong> {analyticsData.totalClicks}
+                  </div>
+                  <div>
+                    <strong>Click Events Count:</strong> {analyticsData.clickEvents?.length || 0}
+                  </div>
+                  <div>
+                    <strong>Created At:</strong> {analyticsData.createdAt?.toDate?.()?.toLocaleString() || "N/A"}
+                  </div>
+                  <div>
+                    <strong>Last Click At:</strong> {analyticsData.lastClickAt?.toDate?.()?.toLocaleString() || "N/A"}
                   </div>
                 </div>
-              )}
 
-              {result.exists === false && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <h3 className="font-medium text-yellow-800 mb-2">⚠️ Analytics Document Not Found</h3>
-                  <p className="text-sm text-yellow-700">
-                    The analytics document doesn't exist yet. Try creating a short URL first or use direct increment
-                    test.
-                  </p>
-                </div>
-              )}
+                {analyticsData.clickEvents && analyticsData.clickEvents.length > 0 && (
+                  <details className="mt-4">
+                    <summary className="cursor-pointer font-medium">
+                      Click Events ({analyticsData.clickEvents.length})
+                    </summary>
+                    <pre className="mt-2 text-xs bg-gray-100 p-3 rounded overflow-auto max-h-40">
+                      {JSON.stringify(analyticsData.clickEvents, null, 2)}
+                    </pre>
+                  </details>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
-              {result.success && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h3 className="font-medium text-blue-800 mb-2">🎯 Direct Increment Test Result</h3>
-                  <p className="text-sm text-blue-700">{result.message}</p>
-                </div>
-              )}
-
-              {result.apiTest && (
-                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                  <h3 className="font-medium text-purple-800 mb-2">🔗 API Test Result</h3>
-                  <div className="text-sm text-purple-700 space-y-1">
-                    <p>
-                      <strong>Status:</strong> {result.status}
-                    </p>
-                    <p>
-                      <strong>Success:</strong> {result.response.success ? "Yes" : "No"}
-                    </p>
-                    {result.response.redirectUrl && (
-                      <p>
-                        <strong>Redirect URL:</strong> {result.response.redirectUrl}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {result.error && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <h3 className="font-medium text-red-800 mb-2">❌ Error</h3>
-                  <p className="text-sm text-red-700">{result.error}</p>
-                </div>
-              )}
-
-              <details className="mt-4">
-                <summary className="cursor-pointer text-sm font-medium text-gray-700">View Raw Data</summary>
-                <pre className="text-xs bg-gray-100 p-3 rounded mt-2 overflow-auto">
-                  {JSON.stringify(result, null, 2)}
-                </pre>
-              </details>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>🔍 Troubleshooting Steps</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-sm space-y-2">
-            <div className="space-y-1">
-              <p className="font-medium">Common Issues:</p>
-              <ul className="ml-4 space-y-1 text-gray-600">
-                <li>• Analytics document doesn't exist (create it first)</li>
-                <li>• Firestore rules blocking writes</li>
-                <li>• Transaction conflicts or timeouts</li>
-                <li>• Network connectivity issues</li>
-                <li>• Browser console errors</li>
-                <li>• increment() function not working properly</li>
-              </ul>
-            </div>
-            <div className="mt-4 p-3 bg-blue-50 rounded">
-              <p className="font-medium text-blue-800">Next Steps:</p>
-              <ol className="text-blue-700 text-sm mt-1 space-y-1">
-                <li>1. Use "Test Direct Increment" to see if increment() works at all</li>
-                <li>2. Check browser console for detailed transaction logs</li>
-                <li>3. Verify Firestore Console shows the changes</li>
-                <li>4. Test the redirect API to see if it triggers updates</li>
-                <li>5. Check if there are any Firestore security rule issues</li>
-              </ol>
-            </div>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">🔍 Debug Instructions</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm space-y-2">
+              <p>
+                <strong>1. Test Direct Increment:</strong> This directly calls updateDoc with increment(1) to see if the
+                basic operation works.
+              </p>
+              <p>
+                <strong>2. Test Redirect API:</strong> This calls the /api/redirect/[shortCode] endpoint to test the
+                full flow.
+              </p>
+              <p>
+                <strong>3. Check Browser Console:</strong> Look for detailed logs about what's happening during the
+                operations.
+              </p>
+              <p>
+                <strong>4. Check Firestore Console:</strong> Verify the changes are actually being written to the
+                database.
+              </p>
+            </CardContent>
+          </Card>
         </CardContent>
       </Card>
     </div>

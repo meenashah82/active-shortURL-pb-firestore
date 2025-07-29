@@ -137,53 +137,10 @@ export async function createShortUrl(shortCode: string, originalUrl: string, met
 
     console.log(`✅ Main documents created for: ${shortCode}`)
 
-    // Now create the shortcode_clicks subcollection with an initialization document
-    try {
-      const shortcodeClicksRef = collection(db, "clicks", shortCode, "shortcode_clicks")
-      const initClickId = `init-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    // ✅ REMOVED: No more initialization document creation
+    // The shortcode_clicks subcollection will be created automatically when the first real click happens
 
-      const initClickData: IndividualClickData = {
-        id: initClickId,
-        timestamp: serverTimestamp(),
-        shortCode: shortCode,
-        userAgent: "System Initialization",
-        referer: "https://wodify.link",
-        ip: "127.0.0.1",
-        sessionId: `init-session-${Date.now()}`,
-        clickSource: "test",
-        method: "GET",
-        url: `https://wodify.link/${shortCode}`,
-        httpVersion: "HTTP/1.1",
-        host: "wodify.link",
-        contentType: "text/html",
-        accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        queryParameters: {},
-        pathParameters: { shortCode },
-        headers: {
-          "User-Agent": "System Initialization",
-          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-          Host: "wodify.link",
-        },
-        device: {
-          type: "system",
-          browser: "System",
-          os: "System",
-          isMobile: false,
-        },
-      }
-
-      console.log(`🔄 Creating shortcode_clicks subcollection for: ${shortCode}`)
-      console.log(`📝 Path: clicks/${shortCode}/shortcode_clicks/${initClickId}`)
-
-      await setDoc(doc(shortcodeClicksRef, initClickId), initClickData)
-
-      console.log(`✅ Shortcode_clicks subcollection initialized for: ${shortCode}`)
-    } catch (subcollectionError) {
-      console.error(`❌ Error creating shortcode_clicks subcollection for ${shortCode}:`, subcollectionError)
-      // Don't throw here - the main URL creation should still succeed
-    }
-
-    console.log(`✅ Complete URL structure created with clicks collection and subcollection: ${shortCode}`)
+    console.log(`✅ Complete URL structure created: ${shortCode}`)
   } catch (error) {
     console.error("❌ Error creating short URL:", error)
     throw error
@@ -496,50 +453,15 @@ export async function migrateToShortcodeClicksSubcollections(): Promise<void> {
       const shortCode = clickDoc.id
       console.log(`🔄 Processing clicks document for shortcode: ${shortCode}`)
 
-      // Create a sample click document in the shortcode_clicks subcollection
-      // This is just to establish the subcollection structure
-      const shortcodeClicksRef = collection(db, "clicks", shortCode, "shortcode_clicks")
-      const sampleClickId = `sample-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      // ✅ REMOVED: No more sample/initialization document creation
+      // The subcollection will be created automatically when the first real click happens
 
-      const sampleClickData: IndividualClickData = {
-        id: sampleClickId,
-        timestamp: serverTimestamp(),
-        shortCode: shortCode,
-        userAgent: "Sample User Agent (Migration)",
-        referer: "https://example.com",
-        ip: "127.0.0.1",
-        sessionId: `sample-session-${Date.now()}`,
-        clickSource: "test",
-        method: "GET",
-        url: `https://wodify.link/${shortCode}`,
-        httpVersion: "HTTP/1.1",
-        host: "wodify.link",
-        contentType: "text/html",
-        accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        queryParameters: {},
-        pathParameters: { shortCode },
-        headers: {
-          "User-Agent": "Sample User Agent (Migration)",
-          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-          Host: "wodify.link",
-        },
-        device: {
-          type: "desktop",
-          browser: "Chrome",
-          os: "Windows",
-          isMobile: false,
-        },
-      }
-
-      await setDoc(doc(shortcodeClicksRef, sampleClickId), sampleClickData)
       processedCount++
-
-      console.log(`✅ Created shortcode_clicks subcollection for: ${shortCode}`)
+      console.log(`✅ Prepared shortcode_clicks structure for: ${shortCode}`)
     }
 
     console.log(`✅ Shortcode clicks subcollections migration complete: processed ${processedCount} documents`)
-    console.log("📝 Note: Sample click documents were created to establish the subcollection structure.")
-    console.log("📝 These sample documents can be removed once real click tracking begins.")
+    console.log("📝 Note: Subcollections will be created automatically when the first real click occurs.")
   } catch (error) {
     console.error("❌ Shortcode clicks subcollections migration error:", error)
     throw error

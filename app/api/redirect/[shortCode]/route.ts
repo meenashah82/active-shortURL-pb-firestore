@@ -91,10 +91,10 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
 
     console.log(`✅ Redirect URL prepared: ${redirectUrl}`)
 
-    // Record the click analytics - FIXED VERSION
+    // Record the click analytics - CLEAN VERSION (no init documents)
     try {
       console.log(`📊 Recording click analytics for: ${shortCode}`)
-      await recordClickAnalyticsFixed(shortCode, request)
+      await recordClickAnalyticsClean(shortCode, request)
       console.log(`✅ Click analytics recorded successfully`)
     } catch (analyticsError) {
       console.error("⚠️ Analytics recording failed:", analyticsError)
@@ -120,15 +120,15 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
   }
 }
 
-async function recordClickAnalyticsFixed(shortCode: string, request: NextRequest) {
+async function recordClickAnalyticsClean(shortCode: string, request: NextRequest) {
   try {
-    console.log(`🔄 FIXED: Starting click recording for ${shortCode}`)
+    console.log(`🔄 CLEAN: Starting click recording for ${shortCode}`)
 
     // Create unique click ID
     const clickId = `click-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     const sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
 
-    // ✅ FIX: Use Timestamp.now() instead of serverTimestamp() for arrayUnion
+    // ✅ Use Timestamp.now() for arrayUnion compatibility
     const now = Timestamp.now()
 
     console.log(`📝 Generated click ID: ${clickId}`)
@@ -151,7 +151,7 @@ async function recordClickAnalyticsFixed(shortCode: string, request: NextRequest
       device: parseUserAgent(request.headers.get("user-agent") || ""),
     }
 
-    // Ensure parent clicks document exists
+    // ✅ CLEAN: Ensure parent clicks document exists (no init subcollection document)
     const clicksRef = doc(db, "clicks", shortCode)
     const clicksSnap = await getDoc(clicksRef)
 
@@ -164,16 +164,17 @@ async function recordClickAnalyticsFixed(shortCode: string, request: NextRequest
       })
     }
 
-    // Create individual click document
+    // ✅ CLEAN: Create individual click document (this automatically creates the subcollection)
     await setDoc(individualClickRef, individualClickData)
     console.log(`✅ Individual click document created: ${clickId}`)
+    console.log(`📍 Subcollection path: clicks/${shortCode}/shortcode_clicks/${clickId}`)
 
     // STEP 2: Update analytics with FIXED timestamp issue
-    console.log(`🔄 FIXED: Updating analytics for ${shortCode}`)
+    console.log(`🔄 CLEAN: Updating analytics for ${shortCode}`)
 
     const analyticsRef = doc(db, "analytics", shortCode)
 
-    // ✅ FIX: Create click event with regular timestamp for arrayUnion
+    // ✅ Create click event with regular timestamp for arrayUnion
     const clickEvent = {
       id: clickId,
       timestamp: now, // ✅ Use Timestamp.now() instead of serverTimestamp()
@@ -226,9 +227,9 @@ async function recordClickAnalyticsFixed(shortCode: string, request: NextRequest
       console.log(`❌ VERIFICATION FAILED: Analytics document missing`)
     }
 
-    console.log(`🎯 FIXED: Click recording completed for ${shortCode}`)
+    console.log(`🎯 CLEAN: Click recording completed for ${shortCode}`)
   } catch (error) {
-    console.error(`❌ FIXED: Error in recordClickAnalytics for ${shortCode}:`, error)
+    console.error(`❌ CLEAN: Error in recordClickAnalytics for ${shortCode}:`, error)
     throw error
   }
 }
