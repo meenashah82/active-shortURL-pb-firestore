@@ -65,10 +65,10 @@ export default function AnalyticsPage({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="flex items-center gap-2">
-          <Loader2 className="h-6 w-6 animate-spin" />
-          <span>Loading real-time analytics...</span>
+          <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
+          <span className="text-gray-900">Loading real-time analytics...</span>
         </div>
       </div>
     )
@@ -76,15 +76,15 @@ export default function AnalyticsPage({
 
   if (error || !urlData) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <Card className="max-w-md w-full mx-4">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Error Loading Analytics</CardTitle>
+            <CardTitle className="text-2xl text-gray-900">Error Loading Analytics</CardTitle>
           </CardHeader>
           <CardContent className="text-center">
             <p className="text-gray-600 mb-4">{error || "Failed to load analytics data"}</p>
             <Link href="/">
-              <Button>Go to Homepage</Button>
+              <Button className="bg-purple-600 hover:bg-purple-700 text-white">Go to Homepage</Button>
             </Link>
           </CardContent>
         </Card>
@@ -127,7 +127,7 @@ export default function AnalyticsPage({
   const shortUrl = `${window.location.origin}/${shortCode}`
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-white">
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           {/* Real-time Connection Status */}
@@ -180,7 +180,12 @@ export default function AnalyticsPage({
           {/* Header */}
           <div className="flex items-center gap-4 mb-8">
             <Link href="/">
-              <Button variant="outline" size="sm" onClick={handleElementClick("back-button")}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleElementClick("back-button")}
+                className="border-purple-200 text-purple-700 hover:bg-purple-50 bg-transparent"
+              >
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Home
               </Button>
@@ -193,14 +198,14 @@ export default function AnalyticsPage({
             className={`mb-8 transition-all duration-500 ${
               isNewClick
                 ? "border-4 border-green-400 shadow-lg shadow-green-200 scale-[1.02]"
-                : "border-2 border-blue-200"
+                : "border-2 border-purple-200"
             }`}
           >
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Zap
                   className={`h-6 w-6 transition-all duration-300 ${
-                    isNewClick ? "text-yellow-500 animate-bounce scale-125" : "text-blue-600"
+                    isNewClick ? "text-yellow-500 animate-bounce scale-125" : "text-purple-600"
                   }`}
                 />
                 Total Clicks (Real-time)
@@ -216,7 +221,7 @@ export default function AnalyticsPage({
               <div className="text-center">
                 <div
                   className={`text-8xl font-bold transition-all duration-700 ${
-                    isNewClick ? "text-green-600 scale-110 drop-shadow-lg animate-pulse" : "text-blue-600"
+                    isNewClick ? "text-green-600 scale-110 drop-shadow-lg animate-pulse" : "text-purple-600"
                   }`}
                 >
                   {clickCount}
@@ -225,7 +230,7 @@ export default function AnalyticsPage({
                   Updates instantly via Firestore WebSocket when short URL is clicked
                 </p>
                 {isNewClick && (
-                  <div className="mt-4 p-4 bg-gradient-to-r from-green-100 to-blue-100 rounded-lg border-2 border-green-300">
+                  <div className="mt-4 p-4 bg-gradient-to-r from-green-100 to-purple-100 rounded-lg border-2 border-green-300">
                     <div className="text-green-700 font-bold text-xl animate-bounce">
                       🎉 Someone just clicked your short URL!
                     </div>
@@ -241,8 +246,8 @@ export default function AnalyticsPage({
           {/* URL Info */}
           <Card className="mb-8">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Globe className="h-5 w-5" />
+              <CardTitle className="flex items-center gap-2 text-gray-900">
+                <Globe className="h-5 w-5 text-purple-600" />
                 URL Information
               </CardTitle>
             </CardHeader>
@@ -258,6 +263,7 @@ export default function AnalyticsPage({
                       handleElementClick("open-short-url")(e)
                       window.open(shortUrl, "_blank")
                     }}
+                    className="border-purple-200 text-purple-700 hover:bg-purple-50"
                   >
                     <ExternalLink className="h-4 w-4" />
                   </Button>
@@ -281,7 +287,7 @@ export default function AnalyticsPage({
             {/* Real-time Clicks Feed */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-gray-900">
                   Recent Clicks (Live WebSocket Feed)
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                 </CardTitle>
@@ -301,9 +307,9 @@ export default function AnalyticsPage({
                         key={click.id || index}
                         className={`p-3 rounded-lg transition-all duration-500 ${
                           index === 0 && isNewClick
-                            ? "bg-gradient-to-r from-green-100 to-blue-100 border-2 border-green-300 animate-pulse shadow-md"
+                            ? "bg-gradient-to-r from-green-100 to-purple-100 border-2 border-green-300 animate-pulse shadow-md"
                             : click.clickSource === "analytics_page"
-                              ? "bg-blue-50 border border-blue-200"
+                              ? "bg-purple-50 border border-purple-200"
                               : "bg-gray-50"
                         }`}
                         onClick={handleElementClick(`click-item-${index}`)}
@@ -317,7 +323,7 @@ export default function AnalyticsPage({
                               <span className="text-green-600 text-xs font-bold animate-bounce">LIVE!</span>
                             )}
                             {click.clickSource === "analytics_page" && (
-                              <span className="text-blue-600 text-xs bg-blue-100 px-2 py-1 rounded">Analytics</span>
+                              <span className="text-purple-600 text-xs bg-purple-100 px-2 py-1 rounded">Analytics</span>
                             )}
                             {click.clickSource === "direct" && (
                               <span className="text-green-600 text-xs bg-green-100 px-2 py-1 rounded">URL Click</span>
@@ -350,7 +356,7 @@ export default function AnalyticsPage({
             {/* Analytics Page Interactions */}
             <Card>
               <CardHeader>
-                <CardTitle>Analytics Page Interactions</CardTitle>
+                <CardTitle className="text-gray-900">Analytics Page Interactions</CardTitle>
               </CardHeader>
               <CardContent>
                 {realTimeClicks.length === 0 ? (
@@ -361,11 +367,11 @@ export default function AnalyticsPage({
                 ) : (
                   <div className="space-y-2">
                     {realTimeClicks.slice(0, 10).map((click, index) => (
-                      <div key={click.id || index} className="p-2 bg-blue-50 rounded border border-blue-200">
+                      <div key={click.id || index} className="p-2 bg-purple-50 rounded border border-purple-200">
                         <div className="text-sm font-medium">
                           {click.timestamp?.toDate?.()?.toLocaleString() || "Just now"}
                         </div>
-                        <div className="text-xs text-blue-600 mt-1">Element: {click.element || "Unknown"}</div>
+                        <div className="text-xs text-purple-600 mt-1">Element: {click.element || "Unknown"}</div>
                       </div>
                     ))}
                   </div>
@@ -377,7 +383,7 @@ export default function AnalyticsPage({
           {/* Test Real-time Tracking */}
           <Card className="mt-6">
             <CardHeader>
-              <CardTitle>Test Real-time WebSocket Updates</CardTitle>
+              <CardTitle className="text-gray-900">Test Real-time WebSocket Updates</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex gap-2 flex-wrap">
@@ -389,6 +395,7 @@ export default function AnalyticsPage({
                     }
                   }}
                   variant="outline"
+                  className="border-purple-200 text-purple-700 hover:bg-purple-50"
                 >
                   Test Click 1
                 </Button>
@@ -400,6 +407,7 @@ export default function AnalyticsPage({
                     }
                   }}
                   variant="outline"
+                  className="border-purple-200 text-purple-700 hover:bg-purple-50"
                 >
                   Test Click 2
                 </Button>
@@ -416,13 +424,14 @@ export default function AnalyticsPage({
                     }
                   }}
                   variant="outline"
+                  className="border-purple-200 text-purple-700 hover:bg-purple-50"
                 >
                   Simulate Multiple Clicks
                 </Button>
               </div>
-              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                <p className="text-sm text-blue-800 font-medium">💡 How to test real-time updates:</p>
-                <ul className="text-xs text-blue-700 mt-2 space-y-1">
+              <div className="mt-4 p-3 bg-purple-50 rounded-lg">
+                <p className="text-sm text-purple-800 font-medium">💡 How to test real-time updates:</p>
+                <ul className="text-xs text-purple-700 mt-2 space-y-1">
                   <li>1. Open your short URL in a new tab/window</li>
                   <li>2. Watch this page update instantly when you click the link</li>
                   <li>3. No refresh needed - powered by Firestore WebSocket!</li>
@@ -435,7 +444,7 @@ export default function AnalyticsPage({
           {Object.keys(clicksByDay).length > 0 && (
             <Card className="mt-6">
               <CardHeader>
-                <CardTitle>Clicks by Day</CardTitle>
+                <CardTitle className="text-gray-900">Clicks by Day</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
@@ -445,7 +454,7 @@ export default function AnalyticsPage({
                     .map(([date, count]) => (
                       <div
                         key={date}
-                        className="flex justify-between items-center p-2 bg-gray-50 rounded cursor-pointer hover:bg-gray-100"
+                        className="flex justify-between items-center p-2 bg-gray-50 rounded cursor-pointer hover:bg-purple-50"
                         onClick={handleElementClick(`day-${date}`)}
                       >
                         <span className="text-sm font-medium">{date}</span>
