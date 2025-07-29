@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Loader2, AlertCircle } from "lucide-react"
@@ -13,17 +12,16 @@ export default function RedirectPage({
   params: { shortCode: string }
 }) {
   const { shortCode } = params
-  const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    async function fetchAndRedirect() {
+    async function handleRedirect() {
       try {
-        console.log(`Fetching URL data for ${shortCode}`)
+        console.log(`Processing redirect for ${shortCode}`)
 
-        // Since the API now does a proper redirect, we can just navigate directly to it
-        // The API will handle the click tracking and redirect automatically
+        // The API route handles click tracking and redirects automatically
+        // We just need to navigate to it and let it do its work
         window.location.href = `/api/redirect/${shortCode}`
       } catch (err) {
         console.error("Redirect error:", err)
@@ -32,7 +30,12 @@ export default function RedirectPage({
       }
     }
 
-    fetchAndRedirect()
+    // Small delay to show loading state, then redirect
+    const timer = setTimeout(() => {
+      handleRedirect()
+    }, 500)
+
+    return () => clearTimeout(timer)
   }, [shortCode])
 
   if (loading) {

@@ -1,5 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { doc, getDoc, runTransaction, serverTimestamp, arrayUnion, collection, setDoc } from "firebase/firestore"
+import {
+  doc,
+  getDoc,
+  runTransaction,
+  serverTimestamp,
+  arrayUnion,
+  collection,
+  setDoc,
+  increment,
+} from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
 interface UrlData {
@@ -122,7 +131,7 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
     return NextResponse.json(
       {
         error: "Internal server error",
-        details: error.message,
+        details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 },
     )
@@ -237,45 +246,41 @@ async function recordClickAnalytics(shortCode: string, request: NextRequest) {
       realTime: true,
     }
 
-    // Update both URLs and analytics collections
+    // Update both URLs and analytics collections using atomic transaction
     console.log(`🔄 Updating URLs and analytics for ${shortCode}`)
 
     const urlRef = doc(db, "urls", shortCode)
     const analyticsRef = doc(db, "analytics", shortCode)
 
     await runTransaction(db, async (transaction) => {
-      // Update URLs collection
+      // Update URLs collection with increment
       const urlDoc = await transaction.get(urlRef)
       if (urlDoc.exists()) {
-        const currentUrlData = urlDoc.data()
-        const currentClicks = currentUrlData.clicks || 0
-        const newClickCount = currentClicks + 1
-
-        console.log(`📈 Incrementing URL clicks: ${currentClicks} → ${newClickCount}`)
-
+        console.log(`📈 Incrementing URL clicks using increment()`)
         transaction.update(urlRef, {
-          clicks: newClickCount,
+          clicks: increment(1),
+          lastClickAt: serverTimestamp(),
+        })
+      } else {
+        // If URL document doesn't exist, create it with click count 1
+        transaction.set(urlRef, {
+          ...urlDoc.data(),
+          clicks: 1,
           lastClickAt: serverTimestamp(),
         })
       }
 
-      // Update analytics collection
+      // Update analytics collection with increment
       const analyticsDoc = await transaction.get(analyticsRef)
       if (analyticsDoc.exists()) {
-        const currentData = analyticsDoc.data()
-        const currentClicks = currentData.totalClicks || 0
-        const newClickCount = currentClicks + 1
-
-        console.log(`📈 Incrementing analytics totalClicks: ${currentClicks} → ${newClickCount}`)
-
+        console.log(`📈 Incrementing analytics totalClicks using increment()`)
         transaction.update(analyticsRef, {
-          totalClicks: newClickCount,
+          totalClicks: increment(1),
           lastClickAt: serverTimestamp(),
           clickEvents: arrayUnion(clickEvent),
         })
       } else {
         console.log(`📝 Creating new analytics document for: ${shortCode}`)
-
         transaction.set(analyticsRef, {
           shortCode,
           totalClicks: 1,
