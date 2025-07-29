@@ -16,22 +16,21 @@ export default function RedirectPage({
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    console.log(`🚨 CLIENT DEBUG: useEffect triggered for shortCode: ${shortCode}`)
+
     async function handleRedirect() {
       try {
-        console.log(`Processing redirect for ${shortCode}`)
-
-        // The API route handles click tracking and redirects automatically
-        // We just need to navigate to it and let it do its work
+        console.log(`🚨 CLIENT DEBUG: About to navigate to /api/redirect/${shortCode}`)
         window.location.href = `/api/redirect/${shortCode}`
       } catch (err) {
-        console.error("Redirect error:", err)
+        console.error("🚨 CLIENT DEBUG: Redirect error:", err)
         setError(err instanceof Error ? err.message : "An error occurred")
         setLoading(false)
       }
     }
 
-    // Small delay to show loading state, then redirect
     const timer = setTimeout(() => {
+      console.log(`🚨 CLIENT DEBUG: Timer fired, calling handleRedirect`)
       handleRedirect()
     }, 500)
 

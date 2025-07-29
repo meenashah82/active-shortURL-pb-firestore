@@ -289,6 +289,7 @@ export async function getAnalyticsData(shortCode: string): Promise<AnalyticsData
 export async function recordClick(shortCode: string, userAgent: string, referer: string, ip: string): Promise<void> {
   try {
     const analyticsRef = doc(db, "analytics", shortCode)
+    const urlRef = doc(db, "urls", shortCode)
 
     const clickEvent: ClickEvent = {
       id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -300,13 +301,15 @@ export async function recordClick(shortCode: string, userAgent: string, referer:
       clickSource: "direct",
     }
 
-    // ✅ ONLY update analytics - no URL document changes needed
+    // Update both analytics and URLs collections atomically
     await runTransaction(db, async (transaction) => {
       const analyticsDoc = await transaction.get(analyticsRef)
+      const urlDoc = await transaction.get(urlRef)
 
+      // Update analytics collection
       if (analyticsDoc.exists()) {
         transaction.update(analyticsRef, {
-          totalClicks: increment(1), // ✅ Single source of truth
+          totalClicks: increment(1),
           lastClickAt: serverTimestamp(),
           clickEvents: arrayUnion(clickEvent),
         })
@@ -320,9 +323,17 @@ export async function recordClick(shortCode: string, userAgent: string, referer:
           clickEvents: [clickEvent],
         })
       }
+
+      // Update URLs collection for backward compatibility
+      if (urlDoc.exists()) {
+        transaction.update(urlRef, {
+          clicks: increment(1),
+          lastClickAt: serverTimestamp(),
+        })
+      }
     })
 
-    console.log(`✅ Click recorded in analytics only: ${shortCode}`)
+    console.log(`✅ Click recorded in both analytics and URLs: ${shortCode}`)
   } catch (error) {
     console.error("❌ Error recording click:", error)
     throw error

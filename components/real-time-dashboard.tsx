@@ -37,9 +37,9 @@ export function RealTimeDashboard() {
           return
         }
 
-        // Subscribe to top URLs
+        // Subscribe to top URLs with real-time updates
         unsubscribe = subscribeToTopUrls((urls) => {
-          console.log("📊 Dashboard received top URLs:", urls)
+          console.log("📊 Dashboard received top URLs update:", urls)
           setTopUrls(urls)
           setLoading(false)
         }, 10)
@@ -54,6 +54,7 @@ export function RealTimeDashboard() {
 
     return () => {
       if (unsubscribe) {
+        console.log("🧹 Cleaning up dashboard subscription")
         unsubscribe()
       }
     }

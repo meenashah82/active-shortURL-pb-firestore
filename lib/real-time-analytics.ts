@@ -97,16 +97,23 @@ export class RealTimeAnalyticsManager {
             hasPendingWrites: doc.metadata.hasPendingWrites,
           })
 
-          // If URL clicks changed, trigger analytics callback with updated data
-          if (analyticsData && urlData.clicks !== analyticsData.totalClicks) {
-            console.log(`🔄 Click count sync: Analytics=${analyticsData.totalClicks}, URL=${urlData.clicks}`)
+          // If URL clicks changed and we have analytics data, trigger callback
+          if (analyticsData) {
+            // Use the higher of the two click counts for consistency
+            const maxClicks = Math.max(urlData.clicks || 0, analyticsData.totalClicks || 0)
 
-            // Update analytics data with URL click count for consistency
-            const syncedData = {
-              ...analyticsData,
-              totalClicks: urlData.clicks,
+            if (maxClicks !== analyticsData.totalClicks) {
+              console.log(
+                `🔄 Click count sync: Analytics=${analyticsData.totalClicks}, URL=${urlData.clicks}, Using=${maxClicks}`,
+              )
+
+              // Update analytics data with synced click count
+              const syncedData = {
+                ...analyticsData,
+                totalClicks: maxClicks,
+              }
+              callback(syncedData)
             }
-            callback(syncedData)
           }
         }
       },
