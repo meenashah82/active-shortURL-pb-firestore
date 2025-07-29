@@ -219,20 +219,6 @@ async function recordClickAnalytics(shortCode: string, request: NextRequest) {
 
     console.log(`📝 CREATING NEW CLICK DOCUMENT: clicks/${shortCode}/shortcode_clicks/${clickId}`)
 
-    // First, ensure the parent clicks document exists
-    const clicksRef = doc(db, "clicks", shortCode)
-    const clicksSnap = await getDoc(clicksRef)
-
-    if (!clicksSnap.exists()) {
-      console.log(`📝 Creating parent clicks document for: ${shortCode}`)
-      await setDoc(clicksRef, {
-        shortCode: shortCode,
-        createdAt: serverTimestamp(),
-        isActive: true,
-      })
-      console.log(`✅ Parent clicks document created for: ${shortCode}`)
-    }
-
     // NOW CREATE THE INDIVIDUAL CLICK DOCUMENT - THIS IS MANDATORY FOR EVERY CLICK
     await setDoc(individualClickRef, individualClickData)
     console.log(`✅ ✅ ✅ NEW INDIVIDUAL CLICK DOCUMENT CREATED: ${clickId}`)
@@ -268,10 +254,12 @@ async function recordClickAnalytics(shortCode: string, request: NextRequest) {
           lastClickAt: serverTimestamp(),
         })
       } else {
-        // If URL document doesn't exist, create it with click count 1
-        const urlData = urlDoc.data() || {}
+        console.log(`📝 Creating new URL document for: ${shortCode}`)
         transaction.set(urlRef, {
-          ...urlData,
+          originalUrl: urlData.originalUrl,
+          shortCode: shortCode,
+          createdAt: serverTimestamp(),
+          isActive: true,
           clicks: 1,
           lastClickAt: serverTimestamp(),
         })
@@ -329,6 +317,42 @@ async function recordClickAnalytics(shortCode: string, request: NextRequest) {
       console.log(`✅ FALLBACK: Individual click document created: ${clickId}`)
     } catch (fallbackError) {
       console.error(`❌ CRITICAL: Failed to create fallback click document:`, fallbackError)
+    }
+
+    // Try a simple fallback analytics update without transaction
+    try {
+      console.log(`🔄 Attempting fallback analytics update for ${shortCode}`)
+      const analyticsRef = doc(db, "analytics", shortCode)
+      const analyticsSnap = await getDoc(analyticsRef)
+
+      if (analyticsSnap.exists()) {
+        const currentData = analyticsSnap.data()
+        const newCount = (currentData.totalClicks || 0) + 1
+
+        await setDoc(
+          analyticsRef,
+          {
+            ...currentData,
+            totalClicks: newCount,
+            lastClickAt: serverTimestamp(),
+            clickEvents: arrayUnion(clickEvent),
+          },
+          { merge: true },
+        )
+
+        console.log(`✅ Fallback analytics update successful: ${newCount}`)
+      } else {
+        await setDoc(analyticsRef, {
+          shortCode,
+          totalClicks: 1,
+          createdAt: serverTimestamp(),
+          lastClickAt: serverTimestamp(),
+          clickEvents: [clickEvent],
+        })
+        console.log(`✅ Fallback analytics document created`)
+      }
+    } catch (fallbackError) {
+      console.error(`❌ Fallback analytics update also failed:`, fallbackError)
     }
 
     throw error
