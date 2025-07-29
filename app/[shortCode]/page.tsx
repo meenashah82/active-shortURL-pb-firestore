@@ -1,91 +1,121 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Loader2, AlertCircle } from "lucide-react"
-import Link from "next/link"
+import { useParams } from "next/navigation"
+import { Card, CardContent } from "@/components/ui/card"
+import { Loader2 } from "lucide-react"
 
-export default function RedirectPage({
-  params,
-}: {
-  params: { shortCode: string }
-}) {
-  const { shortCode } = params
-  const router = useRouter()
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+export default function ShortCodeRedirect() {
+  const params = useParams()
+  const shortCode = params.shortCode as string
+  const [status, setStatus] = useState<"loading" | "redirecting" | "error">("loading")
+  const [error, setError] = useState<string>("")
 
   useEffect(() => {
-    async function fetchAndRedirect() {
+    if (!shortCode) return
+
+    const handleRedirect = async () => {
       try {
-        console.log(`Fetching URL data for ${shortCode}`)
-        const response = await fetch(`/api/redirect/${shortCode}`)
+        setStatus("loading")
+        console.log(`🔗 Attempting to redirect for shortCode: ${shortCode}`)
+
+        // Make request to the redirect API
+        const response = await fetch(`/api/redirect/${shortCode}`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+
+        console.log(`📡 API response status: ${response.status}`)
+
+        if (response.redirected) {
+          // If the response was redirected by the server, follow it
+          console.log(`🚀 Server redirected to: ${response.url}`)
+          setStatus("redirecting")
+          window.location.href = response.url
+          return
+        }
 
         if (!response.ok) {
-          if (response.status === 404) {
-            setError("Link not found")
+          const errorData = await response.json()
+          console.error(`❌ API error:`, errorData)
+          setError(errorData.error || "Failed to redirect")
+          setStatus("error")
+          return
+        }
+
+        // If we get here, check if it's a JSON response with redirect URL
+        const contentType = response.headers.get("content-type")
+        if (contentType && contentType.includes("application/json")) {
+          const data = await response.json()
+          if (data.redirectUrl) {
+            console.log(`🚀 Client redirecting to: ${data.redirectUrl}`)
+            setStatus("redirecting")
+            window.location.href = data.redirectUrl
             return
           }
-          throw new Error(`Error ${response.status}: ${response.statusText}`)
         }
 
-        const data = await response.json()
-        console.log("Redirect data:", data)
-
-        if (data.redirectUrl) {
-          console.log(`Redirecting to ${data.redirectUrl}`)
-          window.location.href = data.redirectUrl
-        } else {
-          setError("Invalid redirect data")
-        }
+        // If we reach here, something went wrong
+        setError("Invalid response from server")
+        setStatus("error")
       } catch (err) {
-        console.error("Redirect error:", err)
-        setError(err instanceof Error ? err.message : "An error occurred")
-      } finally {
-        setLoading(false)
+        console.error("❌ Redirect error:", err)
+        setError(err instanceof Error ? err.message : "Unknown error occurred")
+        setStatus("error")
       }
     }
 
-    fetchAndRedirect()
+    handleRedirect()
   }, [shortCode])
 
-  if (loading) {
+  if (status === "loading") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <Card className="max-w-md w-full mx-4">
-          <CardContent className="flex flex-col items-center justify-center p-6">
-            <Loader2 className="h-12 w-12 text-blue-600 animate-spin mb-4" />
-            <p className="text-lg font-medium">Redirecting...</p>
-            <p className="text-sm text-gray-500 mt-2">Please wait while we redirect you to your destination.</p>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex flex-col items-center justify-center p-8">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-600 mb-4" />
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading...</h2>
+            <p className="text-gray-600 text-center">Preparing your redirect...</p>
           </CardContent>
         </Card>
       </div>
     )
   }
 
-  if (error) {
+  if (status === "redirecting") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <Card className="max-w-md w-full mx-4">
-          <CardHeader className="text-center">
-            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <CardTitle className="text-2xl">Link Not Found</CardTitle>
-          </CardHeader>
-          <CardContent className="text-center space-y-4">
-            <p className="text-gray-600">The short link you're looking for doesn't exist or has expired.</p>
-            <div className="space-y-2">
-              <p className="text-sm text-gray-500">This could happen if:</p>
-              <ul className="text-sm text-gray-500 text-left space-y-1">
-                <li>• The link has expired (links expire after 30 days)</li>
-                <li>• The short code was mistyped</li>
-                <li>• The link was deleted</li>
-              </ul>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex flex-col items-center justify-center p-8">
+            <Loader2 className="h-8 w-8 animate-spin text-green-600 mb-4" />
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Redirecting...</h2>
+            <p className="text-gray-600 text-center">Taking you to your destination...</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (status === "error") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex flex-col items-center justify-center p-8">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+              <span className="text-2xl">❌</span>
             </div>
-            <Link href="/">
-              <Button className="w-full">Go to Homepage</Button>
-            </Link>
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Link Not Found</h2>
+            <p className="text-gray-600 text-center mb-4">
+              {error || "The short link you're looking for doesn't exist or has expired."}
+            </p>
+            <button
+              onClick={() => (window.location.href = "/")}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            >
+              Go Home
+            </button>
           </CardContent>
         </Card>
       </div>
