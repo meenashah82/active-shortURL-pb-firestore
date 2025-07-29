@@ -21,29 +21,13 @@ export default function RedirectPage({
     async function fetchAndRedirect() {
       try {
         console.log(`Fetching URL data for ${shortCode}`)
-        const response = await fetch(`/api/redirect/${shortCode}`)
 
-        if (!response.ok) {
-          if (response.status === 404) {
-            setError("Link not found")
-            return
-          }
-          throw new Error(`Error ${response.status}: ${response.statusText}`)
-        }
-
-        const data = await response.json()
-        console.log("Redirect data:", data)
-
-        if (data.redirectUrl) {
-          console.log(`Redirecting to ${data.redirectUrl}`)
-          window.location.href = data.redirectUrl
-        } else {
-          setError("Invalid redirect data")
-        }
+        // Since the API now does a proper redirect, we can just navigate directly to it
+        // The API will handle the click tracking and redirect automatically
+        window.location.href = `/api/redirect/${shortCode}`
       } catch (err) {
         console.error("Redirect error:", err)
         setError(err instanceof Error ? err.message : "An error occurred")
-      } finally {
         setLoading(false)
       }
     }
