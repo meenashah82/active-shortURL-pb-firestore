@@ -113,14 +113,10 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
       console.error("⚠️ Analytics recording failed (but continuing redirect):", analyticsError)
     }
 
-    console.log(`🚀 Redirect successful for: ${shortCode}`)
+    console.log(`🚀 Redirecting to: ${redirectUrl}`)
 
-    // Return the redirect URL for client-side redirection
-    return NextResponse.json({
-      redirectUrl,
-      success: true,
-      shortCode,
-    })
+    // Return actual HTTP redirect response
+    return NextResponse.redirect(redirectUrl, { status: 302 })
   } catch (error) {
     console.error("❌ Redirect error:", error)
     return NextResponse.json(
@@ -241,19 +237,36 @@ async function recordClickAnalytics(shortCode: string, request: NextRequest) {
       realTime: true,
     }
 
-    // Update analytics collection
-    console.log(`🔄 Updating analytics for ${shortCode}`)
+    // Update both URLs and analytics collections
+    console.log(`🔄 Updating URLs and analytics for ${shortCode}`)
+
+    const urlRef = doc(db, "urls", shortCode)
     const analyticsRef = doc(db, "analytics", shortCode)
 
     await runTransaction(db, async (transaction) => {
-      const analyticsDoc = await transaction.get(analyticsRef)
+      // Update URLs collection
+      const urlDoc = await transaction.get(urlRef)
+      if (urlDoc.exists()) {
+        const currentUrlData = urlDoc.data()
+        const currentClicks = currentUrlData.clicks || 0
+        const newClickCount = currentClicks + 1
 
+        console.log(`📈 Incrementing URL clicks: ${currentClicks} → ${newClickCount}`)
+
+        transaction.update(urlRef, {
+          clicks: newClickCount,
+          lastClickAt: serverTimestamp(),
+        })
+      }
+
+      // Update analytics collection
+      const analyticsDoc = await transaction.get(analyticsRef)
       if (analyticsDoc.exists()) {
         const currentData = analyticsDoc.data()
         const currentClicks = currentData.totalClicks || 0
         const newClickCount = currentClicks + 1
 
-        console.log(`📈 Incrementing totalClicks: ${currentClicks} → ${newClickCount}`)
+        console.log(`📈 Incrementing analytics totalClicks: ${currentClicks} → ${newClickCount}`)
 
         transaction.update(analyticsRef, {
           totalClicks: newClickCount,
@@ -273,7 +286,7 @@ async function recordClickAnalytics(shortCode: string, request: NextRequest) {
       }
     })
 
-    console.log(`✅ Analytics updated successfully for: ${shortCode}`)
+    console.log(`✅ URLs and analytics updated successfully for: ${shortCode}`)
     console.log(
       `🎯 SUMMARY: Individual click document created successfully at clicks/${shortCode}/shortcode_clicks/${clickId}`,
     )
