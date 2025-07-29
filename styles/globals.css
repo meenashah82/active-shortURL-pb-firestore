@@ -24,7 +24,7 @@ body {
     --primary-foreground: 0 0% 100%; /* White #FFFFFF */
     --secondary: 262 85% 92%; /* Light Purple #D9D8FD */
     --secondary-foreground: 240 12% 32%; /* Tundora #4D475B */
-    --muted: 262 85% 92%; /* Light Purple #D9D8FD */
+    --muted: 0 0% 96%; /* Light Gray #F5F5F5 */
     --muted-foreground: 240 12% 32%; /* Tundora #4D475B */
     --accent: 262 85% 92%; /* Light Purple #D9D8FD */
     --accent-foreground: 240 12% 32%; /* Tundora #4D475B */
@@ -53,6 +53,7 @@ body {
     --violet-pink: 336 89% 56%; /* #F22C7C */
     --light-purple: 262 85% 92%; /* #D9D8FD */
     --tundora: 240 12% 32%; /* #4D475B */
+    --light-gray: 0 0% 96%; /* #F5F5F5 */
   }
 
   .dark {
@@ -66,7 +67,7 @@ body {
     --primary-foreground: 0 0% 100%; /* White #FFFFFF */
     --secondary: 262 85% 92%; /* Light Purple #D9D8FD */
     --secondary-foreground: 240 12% 32%; /* Tundora #4D475B */
-    --muted: 262 85% 92%; /* Light Purple #D9D8FD */
+    --muted: 0 0% 96%; /* Light Gray #F5F5F5 */
     --muted-foreground: 240 12% 32%; /* Tundora #4D475B */
     --accent: 262 85% 92%; /* Light Purple #D9D8FD */
     --accent-foreground: 240 12% 32%; /* Tundora #4D475B */
@@ -114,6 +115,9 @@ body {
   .bg-tundora {
     background-color: #4d475b;
   }
+  .bg-light-gray {
+    background-color: #f5f5f5;
+  }
 
   .text-electric-violet {
     color: #833adf;
@@ -126,6 +130,9 @@ body {
   }
   .text-tundora {
     color: #4d475b;
+  }
+  .text-light-gray {
+    color: #f5f5f5;
   }
 
   .border-electric-violet {
@@ -140,6 +147,9 @@ body {
   .border-tundora {
     border-color: #4d475b;
   }
+  .border-light-gray {
+    border-color: #f5f5f5;
+  }
 
   .hover\:bg-electric-violet:hover {
     background-color: #833adf;
@@ -152,5 +162,8 @@ body {
   }
   .hover\:bg-tundora:hover {
     background-color: #4d475b;
+  }
+  .hover\:bg-light-gray:hover {
+    background-color: #f5f5f5;
   }
 }

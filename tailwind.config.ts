@@ -66,6 +66,7 @@ const config: Config = {
         "violet-pink": "#F22C7C",
         "light-purple": "#D9D8FD",
         tundora: "#4D475B",
+        "light-gray": "#F5F5F5",
       },
       borderRadius: {
         lg: "var(--radius)",
