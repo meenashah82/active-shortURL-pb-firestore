@@ -126,15 +126,15 @@ export function AdminDashboard() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <Card className="border-light-purple shadow-sm">
+        <Card className="border-gray-200 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-title-semi-bold text-tundora">Admin Dashboard</CardTitle>
-            <CardDescription className="text-body-regular text-tundora">Loading URL data...</CardDescription>
+            <CardTitle className="text-gray-900">Admin Dashboard</CardTitle>
+            <CardDescription className="text-gray-600">Loading URL data...</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center space-x-2">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-electric-violet"></div>
-              <span className="text-body-regular text-tundora">Loading...</span>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+              <span className="text-gray-600">Loading...</span>
             </div>
           </CardContent>
         </Card>
@@ -146,18 +146,18 @@ export function AdminDashboard() {
     <div className="space-y-6">
       <div className="">
         <div>
-          <h1 className="text-h2-section text-tundora">Admin Dashboard</h1>
-          <p className="text-body-regular text-tundora mt-1">Manage shortened URLs and view analytics</p>
+          <h1 className="text-2xl font-semibold text-gray-900">Admin Dashboard</h1>
+          <p className="text-gray-600 mt-1">Manage shortened URLs and view analytics</p>
         </div>
       </div>
 
       {error && (
         <Alert className="border-red-200 bg-red-50">
-          <AlertDescription className="text-red-800 text-body-regular">
+          <AlertDescription className="text-red-800">
             {error}
             {error.includes("Firestore is not available") && (
               <div className="mt-2">
-                <p className="text-link-semi-bold">To fix this:</p>
+                <p className="font-semibold">To fix this:</p>
                 <ol className="list-decimal list-inside text-sm mt-1">
                   <li>Go to Firebase Console → Build → Firestore Database</li>
                   <li>Create database if it doesn't exist</li>
@@ -171,33 +171,35 @@ export function AdminDashboard() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="border-light-purple shadow-sm">
+        <Card className="border-gray-200 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-link-semi-bold text-tundora">Total URLs</CardTitle>
-            <ExternalLink className="h-4 w-4 text-electric-violet" />
+            <CardTitle className="text-sm font-medium text-gray-600">Total URLs</CardTitle>
+            <ExternalLink className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-h2-section text-tundora">{urls.length}</div>
+            <div className="text-2xl font-semibold text-gray-900">{urls.length}</div>
           </CardContent>
         </Card>
 
-        <Card className="border-light-purple shadow-sm">
+        <Card className="border-gray-200 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-link-semi-bold text-tundora">Total Clicks</CardTitle>
-            <BarChart3 className="h-4 w-4 text-electric-violet" />
+            <CardTitle className="text-sm font-medium text-gray-600">Total Clicks</CardTitle>
+            <BarChart3 className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-h2-section text-tundora">{urls.reduce((sum, url) => sum + url.totalClicks, 0)}</div>
+            <div className="text-2xl font-semibold text-gray-900">
+              {urls.reduce((sum, url) => sum + url.totalClicks, 0)}
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="border-light-purple shadow-sm">
+        <Card className="border-gray-200 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-link-semi-bold text-tundora">Average Clicks</CardTitle>
-            <BarChart3 className="h-4 w-4 text-electric-violet" />
+            <CardTitle className="text-sm font-medium text-gray-600">Average Clicks</CardTitle>
+            <BarChart3 className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-h2-section text-tundora">
+            <div className="text-2xl font-semibold text-gray-900">
               {urls.length > 0 ? Math.round(urls.reduce((sum, url) => sum + url.totalClicks, 0) / urls.length) : 0}
             </div>
           </CardContent>
@@ -205,71 +207,64 @@ export function AdminDashboard() {
       </div>
 
       {/* URLs Table */}
-      <Card className="border-light-purple shadow-sm">
+      <Card className="border-gray-200 shadow-sm">
         <CardHeader>
-          <CardTitle className="text-title-semi-bold text-tundora">All Shortened URLs</CardTitle>
-          <CardDescription className="text-body-regular text-tundora">
-            Manage and monitor your shortened URLs
-          </CardDescription>
+          <CardTitle className="text-gray-900">All Shortened URLs</CardTitle>
+          <CardDescription className="text-gray-600">Manage and monitor your shortened URLs</CardDescription>
         </CardHeader>
         <CardContent>
           {urls.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-body-regular text-tundora">No URLs found. Create your first shortened URL!</p>
+              <p className="text-gray-500">No URLs found. Create your first shortened URL!</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-light-purple">
-                    <TableHead className="text-link-semi-bold text-tundora">Short Code</TableHead>
-                    <TableHead className="text-link-semi-bold text-tundora">Original URL</TableHead>
-                    <TableHead className="text-link-semi-bold text-tundora">Clicks</TableHead>
-                    <TableHead className="text-link-semi-bold text-tundora">Created</TableHead>
-                    <TableHead className="text-link-semi-bold text-tundora">Actions</TableHead>
+                  <TableRow className="border-gray-200">
+                    <TableHead className="text-gray-600">Short Code</TableHead>
+                    <TableHead className="text-gray-600">Original URL</TableHead>
+                    <TableHead className="text-gray-600">Clicks</TableHead>
+                    <TableHead className="text-gray-600">Created</TableHead>
+                    <TableHead className="text-gray-600">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {urls.map((url) => (
-                    <TableRow key={url.id} className="border-light-purple">
+                    <TableRow key={url.id} className="border-gray-200">
                       <TableCell>
                         <div className="flex items-center space-x-2">
-                          <Badge
-                            variant="outline"
-                            className="border-light-purple text-electric-violet text-link-semi-bold"
-                          >
+                          <Badge variant="outline" className="border-purple-300 text-purple-600">
                             {url.shortCode}
                           </Badge>
                           <a
                             href={`https://www.wodify.link/${url.shortCode}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-electric-violet hover:text-electric-violet/80"
+                            className="text-purple-600 hover:text-purple-700"
                           >
                             <ExternalLink className="h-3 w-3" />
                           </a>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="max-w-xs truncate text-body-regular text-tundora" title={url.originalUrl}>
+                        <div className="max-w-xs truncate text-gray-900" title={url.originalUrl}>
                           {url.originalUrl}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className="bg-light-purple text-electric-violet text-link-semi-bold">
+                        <Badge variant="secondary" className="bg-purple-100 text-purple-700">
                           {url.totalClicks}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-body-regular text-tundora">
-                        {url.createdAt.toLocaleDateString()}
-                      </TableCell>
+                      <TableCell className="text-gray-600">{url.createdAt.toLocaleDateString()}</TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => window.open(`/analytics/${url.shortCode}`, "_blank")}
-                            className="border-light-purple text-electric-violet hover:bg-light-purple text-link-semi-bold"
+                            className="border-purple-300 text-purple-600 hover:bg-purple-50"
                           >
                             <BarChart3 className="h-3 w-3" />
                           </Button>
@@ -277,7 +272,7 @@ export function AdminDashboard() {
                             size="sm"
                             variant="destructive"
                             onClick={() => deleteUrl(url.id, url.shortCode)}
-                            className="bg-red-600 hover:bg-red-700 text-link-semi-bold"
+                            className="bg-red-600 hover:bg-red-700"
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>

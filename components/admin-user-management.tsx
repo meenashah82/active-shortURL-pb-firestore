@@ -224,72 +224,59 @@ export function AdminUserManagement() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-h2-section text-tundora">User Management</h2>
-          <p className="text-body-regular text-tundora">Manage admin users and permissions</p>
+          <h2 className="text-2xl font-bold">User Management</h2>
+          <p className="text-gray-600">Manage admin users and permissions</p>
         </div>
         {canManageUsers ? (
           <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
             <DialogTrigger asChild>
-              <Button className="bg-electric-violet hover:bg-electric-violet/90 text-white text-link-semi-bold">
+              <Button>
                 <UserPlus className="mr-2 h-4 w-4" />
                 Add User
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle className="text-title-semi-bold text-tundora">Create New Admin User</DialogTitle>
-                <DialogDescription className="text-body-regular text-tundora">
-                  Add a new administrator to the system
-                </DialogDescription>
+                <DialogTitle>Create New Admin User</DialogTitle>
+                <DialogDescription>Add a new administrator to the system</DialogDescription>
               </DialogHeader>
               <form onSubmit={handleCreateUser} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="create-username" className="text-link-semi-bold text-tundora">
-                    Username
-                  </Label>
+                  <Label htmlFor="create-username">Username</Label>
                   <Input
                     id="create-username"
                     value={createForm.username}
                     onChange={(e) => setCreateForm({ ...createForm, username: e.target.value })}
                     required
-                    className="border-light-purple text-body-regular"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="create-email" className="text-link-semi-bold text-tundora">
-                    Email
-                  </Label>
+                  <Label htmlFor="create-email">Email</Label>
                   <Input
                     id="create-email"
                     type="email"
                     value={createForm.email}
                     onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
                     required
-                    className="border-light-purple text-body-regular"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="create-password" className="text-link-semi-bold text-tundora">
-                    Password
-                  </Label>
+                  <Label htmlFor="create-password">Password</Label>
                   <Input
                     id="create-password"
                     type="password"
                     value={createForm.password}
                     onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
                     required
-                    className="border-light-purple text-body-regular"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="create-role" className="text-link-semi-bold text-tundora">
-                    Role
-                  </Label>
+                  <Label htmlFor="create-role">Role</Label>
                   <Select
                     value={createForm.role}
                     onValueChange={(value: "admin" | "superadmin") => setCreateForm({ ...createForm, role: value })}
                   >
-                    <SelectTrigger className="border-light-purple">
+                    <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -298,23 +285,14 @@ export function AdminUserManagement() {
                     </SelectContent>
                   </Select>
                 </div>
-                <Button
-                  type="submit"
-                  disabled={isCreating}
-                  className="w-full bg-electric-violet hover:bg-electric-violet/90 text-white text-link-semi-bold"
-                >
+                <Button type="submit" disabled={isCreating} className="w-full">
                   {isCreating ? "Creating..." : "Create User"}
                 </Button>
               </form>
             </DialogContent>
           </Dialog>
         ) : (
-          <Button
-            onClick={fetchUsers}
-            disabled={isLoading}
-            variant="outline"
-            className="border-light-purple text-tundora hover:bg-light-purple bg-transparent text-link-semi-bold"
-          >
+          <Button onClick={fetchUsers} disabled={isLoading} variant="outline">
             <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
@@ -323,102 +301,76 @@ export function AdminUserManagement() {
 
       {error && (
         <Alert variant="destructive">
-          <AlertDescription className="text-body-regular">{error}</AlertDescription>
+          <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
 
-      <Card className="border-light-purple">
+      <Card>
         <CardHeader>
-          <CardTitle className="text-title-semi-bold text-tundora">Admin Users ({users.length})</CardTitle>
-          <CardDescription className="text-body-regular text-tundora">
-            Manage administrator accounts and permissions
-          </CardDescription>
+          <CardTitle>Admin Users ({users.length})</CardTitle>
+          <CardDescription>Manage administrator accounts and permissions</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-electric-violet"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
             </div>
           ) : users.length === 0 ? (
-            <div className="text-center py-8 text-tundora">
-              <p className="text-body-regular">No admin users found</p>
+            <div className="text-center py-8 text-gray-500">
+              <p>No admin users found</p>
               <p className="text-sm mt-2">Create your first admin user to get started</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-light-purple">
-                    <TableHead className="text-link-semi-bold text-tundora">User</TableHead>
-                    <TableHead className="text-link-semi-bold text-tundora">Email</TableHead>
-                    <TableHead className="text-link-semi-bold text-tundora">Role</TableHead>
-                    <TableHead className="text-link-semi-bold text-tundora">Status</TableHead>
-                    <TableHead className="text-link-semi-bold text-tundora">Created</TableHead>
-                    <TableHead className="text-link-semi-bold text-tundora">Actions</TableHead>
+                  <TableRow>
+                    <TableHead>User</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {users.map((user) => (
-                    <TableRow key={user.id} className="border-light-purple">
+                    <TableRow key={user.id}>
                       <TableCell>
                         <div className="flex items-center space-x-2">
                           {user.role === "superadmin" ? (
-                            <Shield className="h-4 w-4 text-electric-violet" />
+                            <Shield className="h-4 w-4 text-purple-600" />
                           ) : (
-                            <User className="h-4 w-4 text-tundora" />
+                            <User className="h-4 w-4 text-gray-600" />
                           )}
-                          <span className="text-link-semi-bold text-tundora">{user.username}</span>
+                          <span className="font-medium">{user.username}</span>
                           {user.id === currentUser?.id && (
-                            <Badge variant="outline" className="text-xs border-light-purple text-electric-violet">
+                            <Badge variant="outline" className="text-xs">
                               You
                             </Badge>
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="text-body-regular text-tundora">{user.email}</TableCell>
+                      <TableCell>{user.email}</TableCell>
                       <TableCell>
-                        <Badge
-                          variant={user.role === "superadmin" ? "default" : "secondary"}
-                          className={
-                            user.role === "superadmin"
-                              ? "bg-electric-violet text-white text-link-semi-bold"
-                              : "bg-light-purple text-electric-violet text-link-semi-bold"
-                          }
-                        >
+                        <Badge variant={user.role === "superadmin" ? "default" : "secondary"}>
                           {user.role === "superadmin" ? "Super Admin" : "Admin"}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge
-                          variant={user.isActive ? "default" : "destructive"}
-                          className={
-                            user.isActive ? "bg-electric-violet text-white text-link-semi-bold" : "text-link-semi-bold"
-                          }
-                        >
+                        <Badge variant={user.isActive ? "default" : "destructive"}>
                           {user.isActive ? "Active" : "Inactive"}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-body-regular text-tundora">
-                        {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "N/A"}
-                      </TableCell>
+                      <TableCell>{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "N/A"}</TableCell>
                       <TableCell>
                         <div className="flex space-x-1">
                           {canManageUsers && (
                             <>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openEditDialog(user)}
-                                className="text-tundora hover:bg-light-purple text-link-semi-bold"
-                              >
+                              <Button variant="ghost" size="sm" onClick={() => openEditDialog(user)}>
                                 <Edit className="h-4 w-4" />
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openPasswordDialog(user.id)}
-                                className="text-tundora hover:bg-light-purple text-link-semi-bold"
-                              >
+                              <Button variant="ghost" size="sm" onClick={() => openPasswordDialog(user.id)}>
                                 <span className="text-xs">Change Password</span>
                               </Button>
                               {user.id !== currentUser?.id && (
@@ -426,7 +378,7 @@ export function AdminUserManagement() {
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => handleDeleteUser(user)}
-                                  className="text-red-600 hover:text-red-800 hover:bg-red-50 text-link-semi-bold"
+                                  className="text-red-600 hover:text-red-800"
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
@@ -448,46 +400,36 @@ export function AdminUserManagement() {
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="text-title-semi-bold text-tundora">Edit User</DialogTitle>
-            <DialogDescription className="text-body-regular text-tundora">
-              Update user information and permissions
-            </DialogDescription>
+            <DialogTitle>Edit User</DialogTitle>
+            <DialogDescription>Update user information and permissions</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleEditUser} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-username" className="text-link-semi-bold text-tundora">
-                Username
-              </Label>
+              <Label htmlFor="edit-username">Username</Label>
               <Input
                 id="edit-username"
                 value={editForm.username}
                 onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
                 required
-                className="border-light-purple text-body-regular"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-email" className="text-link-semi-bold text-tundora">
-                Email
-              </Label>
+              <Label htmlFor="edit-email">Email</Label>
               <Input
                 id="edit-email"
                 type="email"
                 value={editForm.email}
                 onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                 required
-                className="border-light-purple text-body-regular"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-role" className="text-link-semi-bold text-tundora">
-                Role
-              </Label>
+              <Label htmlFor="edit-role">Role</Label>
               <Select
                 value={editForm.role}
                 onValueChange={(value: "admin" | "superadmin") => setEditForm({ ...editForm, role: value })}
               >
-                <SelectTrigger className="border-light-purple">
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -502,14 +444,9 @@ export function AdminUserManagement() {
                 checked={editForm.isActive}
                 onCheckedChange={(checked) => setEditForm({ ...editForm, isActive: checked })}
               />
-              <Label htmlFor="edit-active" className="text-link-semi-bold text-tundora">
-                Active
-              </Label>
+              <Label htmlFor="edit-active">Active</Label>
             </div>
-            <Button
-              type="submit"
-              className="w-full bg-electric-violet hover:bg-electric-violet/90 text-white text-link-semi-bold"
-            >
+            <Button type="submit" className="w-full">
               Update User
             </Button>
           </form>
@@ -520,42 +457,31 @@ export function AdminUserManagement() {
       <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="text-title-semi-bold text-tundora">Change Password</DialogTitle>
-            <DialogDescription className="text-body-regular text-tundora">
-              Set a new password for this user
-            </DialogDescription>
+            <DialogTitle>Change Password</DialogTitle>
+            <DialogDescription>Set a new password for this user</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleChangePassword} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="new-password" className="text-link-semi-bold text-tundora">
-                New Password
-              </Label>
+              <Label htmlFor="new-password">New Password</Label>
               <Input
                 id="new-password"
                 type="password"
                 value={passwordForm.newPassword}
                 onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
                 required
-                className="border-light-purple text-body-regular"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirm-password" className="text-link-semi-bold text-tundora">
-                Confirm Password
-              </Label>
+              <Label htmlFor="confirm-password">Confirm Password</Label>
               <Input
                 id="confirm-password"
                 type="password"
                 value={passwordForm.confirmPassword}
                 onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
                 required
-                className="border-light-purple text-body-regular"
               />
             </div>
-            <Button
-              type="submit"
-              className="w-full bg-electric-violet hover:bg-electric-violet/90 text-white text-link-semi-bold"
-            >
+            <Button type="submit" className="w-full">
               Change Password
             </Button>
           </form>

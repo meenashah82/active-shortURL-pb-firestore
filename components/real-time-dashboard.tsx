@@ -89,7 +89,7 @@ export function RealTimeDashboard() {
     return (
       <Alert variant="destructive" className="border-red-200 bg-red-50">
         <AlertCircle className="h-4 w-4" />
-        <AlertDescription className="text-red-800 text-body-regular">{error}</AlertDescription>
+        <AlertDescription className="text-red-800">{error}</AlertDescription>
       </Alert>
     )
   }
@@ -99,52 +99,50 @@ export function RealTimeDashboard() {
       {/* Page Header */}
       <div className="">
         <div>
-          <h1 className="text-h2-section text-tundora">Real-Time Dashboard</h1>
-          <p className="text-body-regular text-tundora mt-1">
-            Monitor your shortened URLs and view analytics in real-time
-          </p>
+          <h1 className="text-2xl font-semibold text-gray-900">Real-Time Dashboard</h1>
+          <p className="text-gray-600 mt-1">Monitor your shortened URLs and view analytics in real-time</p>
         </div>
       </div>
 
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="border-light-purple shadow-sm">
+        <Card className="border-gray-200 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-link-semi-bold text-tundora">Total URLs</CardTitle>
-            <BarChart3 className="h-4 w-4 text-electric-violet" />
+            <CardTitle className="text-sm font-medium text-gray-600">Total URLs</CardTitle>
+            <BarChart3 className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-h2-section text-tundora">
+            <div className="text-2xl font-semibold text-gray-900">
               {loading ? <Skeleton className="h-8 w-16" /> : topUrls.length}
             </div>
-            <p className="text-sm text-tundora">Active short URLs</p>
+            <p className="text-xs text-gray-500">Active short URLs</p>
           </CardContent>
         </Card>
 
-        <Card className="border-light-purple shadow-sm">
+        <Card className="border-gray-200 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-link-semi-bold text-tundora">Total Clicks</CardTitle>
-            <MousePointer className="h-4 w-4 text-electric-violet" />
+            <CardTitle className="text-sm font-medium text-gray-600">Total Clicks</CardTitle>
+            <MousePointer className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-h2-section text-tundora">
+            <div className="text-2xl font-semibold text-gray-900">
               {loading ? (
                 <Skeleton className="h-8 w-16" />
               ) : (
                 topUrls.reduce((sum, url) => sum + url.clicks, 0).toLocaleString()
               )}
             </div>
-            <p className="text-sm text-tundora">Across all URLs</p>
+            <p className="text-xs text-gray-500">Across all URLs</p>
           </CardContent>
         </Card>
 
-        <Card className="border-light-purple shadow-sm">
+        <Card className="border-gray-200 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-link-semi-bold text-tundora">Top Performer</CardTitle>
-            <TrendingUp className="h-4 w-4 text-electric-violet" />
+            <CardTitle className="text-sm font-medium text-gray-600">Top Performer</CardTitle>
+            <TrendingUp className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-h2-section text-tundora">
+            <div className="text-2xl font-semibold text-gray-900">
               {loading ? (
                 <Skeleton className="h-8 w-16" />
               ) : topUrls.length > 0 ? (
@@ -153,7 +151,7 @@ export function RealTimeDashboard() {
                 "No data"
               )}
             </div>
-            <p className="text-sm text-tundora">
+            <p className="text-xs text-gray-500">
               {topUrls.length > 0 ? `/${topUrls[0].shortCode}` : "Create your first URL"}
             </p>
           </CardContent>
@@ -161,18 +159,16 @@ export function RealTimeDashboard() {
       </div>
 
       {/* Top URLs Table */}
-      <Card className="border-light-purple shadow-sm">
+      <Card className="border-gray-200 shadow-sm">
         <CardHeader>
-          <CardTitle className="text-title-semi-bold text-tundora">Top Performing URLs</CardTitle>
-          <CardDescription className="text-body-regular text-tundora">
-            Real-time view of your most clicked short URLs
-          </CardDescription>
+          <CardTitle className="text-gray-900">Top Performing URLs</CardTitle>
+          <CardDescription className="text-gray-600">Real-time view of your most clicked short URLs</CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
             <div className="space-y-4">
               {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex items-center justify-between p-4 border border-light-purple rounded-lg">
+                <div key={i} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
                   <div className="space-y-2 flex-1">
                     <Skeleton className="h-4 w-32" />
                     <Skeleton className="h-3 w-64" />
@@ -187,10 +183,10 @@ export function RealTimeDashboard() {
             </div>
           ) : topUrls.length === 0 ? (
             <div className="text-center py-12">
-              <BarChart3 className="h-12 w-12 text-tundora mx-auto mb-4" />
-              <h3 className="text-sub-heading-semi-bold mb-2 text-tundora">No URLs yet</h3>
-              <p className="text-body-regular text-tundora mb-4">Create your first short URL to see analytics here</p>
-              <Button asChild className="bg-electric-violet hover:bg-electric-violet/90 text-white text-link-semi-bold">
+              <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2 text-gray-900">No URLs yet</h3>
+              <p className="text-gray-600 mb-4">Create your first short URL to see analytics here</p>
+              <Button asChild className="bg-purple-600 hover:bg-purple-700 text-white">
                 <a href="/">Create Short URL</a>
               </Button>
             </div>
@@ -199,33 +195,26 @@ export function RealTimeDashboard() {
               {topUrls.map((url, index) => (
                 <div
                   key={url.shortCode}
-                  className="flex items-center justify-between p-4 border border-light-purple rounded-lg hover:bg-light-gray transition-colors"
+                  className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <Badge
                         variant={index === 0 ? "default" : "secondary"}
-                        className={
-                          index === 0
-                            ? "bg-electric-violet text-white text-link-semi-bold"
-                            : "bg-light-purple text-electric-violet text-link-semi-bold"
-                        }
+                        className={index === 0 ? "bg-purple-600 text-white" : "bg-purple-100 text-purple-700"}
                       >
                         #{index + 1}
                       </Badge>
-                      <code className="text-sm font-mono bg-light-gray text-electric-violet px-2 py-1 rounded">
+                      <code className="text-sm font-mono bg-purple-50 text-purple-700 px-2 py-1 rounded">
                         /{url.shortCode}
                       </code>
                     </div>
-                    <p className="text-body-regular text-tundora truncate" title={url.originalUrl}>
+                    <p className="text-sm text-gray-600 truncate" title={url.originalUrl}>
                       {url.originalUrl}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 ml-4">
-                    <Badge
-                      variant="secondary"
-                      className="bg-light-purple text-electric-violet flex items-center gap-1 text-link-semi-bold"
-                    >
+                    <Badge variant="secondary" className="bg-purple-100 text-purple-700 flex items-center gap-1">
                       <MousePointer className="h-3 w-3" />
                       {url.clicks.toLocaleString()}
                     </Badge>
@@ -234,7 +223,7 @@ export function RealTimeDashboard() {
                       size="sm"
                       onClick={() => copyToClipboard(url.shortCode)}
                       title="Copy short URL"
-                      className="text-electric-violet hover:bg-light-purple text-link-semi-bold"
+                      className="text-purple-600 hover:bg-purple-50"
                     >
                       <Copy className="h-4 w-4" />
                     </Button>
@@ -243,7 +232,7 @@ export function RealTimeDashboard() {
                       size="sm"
                       onClick={() => openUrl(url.shortCode)}
                       title="Open short URL"
-                      className="text-electric-violet hover:bg-light-purple text-link-semi-bold"
+                      className="text-purple-600 hover:bg-purple-50"
                     >
                       <ExternalLink className="h-4 w-4" />
                     </Button>
@@ -252,7 +241,7 @@ export function RealTimeDashboard() {
                       size="sm"
                       onClick={() => openAnalytics(url.shortCode)}
                       title="View analytics"
-                      className="text-electric-violet hover:bg-light-purple text-link-semi-bold"
+                      className="text-purple-600 hover:bg-purple-50"
                     >
                       <BarChart3 className="h-4 w-4" />
                     </Button>
@@ -265,13 +254,13 @@ export function RealTimeDashboard() {
       </Card>
 
       {/* Real-time indicator */}
-      <div className="flex items-center justify-center gap-2 text-sm text-tundora">
+      <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-          <span className="text-body-regular">Real-time updates</span>
+          <span>Real-time updates</span>
         </div>
         <Clock className="h-4 w-4" />
-        <span className="text-body-regular">Last updated: {new Date().toLocaleTimeString()}</span>
+        <span>Last updated: {new Date().toLocaleTimeString()}</span>
       </div>
     </div>
   )
