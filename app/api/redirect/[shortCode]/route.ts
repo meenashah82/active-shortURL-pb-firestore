@@ -1,14 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import {
-  doc,
-  getDoc,
-  runTransaction,
-  serverTimestamp,
-  arrayUnion,
-  collection,
-  setDoc,
-  increment,
-} from "firebase/firestore"
+import { doc, getDoc, serverTimestamp, arrayUnion, collection, setDoc, increment, updateDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
 interface UrlData {
@@ -237,11 +228,6 @@ async function recordClickAnalytics(shortCode: string, request: NextRequest) {
     console.log(`✅ ✅ ✅ NEW INDIVIDUAL CLICK DOCUMENT CREATED: ${clickId}`)
     console.log(`📍 Document path: clicks/${shortCode}/shortcode_clicks/${clickId}`)
 
-    // STEP 2: Update analytics and URLs collections separately for better reliability
-    console.log(`🔄 Updating analytics collection for ${shortCode}`)
-
-    const analyticsRef = doc(db, "analytics", shortCode)
-
     // Create comprehensive click event for analytics collection
     const clickEvent = {
       id: clickId,
@@ -254,49 +240,47 @@ async function recordClickAnalytics(shortCode: string, request: NextRequest) {
       realTime: true,
     }
 
-    // Update analytics with a separate transaction focused only on analytics
-    await runTransaction(db, async (transaction) => {
-      const analyticsDoc = await transaction.get(analyticsRef)
+    // STEP 2: Update analytics collection using direct update (not transaction)
+    console.log(`🔄 Updating analytics collection for ${shortCode}`)
 
-      if (analyticsDoc.exists()) {
-        console.log(`📈 Incrementing analytics totalClicks using increment()`)
-        transaction.update(analyticsRef, {
-          totalClicks: increment(1),
-          lastClickAt: serverTimestamp(),
-          clickEvents: arrayUnion(clickEvent),
-        })
-      } else {
-        console.log(`📝 Creating new analytics document for: ${shortCode}`)
-        transaction.set(analyticsRef, {
-          shortCode,
-          totalClicks: 1,
-          createdAt: serverTimestamp(),
-          lastClickAt: serverTimestamp(),
-          clickEvents: [clickEvent],
-        })
-      }
-    })
+    const analyticsRef = doc(db, "analytics", shortCode)
+    const analyticsSnap = await getDoc(analyticsRef)
 
-    console.log(`✅ Analytics updated successfully for: ${shortCode}`)
+    if (analyticsSnap.exists()) {
+      console.log(`📈 Incrementing analytics totalClicks using updateDoc with increment()`)
+      await updateDoc(analyticsRef, {
+        totalClicks: increment(1),
+        lastClickAt: serverTimestamp(),
+        clickEvents: arrayUnion(clickEvent),
+      })
+      console.log(`✅ Analytics updated successfully for: ${shortCode}`)
+    } else {
+      console.log(`📝 Creating new analytics document for: ${shortCode}`)
+      await setDoc(analyticsRef, {
+        shortCode,
+        totalClicks: 1,
+        createdAt: serverTimestamp(),
+        lastClickAt: serverTimestamp(),
+        clickEvents: [clickEvent],
+      })
+      console.log(`✅ New analytics document created for: ${shortCode}`)
+    }
 
-    // STEP 3: Update URLs collection separately
+    // STEP 3: Update URLs collection using direct update (not transaction)
     console.log(`🔄 Updating URLs collection for ${shortCode}`)
 
     const urlRef = doc(db, "urls", shortCode)
+    const urlSnap = await getDoc(urlRef)
 
-    await runTransaction(db, async (transaction) => {
-      const urlDoc = await transaction.get(urlRef)
+    if (urlSnap.exists()) {
+      console.log(`📈 Incrementing URL clicks using updateDoc with increment()`)
+      await updateDoc(urlRef, {
+        clicks: increment(1),
+        lastClickAt: serverTimestamp(),
+      })
+      console.log(`✅ URLs updated successfully for: ${shortCode}`)
+    }
 
-      if (urlDoc.exists()) {
-        console.log(`📈 Incrementing URL clicks using increment()`)
-        transaction.update(urlRef, {
-          clicks: increment(1),
-          lastClickAt: serverTimestamp(),
-        })
-      }
-    })
-
-    console.log(`✅ URLs updated successfully for: ${shortCode}`)
     console.log(
       `🎯 SUMMARY: Individual click document created successfully at clicks/${shortCode}/shortcode_clicks/${clickId}`,
     )
