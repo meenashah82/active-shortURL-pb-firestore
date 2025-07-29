@@ -212,8 +212,7 @@ async function recordClickAnalytics(shortCode: string, request: NextRequest) {
       device: deviceInfo,
     }
 
-    // CRITICAL STEP: ALWAYS create a NEW individual click record for EVERY click
-    // This is the primary requirement - every click MUST result in a new document
+    // STEP 1: ALWAYS create a NEW individual click record for EVERY click (MANDATORY)
     const shortcodeClicksRef = collection(db, "clicks", shortCode, "shortcode_clicks")
     const individualClickRef = doc(shortcodeClicksRef, clickId)
 
@@ -238,7 +237,11 @@ async function recordClickAnalytics(shortCode: string, request: NextRequest) {
     console.log(`✅ ✅ ✅ NEW INDIVIDUAL CLICK DOCUMENT CREATED: ${clickId}`)
     console.log(`📍 Document path: clicks/${shortCode}/shortcode_clicks/${clickId}`)
 
-    // Create comprehensive click event for analytics collection (existing functionality)
+    // STEP 2: Update analytics using the EXACT same pattern as lib/analytics-clean.ts
+    console.log(`🔄 Starting analytics update for ${shortCode}`)
+
+    const analyticsRef = doc(db, "analytics", shortCode)
+
     const clickEvent = {
       id: clickId,
       timestamp: serverTimestamp(),
@@ -247,40 +250,28 @@ async function recordClickAnalytics(shortCode: string, request: NextRequest) {
       ip: ip.substring(0, 15),
       sessionId: sessionId,
       clickSource: "direct" as const,
-      realTime: true,
     }
 
-    // Update both URLs and analytics collections using atomic transaction for real-time updates
-    console.log(`🔄 Updating URLs and analytics for ${shortCode}`)
-
-    const urlRef = doc(db, "urls", shortCode)
-    const analyticsRef = doc(db, "analytics", shortCode)
-
+    // Use the EXACT same transaction pattern as the working recordClick function
     await runTransaction(db, async (transaction) => {
-      const urlDoc = await transaction.get(urlRef)
+      console.log(`🔄 Inside transaction for analytics update: ${shortCode}`)
+
       const analyticsDoc = await transaction.get(analyticsRef)
+      console.log(`📊 Analytics document exists: ${analyticsDoc.exists()}`)
 
-      // Update URLs collection with increment for real-time updates
-      if (urlDoc.exists()) {
-        console.log(`📈 Incrementing URL clicks using increment()`)
-        transaction.update(urlRef, {
-          clicks: increment(1),
-          lastClickAt: serverTimestamp(),
-        })
-      } else {
-        console.log(`📝 URL document doesn't exist, skipping URL update`)
-      }
-
-      // Update analytics collection with increment for real-time updates
       if (analyticsDoc.exists()) {
-        console.log(`📈 Incrementing analytics totalClicks using increment()`)
+        console.log(`📈 Updating existing analytics document with increment(1)`)
+        const currentData = analyticsDoc.data() as AnalyticsData
+        console.log(`📊 Current totalClicks before increment: ${currentData.totalClicks || 0}`)
+
         transaction.update(analyticsRef, {
           totalClicks: increment(1),
           lastClickAt: serverTimestamp(),
           clickEvents: arrayUnion(clickEvent),
         })
+        console.log(`✅ Analytics update transaction queued`)
       } else {
-        console.log(`📝 Creating new analytics document for: ${shortCode}`)
+        console.log(`📝 Creating new analytics document with totalClicks: 1`)
         transaction.set(analyticsRef, {
           shortCode,
           totalClicks: 1,
@@ -288,10 +279,50 @@ async function recordClickAnalytics(shortCode: string, request: NextRequest) {
           lastClickAt: serverTimestamp(),
           clickEvents: [clickEvent],
         })
+        console.log(`✅ Analytics creation transaction queued`)
       }
     })
 
-    console.log(`✅ URLs and analytics updated successfully for: ${shortCode}`)
+    console.log(`✅ Analytics transaction completed successfully for: ${shortCode}`)
+
+    // STEP 3: Update URLs collection (optional, for backward compatibility)
+    console.log(`🔄 Starting URLs update for ${shortCode}`)
+
+    const urlRef = doc(db, "urls", shortCode)
+
+    await runTransaction(db, async (transaction) => {
+      console.log(`🔄 Inside transaction for URLs update: ${shortCode}`)
+
+      const urlDoc = await transaction.get(urlRef)
+      console.log(`📄 URL document exists: ${urlDoc.exists()}`)
+
+      if (urlDoc.exists()) {
+        console.log(`📈 Updating URL document with increment(1)`)
+        const currentData = urlDoc.data()
+        console.log(`📄 Current clicks before increment: ${currentData.clicks || 0}`)
+
+        transaction.update(urlRef, {
+          clicks: increment(1),
+          lastClickAt: serverTimestamp(),
+        })
+        console.log(`✅ URL update transaction queued`)
+      } else {
+        console.log(`⚠️ URL document doesn't exist, skipping URL update`)
+      }
+    })
+
+    console.log(`✅ URLs transaction completed successfully for: ${shortCode}`)
+
+    // Verify the analytics update worked
+    console.log(`🔍 Verifying analytics update for: ${shortCode}`)
+    const verifyAnalyticsSnap = await getDoc(analyticsRef)
+    if (verifyAnalyticsSnap.exists()) {
+      const verifyData = verifyAnalyticsSnap.data() as AnalyticsData
+      console.log(`✅ VERIFICATION: Analytics totalClicks is now: ${verifyData.totalClicks}`)
+    } else {
+      console.log(`❌ VERIFICATION FAILED: Analytics document doesn't exist after update`)
+    }
+
     console.log(
       `🎯 SUMMARY: Individual click document created successfully at clicks/${shortCode}/shortcode_clicks/${clickId}`,
     )
