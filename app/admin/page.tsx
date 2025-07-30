@@ -42,16 +42,16 @@ export default function AdminPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-white">
-        <div className="bg-purple-600 text-white py-4">
+      <div className="min-h-screen" style={{ backgroundColor: "#FFFFFF" }}>
+        <div className="py-4" style={{ backgroundColor: "#833ADF", color: "#FFFFFF" }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <Skeleton className="h-8 w-48 bg-purple-500" />
+            <Skeleton className="h-8 w-48" style={{ backgroundColor: "rgba(255, 255, 255, 0.2)" }} />
           </div>
         </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <Skeleton className="h-12 w-1/4 mb-4" />
-          <Skeleton className="h-8 w-full" />
-          <Skeleton className="h-64 w-full mt-4" />
+          <Skeleton className="h-12 w-1/4 mb-4" style={{ backgroundColor: "#D9D8FD" }} />
+          <Skeleton className="h-8 w-full" style={{ backgroundColor: "#D9D8FD" }} />
+          <Skeleton className="h-64 w-full mt-4" style={{ backgroundColor: "#D9D8FD" }} />
         </div>
       </div>
     )
@@ -62,20 +62,31 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <header className="bg-purple-600 text-white shadow-sm">
+    <div className="min-h-screen" style={{ backgroundColor: "#FFFFFF" }}>
+      <header className="shadow-sm" style={{ backgroundColor: "#833ADF", color: "#FFFFFF" }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-pink-500 rounded-lg flex items-center justify-center">
-                <Shield className="h-5 w-5 text-white" />
+              <div
+                className="w-8 h-8 rounded-lg flex items-center justify-center"
+                style={{ backgroundColor: "#F22C7C" }}
+              >
+                <Shield className="h-5 w-5" style={{ color: "#FFFFFF" }} />
               </div>
-              <h1 className="text-xl font-semibold text-white">Admin Panel</h1>
+              <h1 className="text-xl font-semibold" style={{ color: "#FFFFFF" }}>
+                Admin Panel
+              </h1>
             </div>
             <div className="flex items-center space-x-4">
-              <div className="text-sm text-purple-100">
-                Welcome, <span className="font-medium text-white">{user.username}</span>
-                <span className="ml-2 px-2 py-1 bg-pink-500 text-white rounded-full text-xs font-medium">
+              <div className="text-sm" style={{ color: "rgba(255, 255, 255, 0.8)" }}>
+                Welcome,{" "}
+                <span className="font-medium" style={{ color: "#FFFFFF" }}>
+                  {user.username}
+                </span>
+                <span
+                  className="ml-2 px-2 py-1 rounded-full text-xs font-medium"
+                  style={{ backgroundColor: "#F22C7C", color: "#FFFFFF" }}
+                >
                   {user.role}
                 </span>
               </div>
@@ -83,7 +94,11 @@ export default function AdminPage() {
                 variant="outline"
                 size="sm"
                 onClick={handleLogout}
-                className="border-purple-300 text-white hover:bg-purple-700 hover:border-purple-400 bg-transparent"
+                style={{
+                  borderColor: "rgba(255, 255, 255, 0.3)",
+                  color: "#FFFFFF",
+                  backgroundColor: "transparent",
+                }}
               >
                 <LogOut className="mr-2 h-4 w-4" />
                 Logout
@@ -95,12 +110,26 @@ export default function AdminPage() {
 
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <Tabs defaultValue="urls" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 bg-gray-100">
-            <TabsTrigger value="urls" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white">
+          <TabsList className="grid w-full grid-cols-2" style={{ backgroundColor: "#D9D8FD" }}>
+            <TabsTrigger
+              value="urls"
+              className="data-[state=active]:text-white"
+              style={{
+                color: "#4D475B",
+                backgroundColor: "transparent",
+              }}
+            >
               <Link className="mr-2 h-4 w-4" />
               URL Management
             </TabsTrigger>
-            <TabsTrigger value="users" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white">
+            <TabsTrigger
+              value="users"
+              className="data-[state=active]:text-white"
+              style={{
+                color: "#4D475B",
+                backgroundColor: "transparent",
+              }}
+            >
               <Users className="mr-2 h-4 w-4" />
               User Management
             </TabsTrigger>

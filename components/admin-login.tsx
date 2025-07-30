@@ -45,13 +45,13 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen" style={{ backgroundColor: "#FFFFFF" }}>
       {/* Purple header bar like wodify.com */}
-      <div className="bg-purple-600 text-white py-3">
+      <div className="py-3" style={{ backgroundColor: "#833ADF", color: "#FFFFFF" }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-pink-500 rounded-lg flex items-center justify-center">
-              <Shield className="h-5 w-5 text-white" />
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#F22C7C" }}>
+              <Shield className="h-5 w-5" style={{ color: "#FFFFFF" }} />
             </div>
             <span className="text-lg font-semibold">Admin Portal</span>
           </div>
@@ -60,22 +60,30 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
 
       {/* Main content area */}
       <div className="flex items-center justify-center px-4 py-16">
-        <Card className="w-full max-w-md border border-gray-200 shadow-sm">
+        <Card
+          className="w-full max-w-md border shadow-sm"
+          style={{ borderColor: "#D9D8FD", backgroundColor: "#FFFFFF" }}
+        >
           <CardHeader className="text-center space-y-4 pb-6">
             <div className="flex justify-center">
-              <div className="w-16 h-16 bg-pink-500 rounded-2xl flex items-center justify-center">
-                <Shield className="h-8 w-8 text-white" />
+              <div
+                className="w-16 h-16 rounded-2xl flex items-center justify-center"
+                style={{ backgroundColor: "#F22C7C" }}
+              >
+                <Shield className="h-8 w-8" style={{ color: "#FFFFFF" }} />
               </div>
             </div>
             <div className="space-y-2">
-              <CardTitle className="text-2xl font-semibold text-gray-900">Admin Login</CardTitle>
-              <CardDescription className="text-gray-600">Sign in to access the admin dashboard</CardDescription>
+              <CardTitle className="text-2xl font-semibold" style={{ color: "#4D475B" }}>
+                Admin Login
+              </CardTitle>
+              <CardDescription style={{ color: "#94909C" }}>Sign in to access the admin dashboard</CardDescription>
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="username" className="text-sm font-medium text-gray-700">
+                <Label htmlFor="username" className="text-sm font-medium" style={{ color: "#4D475B" }}>
                   Username
                 </Label>
                 <Input
@@ -86,12 +94,13 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
                   required
                   disabled={isLoading}
                   placeholder="Enter your username"
-                  className="h-11 border-gray-300 focus:border-purple-500 focus:ring-purple-500"
+                  className="h-11"
+                  style={{ borderColor: "#D9D8FD", color: "#4D475B" }}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-medium text-gray-700">
+                <Label htmlFor="password" className="text-sm font-medium" style={{ color: "#4D475B" }}>
                   Password
                 </Label>
                 <div className="relative">
@@ -103,13 +112,15 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
                     required
                     disabled={isLoading}
                     placeholder="Enter your password"
-                    className="h-11 border-gray-300 focus:border-purple-500 focus:ring-purple-500 pr-10"
+                    className="h-11 pr-10"
+                    style={{ borderColor: "#D9D8FD", color: "#4D475B" }}
                   />
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="absolute right-0 top-0 h-11 px-3 hover:bg-transparent text-gray-400 hover:text-gray-600"
+                    className="absolute right-0 top-0 h-11 px-3 hover:bg-transparent"
+                    style={{ color: "#94909C" }}
                     onClick={() => setShowPassword(!showPassword)}
                     disabled={isLoading}
                   >
@@ -119,15 +130,19 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
               </div>
 
               {error && (
-                <Alert variant="destructive" className="border-red-200 bg-red-50">
-                  <AlertDescription className="text-red-700">{error}</AlertDescription>
+                <Alert
+                  variant="destructive"
+                  style={{ borderColor: "#F22C7C", backgroundColor: "rgba(242, 44, 124, 0.1)" }}
+                >
+                  <AlertDescription style={{ color: "#F22C7C" }}>{error}</AlertDescription>
                 </Alert>
               )}
 
               <Button
                 type="submit"
-                className="w-full h-11 bg-purple-600 hover:bg-purple-700 text-white font-medium"
+                className="w-full h-11 font-medium"
                 disabled={isLoading}
+                style={{ backgroundColor: "#833ADF", color: "#FFFFFF" }}
               >
                 {isLoading ? "Signing in..." : "Sign In"}
               </Button>

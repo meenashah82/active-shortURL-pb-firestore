@@ -224,75 +224,100 @@ export function AdminUserManagement() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold">User Management</h2>
-          <p className="text-gray-600">Manage admin users and permissions</p>
+          <h2 className="text-2xl font-bold" style={{ color: "#4D475B" }}>
+            User Management
+          </h2>
+          <p style={{ color: "#94909C" }}>Manage admin users and permissions</p>
         </div>
         {canManageUsers ? (
           <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
             <DialogTrigger asChild>
-              <Button>
+              <Button style={{ backgroundColor: "#833ADF", color: "#FFFFFF" }}>
                 <UserPlus className="mr-2 h-4 w-4" />
                 Add User
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent style={{ backgroundColor: "#FFFFFF", borderColor: "#D9D8FD" }}>
               <DialogHeader>
-                <DialogTitle>Create New Admin User</DialogTitle>
-                <DialogDescription>Add a new administrator to the system</DialogDescription>
+                <DialogTitle style={{ color: "#4D475B" }}>Create New Admin User</DialogTitle>
+                <DialogDescription style={{ color: "#94909C" }}>
+                  Add a new administrator to the system
+                </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleCreateUser} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="create-username">Username</Label>
+                  <Label htmlFor="create-username" style={{ color: "#4D475B" }}>
+                    Username
+                  </Label>
                   <Input
                     id="create-username"
                     value={createForm.username}
                     onChange={(e) => setCreateForm({ ...createForm, username: e.target.value })}
                     required
+                    style={{ borderColor: "#D9D8FD", color: "#4D475B" }}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="create-email">Email</Label>
+                  <Label htmlFor="create-email" style={{ color: "#4D475B" }}>
+                    Email
+                  </Label>
                   <Input
                     id="create-email"
                     type="email"
                     value={createForm.email}
                     onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
                     required
+                    style={{ borderColor: "#D9D8FD", color: "#4D475B" }}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="create-password">Password</Label>
+                  <Label htmlFor="create-password" style={{ color: "#4D475B" }}>
+                    Password
+                  </Label>
                   <Input
                     id="create-password"
                     type="password"
                     value={createForm.password}
                     onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
                     required
+                    style={{ borderColor: "#D9D8FD", color: "#4D475B" }}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="create-role">Role</Label>
+                  <Label htmlFor="create-role" style={{ color: "#4D475B" }}>
+                    Role
+                  </Label>
                   <Select
                     value={createForm.role}
                     onValueChange={(value: "admin" | "superadmin") => setCreateForm({ ...createForm, role: value })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger style={{ borderColor: "#D9D8FD", color: "#4D475B" }}>
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent style={{ backgroundColor: "#FFFFFF", borderColor: "#D9D8FD" }}>
                       <SelectItem value="admin">Admin</SelectItem>
                       <SelectItem value="superadmin">Super Admin</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <Button type="submit" disabled={isCreating} className="w-full">
+                <Button
+                  type="submit"
+                  disabled={isCreating}
+                  className="w-full"
+                  style={{ backgroundColor: "#833ADF", color: "#FFFFFF" }}
+                >
                   {isCreating ? "Creating..." : "Create User"}
                 </Button>
               </form>
             </DialogContent>
           </Dialog>
         ) : (
-          <Button onClick={fetchUsers} disabled={isLoading} variant="outline">
+          <Button
+            onClick={fetchUsers}
+            disabled={isLoading}
+            variant="outline"
+            style={{ borderColor: "#D9D8FD", color: "#4D475B" }}
+          >
             <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
@@ -300,23 +325,23 @@ export function AdminUserManagement() {
       </div>
 
       {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
+        <Alert variant="destructive" style={{ borderColor: "#F22C7C", backgroundColor: "rgba(242, 44, 124, 0.1)" }}>
+          <AlertDescription style={{ color: "#F22C7C" }}>{error}</AlertDescription>
         </Alert>
       )}
 
-      <Card>
+      <Card style={{ backgroundColor: "#FFFFFF", borderColor: "#D9D8FD" }}>
         <CardHeader>
-          <CardTitle>Admin Users ({users.length})</CardTitle>
-          <CardDescription>Manage administrator accounts and permissions</CardDescription>
+          <CardTitle style={{ color: "#4D475B" }}>Admin Users ({users.length})</CardTitle>
+          <CardDescription style={{ color: "#94909C" }}>Manage administrator accounts and permissions</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: "#833ADF" }}></div>
             </div>
           ) : users.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8" style={{ color: "#94909C" }}>
               <p>No admin users found</p>
               <p className="text-sm mt-2">Create your first admin user to get started</p>
             </div>
@@ -325,12 +350,12 @@ export function AdminUserManagement() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead style={{ color: "#94909C" }}>User</TableHead>
+                    <TableHead style={{ color: "#94909C" }}>Email</TableHead>
+                    <TableHead style={{ color: "#94909C" }}>Role</TableHead>
+                    <TableHead style={{ color: "#94909C" }}>Status</TableHead>
+                    <TableHead style={{ color: "#94909C" }}>Created</TableHead>
+                    <TableHead style={{ color: "#94909C" }}>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -339,38 +364,68 @@ export function AdminUserManagement() {
                       <TableCell>
                         <div className="flex items-center space-x-2">
                           {user.role === "superadmin" ? (
-                            <Shield className="h-4 w-4 text-purple-600" />
+                            <Shield className="h-4 w-4" style={{ color: "#833ADF" }} />
                           ) : (
-                            <User className="h-4 w-4 text-gray-600" />
+                            <User className="h-4 w-4" style={{ color: "#94909C" }} />
                           )}
-                          <span className="font-medium">{user.username}</span>
+                          <span className="font-medium" style={{ color: "#4D475B" }}>
+                            {user.username}
+                          </span>
                           {user.id === currentUser?.id && (
-                            <Badge variant="outline" className="text-xs">
+                            <Badge
+                              variant="outline"
+                              className="text-xs"
+                              style={{ borderColor: "#D9D8FD", color: "#833ADF" }}
+                            >
                               You
                             </Badge>
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>{user.email}</TableCell>
+                      <TableCell style={{ color: "#4D475B" }}>{user.email}</TableCell>
                       <TableCell>
-                        <Badge variant={user.role === "superadmin" ? "default" : "secondary"}>
+                        <Badge
+                          variant={user.role === "superadmin" ? "default" : "secondary"}
+                          style={{
+                            backgroundColor: user.role === "superadmin" ? "#833ADF" : "#D9D8FD",
+                            color: user.role === "superadmin" ? "#FFFFFF" : "#833ADF",
+                          }}
+                        >
                           {user.role === "superadmin" ? "Super Admin" : "Admin"}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={user.isActive ? "default" : "destructive"}>
+                        <Badge
+                          variant={user.isActive ? "default" : "destructive"}
+                          style={{
+                            backgroundColor: user.isActive ? "#833ADF" : "#F22C7C",
+                            color: "#FFFFFF",
+                          }}
+                        >
                           {user.isActive ? "Active" : "Inactive"}
                         </Badge>
                       </TableCell>
-                      <TableCell>{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "N/A"}</TableCell>
+                      <TableCell style={{ color: "#94909C" }}>
+                        {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "N/A"}
+                      </TableCell>
                       <TableCell>
                         <div className="flex space-x-1">
                           {canManageUsers && (
                             <>
-                              <Button variant="ghost" size="sm" onClick={() => openEditDialog(user)}>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openEditDialog(user)}
+                                style={{ color: "#833ADF" }}
+                              >
                                 <Edit className="h-4 w-4" />
                               </Button>
-                              <Button variant="ghost" size="sm" onClick={() => openPasswordDialog(user.id)}>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openPasswordDialog(user.id)}
+                                style={{ color: "#833ADF" }}
+                              >
                                 <span className="text-xs">Change Password</span>
                               </Button>
                               {user.id !== currentUser?.id && (
@@ -378,7 +433,7 @@ export function AdminUserManagement() {
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => handleDeleteUser(user)}
-                                  className="text-red-600 hover:text-red-800"
+                                  style={{ color: "#F22C7C" }}
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
@@ -398,41 +453,49 @@ export function AdminUserManagement() {
 
       {/* Edit User Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent>
+        <DialogContent style={{ backgroundColor: "#FFFFFF", borderColor: "#D9D8FD" }}>
           <DialogHeader>
-            <DialogTitle>Edit User</DialogTitle>
-            <DialogDescription>Update user information and permissions</DialogDescription>
+            <DialogTitle style={{ color: "#4D475B" }}>Edit User</DialogTitle>
+            <DialogDescription style={{ color: "#94909C" }}>Update user information and permissions</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleEditUser} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-username">Username</Label>
+              <Label htmlFor="edit-username" style={{ color: "#4D475B" }}>
+                Username
+              </Label>
               <Input
                 id="edit-username"
                 value={editForm.username}
                 onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
                 required
+                style={{ borderColor: "#D9D8FD", color: "#4D475B" }}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-email">Email</Label>
+              <Label htmlFor="edit-email" style={{ color: "#4D475B" }}>
+                Email
+              </Label>
               <Input
                 id="edit-email"
                 type="email"
                 value={editForm.email}
                 onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                 required
+                style={{ borderColor: "#D9D8FD", color: "#4D475B" }}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-role">Role</Label>
+              <Label htmlFor="edit-role" style={{ color: "#4D475B" }}>
+                Role
+              </Label>
               <Select
                 value={editForm.role}
                 onValueChange={(value: "admin" | "superadmin") => setEditForm({ ...editForm, role: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger style={{ borderColor: "#D9D8FD", color: "#4D475B" }}>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent style={{ backgroundColor: "#FFFFFF", borderColor: "#D9D8FD" }}>
                   <SelectItem value="admin">Admin</SelectItem>
                   <SelectItem value="superadmin">Super Admin</SelectItem>
                 </SelectContent>
@@ -444,9 +507,11 @@ export function AdminUserManagement() {
                 checked={editForm.isActive}
                 onCheckedChange={(checked) => setEditForm({ ...editForm, isActive: checked })}
               />
-              <Label htmlFor="edit-active">Active</Label>
+              <Label htmlFor="edit-active" style={{ color: "#4D475B" }}>
+                Active
+              </Label>
             </div>
-            <Button type="submit" className="w-full">
+            <Button type="submit" className="w-full" style={{ backgroundColor: "#833ADF", color: "#FFFFFF" }}>
               Update User
             </Button>
           </form>
@@ -455,33 +520,39 @@ export function AdminUserManagement() {
 
       {/* Change Password Dialog */}
       <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
-        <DialogContent>
+        <DialogContent style={{ backgroundColor: "#FFFFFF", borderColor: "#D9D8FD" }}>
           <DialogHeader>
-            <DialogTitle>Change Password</DialogTitle>
-            <DialogDescription>Set a new password for this user</DialogDescription>
+            <DialogTitle style={{ color: "#4D475B" }}>Change Password</DialogTitle>
+            <DialogDescription style={{ color: "#94909C" }}>Set a new password for this user</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleChangePassword} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="new-password">New Password</Label>
+              <Label htmlFor="new-password" style={{ color: "#4D475B" }}>
+                New Password
+              </Label>
               <Input
                 id="new-password"
                 type="password"
                 value={passwordForm.newPassword}
                 onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
                 required
+                style={{ borderColor: "#D9D8FD", color: "#4D475B" }}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirm-password">Confirm Password</Label>
+              <Label htmlFor="confirm-password" style={{ color: "#4D475B" }}>
+                Confirm Password
+              </Label>
               <Input
                 id="confirm-password"
                 type="password"
                 value={passwordForm.confirmPassword}
                 onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
                 required
+                style={{ borderColor: "#D9D8FD", color: "#4D475B" }}
               />
             </div>
-            <Button type="submit" className="w-full">
+            <Button type="submit" className="w-full" style={{ backgroundColor: "#833ADF", color: "#FFFFFF" }}>
               Change Password
             </Button>
           </form>

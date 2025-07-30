@@ -73,10 +73,12 @@ export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
   }
 
   return (
-    <Card className="w-full border-gray-200 shadow-sm">
+    <Card className="w-full shadow-sm" style={{ borderColor: "#D9D8FD", backgroundColor: "#FFFFFF" }}>
       <CardHeader>
-        <CardTitle className="text-gray-900">URL Shortener</CardTitle>
-        <CardDescription className="text-gray-600">Enter a long URL to create a short, shareable link</CardDescription>
+        <CardTitle style={{ color: "#4D475B" }}>URL Shortener</CardTitle>
+        <CardDescription style={{ color: "#94909C" }}>
+          Enter a long URL to create a short, shareable link
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -86,10 +88,11 @@ export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
               placeholder="https://example.com/very-long-url"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              className="flex-1 border-gray-300"
+              className="flex-1"
+              style={{ borderColor: "#D9D8FD", color: "#4D475B" }}
               required
             />
-            <Button type="submit" disabled={isLoading} className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white">
+            <Button type="submit" disabled={isLoading} style={{ backgroundColor: "#833ADF", color: "#FFFFFF" }}>
               {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -103,18 +106,26 @@ export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
         </form>
 
         {shortUrl && (
-          <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+          <div className="p-4 rounded-lg border" style={{ backgroundColor: "#D9D8FD", borderColor: "#D9D8FD" }}>
             <div className="flex items-center justify-between gap-2">
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 mb-1">Your shortened URL:</p>
-                <p className="text-sm text-gray-600 truncate">{shortUrl}</p>
+                <p className="text-sm font-medium mb-1" style={{ color: "#4D475B" }}>
+                  Your shortened URL:
+                </p>
+                <p className="text-sm truncate" style={{ color: "#94909C" }}>
+                  {shortUrl}
+                </p>
               </div>
               <div className="flex gap-2">
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={copyToClipboard}
-                  className="border-gray-300 text-gray-700 hover:bg-gray-50 bg-transparent"
+                  style={{
+                    borderColor: "#D9D8FD",
+                    color: "#4D475B",
+                    backgroundColor: "transparent",
+                  }}
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
@@ -122,7 +133,10 @@ export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
                   size="sm"
                   variant="outline"
                   onClick={() => window.open(shortUrl, "_blank")}
-                  className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                  style={{
+                    borderColor: "#D9D8FD",
+                    color: "#4D475B",
+                  }}
                 >
                   <ExternalLink className="h-4 w-4" />
                 </Button>
