@@ -112,8 +112,10 @@ export default function AnalyticsPage({
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="flex items-center gap-2">
-          <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
-          <span className="text-gray-800 font-medium">Loading real-time analytics...</span>
+          <Loader2 className="h-6 w-6 animate-spin" style={{ color: "#833ADF" }} />
+          <span className="font-medium" style={{ color: "#4D475B" }}>
+            Loading real-time analytics...
+          </span>
         </div>
       </div>
     )
@@ -122,14 +124,20 @@ export default function AnalyticsPage({
   if (error || !urlData) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <Card className="max-w-md w-full mx-4 bg-white border-purple-200 shadow-lg">
+        <Card className="max-w-md w-full mx-4 bg-white shadow-lg" style={{ borderColor: "#D9D8FD" }}>
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl text-gray-800">Error Loading Analytics</CardTitle>
+            <CardTitle className="text-2xl" style={{ color: "#4D475B" }}>
+              Error Loading Analytics
+            </CardTitle>
           </CardHeader>
           <CardContent className="text-center">
-            <p className="text-gray-600 mb-4">{error || "Failed to load analytics data"}</p>
+            <p className="mb-4" style={{ color: "#94909C" }}>
+              {error || "Failed to load analytics data"}
+            </p>
             <Link href="/">
-              <Button className="bg-purple-600 hover:bg-purple-700 text-white">Go to Homepage</Button>
+              <Button className="text-white" style={{ backgroundColor: "#833ADF" }}>
+                Go to Homepage
+              </Button>
             </Link>
           </CardContent>
         </Card>
@@ -183,7 +191,7 @@ export default function AnalyticsPage({
                   {connectionStatus === "connected" && <Activity className="h-4 w-4 text-green-600 animate-pulse" />}
                 </div>
 
-                <div className="text-xs text-gray-500">
+                <div className="text-xs" style={{ color: "#94909C" }}>
                   {lastUpdate && <span>Last update: {lastUpdate.toLocaleTimeString()}</span>}
                 </div>
               </div>
@@ -197,33 +205,37 @@ export default function AnalyticsPage({
                 variant="outline"
                 size="sm"
                 onClick={handleElementClick("back-button")}
-                className="border-purple-200 text-purple-700 hover:bg-purple-50 bg-transparent"
+                className="bg-transparent"
+                style={{ borderColor: "#D9D8FD", color: "#833ADF" }}
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Home
               </Button>
             </Link>
-            <h1 className="text-2xl font-bold text-gray-800">Real-Time Analytics Dashboard</h1>
+            <h1 className="text-2xl font-bold" style={{ color: "#4D475B" }}>
+              Real-Time Analytics Dashboard
+            </h1>
           </div>
 
           {/* Real-time Click Counter */}
           <Card
             className={`mb-8 transition-all duration-500 bg-white shadow-sm ${
-              isNewClick
-                ? "border-4 border-pink-400 shadow-lg shadow-pink-200 scale-[1.02]"
-                : "border-2 border-purple-200"
+              isNewClick ? "border-4 shadow-lg scale-[1.02]" : "border-2"
             }`}
+            style={{
+              borderColor: isNewClick ? "#F22C7C" : "#D9D8FD",
+              boxShadow: isNewClick ? "0 10px 25px -5px rgba(242, 44, 124, 0.3)" : undefined,
+            }}
           >
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-gray-800">
+              <CardTitle className="flex items-center gap-2" style={{ color: "#4D475B" }}>
                 <Zap
-                  className={`h-6 w-6 transition-all duration-300 ${
-                    isNewClick ? "text-pink-500 animate-bounce scale-125" : "text-purple-600"
-                  }`}
+                  className={`h-6 w-6 transition-all duration-300 ${isNewClick ? "animate-bounce scale-125" : ""}`}
+                  style={{ color: isNewClick ? "#F22C7C" : "#833ADF" }}
                 />
                 Total Clicks (Real-time)
                 {isNewClick && (
-                  <div className="flex items-center gap-1 text-pink-600 animate-pulse">
+                  <div className="flex items-center gap-1 animate-pulse" style={{ color: "#F22C7C" }}>
                     <Target className="h-4 w-4" />
                     <span className="text-sm font-bold">LIVE UPDATE!</span>
                   </div>
@@ -234,20 +246,27 @@ export default function AnalyticsPage({
               <div className="text-center">
                 <div
                   className={`text-8xl font-bold transition-all duration-700 ${
-                    isNewClick ? "text-pink-600 scale-110 drop-shadow-lg animate-pulse" : "text-purple-600"
+                    isNewClick ? "scale-110 drop-shadow-lg animate-pulse" : ""
                   }`}
+                  style={{ color: isNewClick ? "#F22C7C" : "#833ADF" }}
                 >
                   {clickCount}
                 </div>
-                <p className="text-gray-600 mt-2 text-lg">
+                <p className="mt-2 text-lg" style={{ color: "#94909C" }}>
                   Updates instantly via Firestore WebSocket when short URL is clicked
                 </p>
                 {isNewClick && (
-                  <div className="mt-4 p-4 bg-gradient-to-r from-pink-50 to-purple-50 rounded-lg border-2 border-pink-300">
-                    <div className="text-pink-700 font-bold text-xl animate-bounce">
+                  <div
+                    className="mt-4 p-4 rounded-lg border-2"
+                    style={{
+                      background: "linear-gradient(to right, rgba(242, 44, 124, 0.1), rgba(131, 58, 223, 0.1))",
+                      borderColor: "#F22C7C",
+                    }}
+                  >
+                    <div className="font-bold text-xl animate-bounce" style={{ color: "#F22C7C" }}>
                       🎉 Someone just clicked your short URL!
                     </div>
-                    <div className="text-pink-600 text-sm mt-2">
+                    <div className="text-sm mt-2" style={{ color: "#F22C7C" }}>
                       Real-time update via Firestore WebSocket - No refresh needed!
                     </div>
                   </div>
@@ -257,18 +276,27 @@ export default function AnalyticsPage({
           </Card>
 
           {/* URL Info */}
-          <Card className="mb-8 bg-white border-purple-200 shadow-sm">
+          <Card className="mb-8 bg-white shadow-sm" style={{ borderColor: "#D9D8FD" }}>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-gray-800">
-                <Globe className="h-5 w-5 text-purple-600" />
+              <CardTitle className="flex items-center gap-2" style={{ color: "#4D475B" }}>
+                <Globe className="h-5 w-5" style={{ color: "#833ADF" }} />
                 URL Information
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-gray-700">Short URL:</label>
+                <label className="text-sm font-medium" style={{ color: "#4D475B" }}>
+                  Short URL:
+                </label>
                 <div className="flex items-center gap-2 mt-1">
-                  <code className="flex-1 p-2 bg-purple-50 rounded text-sm text-gray-800 border border-purple-100">
+                  <code
+                    className="flex-1 p-2 rounded text-sm border"
+                    style={{
+                      backgroundColor: "#D9D8FD",
+                      color: "#4D475B",
+                      borderColor: "#D9D8FD",
+                    }}
+                  >
                     {shortUrl}
                   </code>
                   <Button
@@ -278,18 +306,24 @@ export default function AnalyticsPage({
                       handleElementClick("open-short-url")(e)
                       window.open(shortUrl, "_blank")
                     }}
-                    className="border-purple-200 text-purple-700 hover:bg-purple-50"
+                    style={{ borderColor: "#D9D8FD", color: "#833ADF" }}
                   >
                     <ExternalLink className="h-4 w-4" />
                   </Button>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">Click this link to test real-time analytics updates!</p>
+                <p className="text-xs mt-1" style={{ color: "#94909C" }}>
+                  Click this link to test real-time analytics updates!
+                </p>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-700">Original URL:</label>
-                <p className="text-sm text-gray-600 mt-1 break-all">{urlData.originalUrl}</p>
+                <label className="text-sm font-medium" style={{ color: "#4D475B" }}>
+                  Original URL:
+                </label>
+                <p className="text-sm mt-1 break-all" style={{ color: "#94909C" }}>
+                  {urlData.originalUrl}
+                </p>
               </div>
-              <div className="flex items-center gap-4 text-sm text-gray-600">
+              <div className="flex items-center gap-4 text-sm" style={{ color: "#94909C" }}>
                 <div className="flex items-center gap-1">
                   <Calendar className="h-4 w-4" />
                   Created {urlData.createdAt?.toDate?.()?.toLocaleDateString() || "Unknown"}
@@ -299,24 +333,26 @@ export default function AnalyticsPage({
           </Card>
 
           {/* Click History Section */}
-          <Card className="mb-8 bg-white border-purple-200 shadow-sm">
+          <Card className="mb-8 bg-white shadow-sm" style={{ borderColor: "#D9D8FD" }}>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-gray-800">
-                <Clock className="h-5 w-5 text-purple-600" />
+              <CardTitle className="flex items-center gap-2" style={{ color: "#4D475B" }}>
+                <Clock className="h-5 w-5" style={{ color: "#833ADF" }} />
                 Detailed Click History
-                <div className="w-2 h-2 bg-pink-500 rounded-full animate-pulse"></div>
+                <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: "#F22C7C" }}></div>
               </CardTitle>
             </CardHeader>
             <CardContent>
               {historyLoading ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin mr-2 text-purple-600" />
-                  <span className="text-gray-700">Loading click history...</span>
+                  <Loader2 className="h-6 w-6 animate-spin mr-2" style={{ color: "#833ADF" }} />
+                  <span style={{ color: "#4D475B" }}>Loading click history...</span>
                 </div>
               ) : clickHistory.length === 0 ? (
                 <div className="text-center py-8">
-                  <p className="text-gray-500 text-sm mb-2">No clicks recorded yet</p>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-sm mb-2" style={{ color: "#94909C" }}>
+                    No clicks recorded yet
+                  </p>
+                  <p className="text-xs" style={{ color: "#94909C" }}>
                     Share your short URL to see detailed click analytics appear here!
                   </p>
                 </div>
@@ -326,37 +362,69 @@ export default function AnalyticsPage({
                     <div
                       key={click.id || index}
                       className={`p-4 rounded-lg border transition-all duration-300 ${
-                        index === 0 && isNewClick
-                          ? "bg-gradient-to-r from-pink-50 to-purple-50 border-pink-300 shadow-md"
-                          : click.clickSource === "analytics_page"
-                            ? "bg-purple-50 border-purple-200"
-                            : "bg-gray-50 border-gray-200"
+                        index === 0 && isNewClick ? "shadow-md" : ""
                       }`}
+                      style={{
+                        backgroundColor:
+                          index === 0 && isNewClick
+                            ? "rgba(242, 44, 124, 0.05)"
+                            : click.clickSource === "analytics_page"
+                              ? "rgba(217, 216, 253, 0.3)"
+                              : "rgba(217, 216, 253, 0.1)",
+                        borderColor:
+                          index === 0 && isNewClick
+                            ? "#F22C7C"
+                            : click.clickSource === "analytics_page"
+                              ? "#D9D8FD"
+                              : "#D9D8FD",
+                      }}
                       onClick={handleElementClick(`click-history-${index}`)}
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           {/* Timestamp and Status */}
                           <div className="flex items-center gap-2 mb-2">
-                            <Clock className="h-4 w-4 text-gray-500" />
-                            <span className="text-sm font-medium text-gray-800">
+                            <Clock className="h-4 w-4" style={{ color: "#94909C" }} />
+                            <span className="text-sm font-medium" style={{ color: "#4D475B" }}>
                               {click.timestamp?.toDate?.()?.toLocaleString() || "Just now"}
                             </span>
                             {index === 0 && isNewClick && (
-                              <span className="text-pink-600 text-xs font-bold animate-bounce bg-pink-100 px-2 py-1 rounded">
+                              <span
+                                className="text-xs font-bold animate-bounce px-2 py-1 rounded"
+                                style={{
+                                  color: "#F22C7C",
+                                  backgroundColor: "rgba(242, 44, 124, 0.1)",
+                                }}
+                              >
                                 LIVE!
                               </span>
                             )}
                             {click.clickSource === "analytics_page" && (
-                              <span className="text-purple-600 text-xs bg-purple-100 px-2 py-1 rounded">Analytics</span>
+                              <span
+                                className="text-xs px-2 py-1 rounded"
+                                style={{
+                                  color: "#833ADF",
+                                  backgroundColor: "rgba(131, 58, 223, 0.1)",
+                                }}
+                              >
+                                Analytics
+                              </span>
                             )}
                             {click.clickSource === "direct" && (
-                              <span className="text-pink-600 text-xs bg-pink-100 px-2 py-1 rounded">URL Click</span>
+                              <span
+                                className="text-xs px-2 py-1 rounded"
+                                style={{
+                                  color: "#F22C7C",
+                                  backgroundColor: "rgba(242, 44, 124, 0.1)",
+                                }}
+                              >
+                                URL Click
+                              </span>
                             )}
                           </div>
 
                           {/* Device and Browser Info */}
-                          <div className="flex items-center gap-4 mb-2 text-xs text-gray-600">
+                          <div className="flex items-center gap-4 mb-2 text-xs" style={{ color: "#94909C" }}>
                             <div className="flex items-center gap-1">
                               {getDeviceIcon(click.userAgent)}
                               <span>{formatUserAgent(click.userAgent)}</span>
@@ -370,7 +438,7 @@ export default function AnalyticsPage({
                           </div>
 
                           {/* Additional Details */}
-                          <div className="grid grid-cols-2 gap-4 text-xs text-gray-500">
+                          <div className="grid grid-cols-2 gap-4 text-xs" style={{ color: "#94909C" }}>
                             {click.ip && (
                               <div className="flex items-center gap-1">
                                 <MapPin className="h-3 w-3" />
@@ -387,15 +455,35 @@ export default function AnalyticsPage({
 
                           {/* Device Details if available */}
                           {click.device && (
-                            <div className="mt-2 text-xs text-gray-500">
-                              <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded mr-2">
+                            <div className="mt-2 text-xs">
+                              <span
+                                className="px-2 py-1 rounded mr-2"
+                                style={{
+                                  backgroundColor: "rgba(131, 58, 223, 0.1)",
+                                  color: "#833ADF",
+                                }}
+                              >
                                 {click.device.os || "Unknown OS"}
                               </span>
-                              <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded mr-2">
+                              <span
+                                className="px-2 py-1 rounded mr-2"
+                                style={{
+                                  backgroundColor: "rgba(131, 58, 223, 0.1)",
+                                  color: "#833ADF",
+                                }}
+                              >
                                 {click.device.browser || "Unknown Browser"}
                               </span>
                               {click.device.isMobile && (
-                                <span className="bg-pink-100 text-pink-700 px-2 py-1 rounded text-xs">Mobile</span>
+                                <span
+                                  className="px-2 py-1 rounded text-xs"
+                                  style={{
+                                    backgroundColor: "rgba(242, 44, 124, 0.1)",
+                                    color: "#F22C7C",
+                                  }}
+                                >
+                                  Mobile
+                                </span>
                               )}
                             </div>
                           )}
@@ -409,9 +497,9 @@ export default function AnalyticsPage({
           </Card>
 
           {/* Test Real-time Tracking */}
-          <Card className="mt-6 bg-white border-purple-200 shadow-sm">
+          <Card className="mt-6 bg-white shadow-sm" style={{ borderColor: "#D9D8FD" }}>
             <CardHeader>
-              <CardTitle className="text-gray-800">Test Real-time WebSocket Updates</CardTitle>
+              <CardTitle style={{ color: "#4D475B" }}>Test Real-time WebSocket Updates</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex gap-2 flex-wrap">
@@ -423,7 +511,7 @@ export default function AnalyticsPage({
                     }
                   }}
                   variant="outline"
-                  className="border-purple-200 text-purple-700 hover:bg-purple-50"
+                  style={{ borderColor: "#D9D8FD", color: "#833ADF" }}
                 >
                   Test Click 1
                 </Button>
@@ -435,7 +523,7 @@ export default function AnalyticsPage({
                     }
                   }}
                   variant="outline"
-                  className="border-purple-200 text-purple-700 hover:bg-purple-50"
+                  style={{ borderColor: "#D9D8FD", color: "#833ADF" }}
                 >
                   Test Click 2
                 </Button>
@@ -452,14 +540,22 @@ export default function AnalyticsPage({
                     }
                   }}
                   variant="outline"
-                  className="border-purple-200 text-purple-700 hover:bg-purple-50"
+                  style={{ borderColor: "#D9D8FD", color: "#833ADF" }}
                 >
                   Simulate Multiple Clicks
                 </Button>
               </div>
-              <div className="mt-4 p-3 bg-purple-50 rounded-lg border border-purple-100">
-                <p className="text-sm text-purple-800 font-medium">💡 How to test real-time updates:</p>
-                <ul className="text-xs text-purple-700 mt-2 space-y-1">
+              <div
+                className="mt-4 p-3 rounded-lg border"
+                style={{
+                  backgroundColor: "rgba(217, 216, 253, 0.3)",
+                  borderColor: "#D9D8FD",
+                }}
+              >
+                <p className="text-sm font-medium" style={{ color: "#833ADF" }}>
+                  💡 How to test real-time updates:
+                </p>
+                <ul className="text-xs mt-2 space-y-1" style={{ color: "#833ADF" }}>
                   <li>1. Open your short URL in a new tab/window</li>
                   <li>2. Watch this page update instantly when you click the link</li>
                   <li>3. No refresh needed - powered by Firestore WebSocket!</li>
