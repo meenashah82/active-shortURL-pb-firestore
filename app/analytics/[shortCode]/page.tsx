@@ -99,18 +99,18 @@ export default function AnalyticsPage({
 
   // Helper function to get device icon
   const getDeviceIcon = (userAgent?: string) => {
-    if (!userAgent) return <Monitor className="h-4 w-4" />
+    if (!userAgent) return <Monitor className="h-4 w-4" style={{ color: "#94909C" }} />
 
     if (userAgent.includes("Mobile") || userAgent.includes("Android") || userAgent.includes("iPhone")) {
-      return <Smartphone className="h-4 w-4" />
+      return <Smartphone className="h-4 w-4" style={{ color: "#94909C" }} />
     }
 
-    return <Monitor className="h-4 w-4" />
+    return <Monitor className="h-4 w-4" style={{ color: "#94909C" }} />
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#FFFFFF" }}>
         <div className="flex items-center gap-2">
           <Loader2 className="h-6 w-6 animate-spin" style={{ color: "#833ADF" }} />
           <span className="font-medium" style={{ color: "#4D475B" }}>
@@ -123,8 +123,8 @@ export default function AnalyticsPage({
 
   if (error || !urlData) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <Card className="max-w-md w-full mx-4 bg-white shadow-lg" style={{ borderColor: "#D9D8FD" }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#FFFFFF" }}>
+        <Card className="max-w-md w-full mx-4 shadow-lg" style={{ backgroundColor: "#FFFFFF", borderColor: "#D9D8FD" }}>
           <CardHeader className="text-center">
             <CardTitle className="text-2xl" style={{ color: "#4D475B" }}>
               Error Loading Analytics
@@ -135,9 +135,7 @@ export default function AnalyticsPage({
               {error || "Failed to load analytics data"}
             </p>
             <Link href="/">
-              <Button className="text-white" style={{ backgroundColor: "#833ADF" }}>
-                Go to Homepage
-              </Button>
+              <Button style={{ backgroundColor: "#833ADF", color: "#FFFFFF", border: "none" }}>Go to Homepage</Button>
             </Link>
           </CardContent>
         </Card>
@@ -148,38 +146,44 @@ export default function AnalyticsPage({
   const shortUrl = `${window.location.origin}/${shortCode}`
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen" style={{ backgroundColor: "#FFFFFF" }}>
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto">
           {/* Real-time Connection Status */}
           <Card
-            className={`mb-6 border-l-4 bg-white shadow-sm ${
-              connectionStatus === "connected"
-                ? "border-l-green-500"
-                : connectionStatus === "connecting"
-                  ? "border-l-yellow-500"
-                  : "border-l-red-500"
-            }`}
+            className="mb-6 border-l-4 shadow-sm"
+            style={{
+              backgroundColor: "#FFFFFF",
+              borderColor: "#D9D8FD",
+              borderLeftColor:
+                connectionStatus === "connected"
+                  ? "#833ADF"
+                  : connectionStatus === "connecting"
+                    ? "#F22C7C"
+                    : "#94909C",
+            }}
           >
             <CardContent className="py-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   {connectionStatus === "connected" ? (
-                    <Wifi className="h-4 w-4 text-green-600" />
+                    <Wifi className="h-4 w-4" style={{ color: "#833ADF" }} />
                   ) : connectionStatus === "connecting" ? (
-                    <RefreshCw className="h-4 w-4 text-yellow-600 animate-spin" />
+                    <RefreshCw className="h-4 w-4 animate-spin" style={{ color: "#F22C7C" }} />
                   ) : (
-                    <WifiOff className="h-4 w-4 text-red-600" />
+                    <WifiOff className="h-4 w-4" style={{ color: "#94909C" }} />
                   )}
 
                   <span
-                    className={`text-sm font-medium ${
-                      connectionStatus === "connected"
-                        ? "text-green-700"
-                        : connectionStatus === "connecting"
-                          ? "text-yellow-700"
-                          : "text-red-700"
-                    }`}
+                    className="text-sm font-medium"
+                    style={{
+                      color:
+                        connectionStatus === "connected"
+                          ? "#833ADF"
+                          : connectionStatus === "connecting"
+                            ? "#F22C7C"
+                            : "#94909C",
+                    }}
                   >
                     {connectionStatus === "connected"
                       ? "🔥 Real-time WebSocket connected - Clicks update instantly!"
@@ -188,7 +192,9 @@ export default function AnalyticsPage({
                         : "Connection lost - Attempting to reconnect..."}
                   </span>
 
-                  {connectionStatus === "connected" && <Activity className="h-4 w-4 text-green-600 animate-pulse" />}
+                  {connectionStatus === "connected" && (
+                    <Activity className="h-4 w-4 animate-pulse" style={{ color: "#833ADF" }} />
+                  )}
                 </div>
 
                 <div className="text-xs" style={{ color: "#94909C" }}>
@@ -205,8 +211,14 @@ export default function AnalyticsPage({
                 variant="outline"
                 size="sm"
                 onClick={handleElementClick("back-button")}
-                className="bg-transparent"
-                style={{ borderColor: "#D9D8FD", color: "#833ADF" }}
+                style={{
+                  backgroundColor: "#FFFFFF",
+                  borderColor: "#D9D8FD",
+                  color: "#833ADF",
+                }}
+                className="hover:bg-opacity-10 bg-transparent"
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(131, 58, 223, 0.1)")}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#FFFFFF")}
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Home
@@ -219,10 +231,11 @@ export default function AnalyticsPage({
 
           {/* Real-time Click Counter */}
           <Card
-            className={`mb-8 transition-all duration-500 bg-white shadow-sm ${
+            className={`mb-8 transition-all duration-500 shadow-sm ${
               isNewClick ? "border-4 shadow-lg scale-[1.02]" : "border-2"
             }`}
             style={{
+              backgroundColor: "#FFFFFF",
               borderColor: isNewClick ? "#F22C7C" : "#D9D8FD",
               boxShadow: isNewClick ? "0 10px 25px -5px rgba(242, 44, 124, 0.3)" : undefined,
             }}
@@ -259,7 +272,7 @@ export default function AnalyticsPage({
                   <div
                     className="mt-4 p-4 rounded-lg border-2"
                     style={{
-                      background: "linear-gradient(to right, rgba(242, 44, 124, 0.1), rgba(131, 58, 223, 0.1))",
+                      backgroundColor: "rgba(242, 44, 124, 0.1)",
                       borderColor: "#F22C7C",
                     }}
                   >
@@ -276,7 +289,7 @@ export default function AnalyticsPage({
           </Card>
 
           {/* URL Info */}
-          <Card className="mb-8 bg-white shadow-sm" style={{ borderColor: "#D9D8FD" }}>
+          <Card className="mb-8 shadow-sm" style={{ backgroundColor: "#FFFFFF", borderColor: "#D9D8FD" }}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2" style={{ color: "#4D475B" }}>
                 <Globe className="h-5 w-5" style={{ color: "#833ADF" }} />
@@ -306,7 +319,13 @@ export default function AnalyticsPage({
                       handleElementClick("open-short-url")(e)
                       window.open(shortUrl, "_blank")
                     }}
-                    style={{ borderColor: "#D9D8FD", color: "#833ADF" }}
+                    style={{
+                      backgroundColor: "#FFFFFF",
+                      borderColor: "#D9D8FD",
+                      color: "#833ADF",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(131, 58, 223, 0.1)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#FFFFFF")}
                   >
                     <ExternalLink className="h-4 w-4" />
                   </Button>
@@ -325,7 +344,7 @@ export default function AnalyticsPage({
               </div>
               <div className="flex items-center gap-4 text-sm" style={{ color: "#94909C" }}>
                 <div className="flex items-center gap-1">
-                  <Calendar className="h-4 w-4" />
+                  <Calendar className="h-4 w-4" style={{ color: "#94909C" }} />
                   Created {urlData.createdAt?.toDate?.()?.toLocaleDateString() || "Unknown"}
                 </div>
               </div>
@@ -333,7 +352,7 @@ export default function AnalyticsPage({
           </Card>
 
           {/* Click History Section */}
-          <Card className="mb-8 bg-white shadow-sm" style={{ borderColor: "#D9D8FD" }}>
+          <Card className="mb-8 shadow-sm" style={{ backgroundColor: "#FFFFFF", borderColor: "#D9D8FD" }}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2" style={{ color: "#4D475B" }}>
                 <Clock className="h-5 w-5" style={{ color: "#833ADF" }} />
@@ -371,12 +390,7 @@ export default function AnalyticsPage({
                             : click.clickSource === "analytics_page"
                               ? "rgba(217, 216, 253, 0.3)"
                               : "rgba(217, 216, 253, 0.1)",
-                        borderColor:
-                          index === 0 && isNewClick
-                            ? "#F22C7C"
-                            : click.clickSource === "analytics_page"
-                              ? "#D9D8FD"
-                              : "#D9D8FD",
+                        borderColor: index === 0 && isNewClick ? "#F22C7C" : "#D9D8FD",
                       }}
                       onClick={handleElementClick(`click-history-${index}`)}
                     >
@@ -431,7 +445,7 @@ export default function AnalyticsPage({
                             </div>
                             {click.referer && (
                               <div className="flex items-center gap-1">
-                                <LinkIcon className="h-3 w-3" />
+                                <LinkIcon className="h-3 w-3" style={{ color: "#94909C" }} />
                                 <span>From: {formatReferrer(click.referer)}</span>
                               </div>
                             )}
@@ -441,13 +455,13 @@ export default function AnalyticsPage({
                           <div className="grid grid-cols-2 gap-4 text-xs" style={{ color: "#94909C" }}>
                             {click.ip && (
                               <div className="flex items-center gap-1">
-                                <MapPin className="h-3 w-3" />
+                                <MapPin className="h-3 w-3" style={{ color: "#94909C" }} />
                                 <span>IP: {click.ip}</span>
                               </div>
                             )}
                             {click.sessionId && (
                               <div className="flex items-center gap-1">
-                                <User className="h-3 w-3" />
+                                <User className="h-3 w-3" style={{ color: "#94909C" }} />
                                 <span>Session: {click.sessionId.substring(0, 8)}...</span>
                               </div>
                             )}
@@ -497,7 +511,7 @@ export default function AnalyticsPage({
           </Card>
 
           {/* Test Real-time Tracking */}
-          <Card className="mt-6 bg-white shadow-sm" style={{ borderColor: "#D9D8FD" }}>
+          <Card className="mt-6 shadow-sm" style={{ backgroundColor: "#FFFFFF", borderColor: "#D9D8FD" }}>
             <CardHeader>
               <CardTitle style={{ color: "#4D475B" }}>Test Real-time WebSocket Updates</CardTitle>
             </CardHeader>
@@ -511,7 +525,13 @@ export default function AnalyticsPage({
                     }
                   }}
                   variant="outline"
-                  style={{ borderColor: "#D9D8FD", color: "#833ADF" }}
+                  style={{
+                    backgroundColor: "#FFFFFF",
+                    borderColor: "#D9D8FD",
+                    color: "#833ADF",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(131, 58, 223, 0.1)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#FFFFFF")}
                 >
                   Test Click 1
                 </Button>
@@ -523,7 +543,13 @@ export default function AnalyticsPage({
                     }
                   }}
                   variant="outline"
-                  style={{ borderColor: "#D9D8FD", color: "#833ADF" }}
+                  style={{
+                    backgroundColor: "#FFFFFF",
+                    borderColor: "#D9D8FD",
+                    color: "#833ADF",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(131, 58, 223, 0.1)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#FFFFFF")}
                 >
                   Test Click 2
                 </Button>
@@ -540,7 +566,13 @@ export default function AnalyticsPage({
                     }
                   }}
                   variant="outline"
-                  style={{ borderColor: "#D9D8FD", color: "#833ADF" }}
+                  style={{
+                    backgroundColor: "#FFFFFF",
+                    borderColor: "#D9D8FD",
+                    color: "#833ADF",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(131, 58, 223, 0.1)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#FFFFFF")}
                 >
                   Simulate Multiple Clicks
                 </Button>
