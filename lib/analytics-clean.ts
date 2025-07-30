@@ -13,7 +13,6 @@ import {
   runTransaction,
   getDocs,
   increment,
-  arrayUnion,
 } from "firebase/firestore"
 import { db } from "./firebase"
 
@@ -36,17 +35,15 @@ export interface UrlData {
   expiresAt: any
   deactivatedAt?: any
   reactivatedAt?: any
-  // ❌ REMOVED: clicks: number (this belongs in analytics only)
 }
 
-// Analytics is the SINGLE SOURCE OF TRUTH for clicks
+// Analytics is the SINGLE SOURCE OF TRUTH for clicks - SIMPLIFIED
 export interface AnalyticsData {
   shortCode: string
   totalClicks: number // ✅ ONLY field for click tracking
   createdAt: any
   lastClickAt?: any
-  clickEvents: ClickEvent[]
-  // ❌ REMOVE any other click-related fields
+  // ✅ REMOVED: clickEvents array (redundant with shortcode_clicks subcollection)
 }
 
 // New Clicks collection data structure
@@ -54,7 +51,6 @@ export interface ClicksData {
   shortCode: string
   createdAt: any
   isActive: boolean
-  // This collection will be expanded in future steps
 }
 
 // Individual click document structure for shortcode_clicks subcollection
@@ -114,15 +110,14 @@ export async function createShortUrl(shortCode: string, originalUrl: string, met
       createdAt: serverTimestamp(),
       isActive: true,
       expiresAt: Timestamp.fromDate(expiresAt),
-      // ✅ NO clicks field - analytics handles this
     }
 
-    // Analytics is the single source of truth for clicks
+    // Analytics is the single source of truth for clicks - SIMPLIFIED
     const analyticsData: AnalyticsData = {
       shortCode,
       totalClicks: 0, // ✅ ONLY place clicks are tracked
       createdAt: serverTimestamp(),
-      clickEvents: [],
+      // ✅ REMOVED: clickEvents: [] (redundant with subcollection)
     }
 
     // New clicks collection document
@@ -132,13 +127,8 @@ export async function createShortUrl(shortCode: string, originalUrl: string, met
       isActive: true,
     }
 
-    // Create all main documents first
+    // Create all main documents
     await Promise.all([setDoc(urlRef, urlData), setDoc(analyticsRef, analyticsData), setDoc(clicksRef, clicksData)])
-
-    console.log(`✅ Main documents created for: ${shortCode}`)
-
-    // ✅ REMOVED: No more initialization document creation
-    // The shortcode_clicks subcollection will be created automatically when the first real click happens
 
     console.log(`✅ Complete URL structure created: ${shortCode}`)
   } catch (error) {
@@ -242,25 +232,12 @@ export async function getAnalyticsData(shortCode: string): Promise<AnalyticsData
   }
 }
 
-// Record click - ONLY update analytics (single source of truth)
+// Record click - ONLY update analytics (single source of truth) - SIMPLIFIED
 export async function recordClick(shortCode: string, userAgent: string, referer: string, ip: string): Promise<void> {
   try {
     const analyticsRef = doc(db, "analytics", shortCode)
 
-    // ✅ FIX: Use Timestamp.now() instead of serverTimestamp() for arrayUnion
-    const now = Timestamp.now()
-
-    const clickEvent: ClickEvent = {
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      timestamp: now, // ✅ Use regular timestamp instead of serverTimestamp()
-      userAgent: userAgent.substring(0, 200),
-      referer: referer.substring(0, 200),
-      ip: ip.substring(0, 15),
-      sessionId: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      clickSource: "direct",
-    }
-
-    // ✅ ONLY update analytics - no URL document changes needed
+    // ✅ SIMPLIFIED: Only update analytics with totalClicks and lastClickAt
     await runTransaction(db, async (transaction) => {
       const analyticsDoc = await transaction.get(analyticsRef)
 
@@ -268,7 +245,7 @@ export async function recordClick(shortCode: string, userAgent: string, referer:
         transaction.update(analyticsRef, {
           totalClicks: increment(1), // ✅ Single source of truth
           lastClickAt: serverTimestamp(),
-          clickEvents: arrayUnion(clickEvent),
+          // ✅ REMOVED: clickEvents array update (redundant)
         })
       } else {
         // Create analytics document if it doesn't exist
@@ -277,7 +254,7 @@ export async function recordClick(shortCode: string, userAgent: string, referer:
           totalClicks: 1,
           createdAt: serverTimestamp(),
           lastClickAt: serverTimestamp(),
-          clickEvents: [clickEvent],
+          // ✅ REMOVED: clickEvents: [clickEvent] (redundant)
         })
       }
     })
@@ -439,6 +416,45 @@ export async function migrateToClicksCollection(): Promise<void> {
   }
 }
 
+// Migration function to remove clickEvents from analytics documents
+export async function migrateRemoveClickEvents(): Promise<void> {
+  try {
+    console.log("🧹 Starting migration to remove clickEvents from analytics...")
+
+    const analyticsQuery = query(collection(db, "analytics"))
+    const analyticsSnapshot = await getDocs(analyticsQuery)
+
+    const migrations: Promise<void>[] = []
+
+    analyticsSnapshot.forEach((analyticsDoc) => {
+      const analyticsData = analyticsDoc.data()
+
+      // If analytics document has clickEvents field, remove it
+      if ("clickEvents" in analyticsData) {
+        console.log(`🧹 Removing redundant clickEvents field from analytics: ${analyticsDoc.id}`)
+
+        const migration = runTransaction(db, async (transaction) => {
+          const analyticsRef = analyticsDoc.ref
+
+          // Remove clickEvents field from analytics document
+          const cleanAnalyticsData = { ...analyticsData }
+          delete cleanAnalyticsData.clickEvents
+
+          transaction.set(analyticsRef, cleanAnalyticsData)
+        })
+
+        migrations.push(migration)
+      }
+    })
+
+    await Promise.all(migrations)
+    console.log(`✅ ClickEvents removal migration complete: cleaned ${migrations.length} documents`)
+  } catch (error) {
+    console.error("❌ ClickEvents removal migration error:", error)
+    throw error
+  }
+}
+
 // Migration function to create shortcode_clicks subcollections for existing clicks documents
 export async function migrateToShortcodeClicksSubcollections(): Promise<void> {
   try {
@@ -453,9 +469,7 @@ export async function migrateToShortcodeClicksSubcollections(): Promise<void> {
       const shortCode = clickDoc.id
       console.log(`🔄 Processing clicks document for shortcode: ${shortCode}`)
 
-      // ✅ REMOVED: No more sample/initialization document creation
       // The subcollection will be created automatically when the first real click happens
-
       processedCount++
       console.log(`✅ Prepared shortcode_clicks structure for: ${shortCode}`)
     }

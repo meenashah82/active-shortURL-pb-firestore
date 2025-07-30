@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { doc, getDoc, updateDoc, increment, serverTimestamp, arrayUnion, Timestamp } from "firebase/firestore"
+import { doc, getDoc, updateDoc, increment, serverTimestamp } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
 interface AnalyticsData {
@@ -14,7 +14,7 @@ interface AnalyticsData {
   totalClicks: number
   createdAt: any
   lastClickAt?: any
-  clickEvents: any[]
+  // ✅ REMOVED: clickEvents array (redundant with shortcode_clicks subcollection)
 }
 
 export default function DebugTotalClicksPage() {
@@ -64,23 +64,11 @@ export default function DebugTotalClicksPage() {
         console.log(`📊 Before - totalClicks: ${beforeData.totalClicks}`)
       }
 
-      // Create click event with regular timestamp (not serverTimestamp)
-      const now = Timestamp.now()
-      const clickEvent = {
-        id: `test-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        timestamp: now, // ✅ Use regular timestamp for arrayUnion
-        userAgent: "Debug Test User Agent",
-        referer: "https://debug.test",
-        ip: "127.0.0.1",
-        sessionId: `debug-session-${Date.now()}`,
-        clickSource: "test" as const,
-      }
-
-      // Perform the increment
+      // ✅ SIMPLIFIED: Only update totalClicks and lastClickAt (no clickEvents)
       await updateDoc(analyticsRef, {
         totalClicks: increment(1),
         lastClickAt: serverTimestamp(), // ✅ This is OK for direct field update
-        clickEvents: arrayUnion(clickEvent), // ✅ Using regular timestamp
+        // ✅ REMOVED: clickEvents array update (redundant)
       })
 
       console.log(`✅ Direct increment completed`)
@@ -158,7 +146,8 @@ export default function DebugTotalClicksPage() {
         <CardHeader>
           <CardTitle>🧪 Debug totalClicks Issue</CardTitle>
           <CardDescription>
-            Test if totalClicks increment is working properly in the analytics collection
+            Test if totalClicks increment is working properly in the analytics collection (simplified - no clickEvents
+            array)
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -202,7 +191,7 @@ export default function DebugTotalClicksPage() {
           {analyticsData && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm">📊 Current Analytics Data</CardTitle>
+                <CardTitle className="text-sm">📊 Current Analytics Data (Simplified)</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2 text-sm">
@@ -213,9 +202,6 @@ export default function DebugTotalClicksPage() {
                     <strong>Total Clicks:</strong> {analyticsData.totalClicks}
                   </div>
                   <div>
-                    <strong>Click Events Count:</strong> {analyticsData.clickEvents?.length || 0}
-                  </div>
-                  <div>
                     <strong>Created At:</strong> {analyticsData.createdAt?.toDate?.()?.toLocaleString() || "N/A"}
                   </div>
                   <div>
@@ -223,16 +209,13 @@ export default function DebugTotalClicksPage() {
                   </div>
                 </div>
 
-                {analyticsData.clickEvents && analyticsData.clickEvents.length > 0 && (
-                  <details className="mt-4">
-                    <summary className="cursor-pointer font-medium">
-                      Click Events ({analyticsData.clickEvents.length})
-                    </summary>
-                    <pre className="mt-2 text-xs bg-gray-100 p-3 rounded overflow-auto max-h-40">
-                      {JSON.stringify(analyticsData.clickEvents, null, 2)}
-                    </pre>
-                  </details>
-                )}
+                <div className="mt-4 p-3 bg-green-50 rounded">
+                  <p className="text-sm text-green-800">
+                    ✅ <strong>Simplified Analytics:</strong> The clickEvents array has been removed from analytics
+                    documents. Detailed click data is now stored only in the shortcode_clicks subcollection, eliminating
+                    redundancy.
+                  </p>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -244,11 +227,11 @@ export default function DebugTotalClicksPage() {
             <CardContent className="text-sm space-y-2">
               <p>
                 <strong>1. Test Direct Increment:</strong> This directly calls updateDoc with increment(1) to see if the
-                basic operation works.
+                basic operation works (no clickEvents array).
               </p>
               <p>
                 <strong>2. Test Redirect API:</strong> This calls the /api/redirect/[shortCode] endpoint to test the
-                full flow.
+                full flow (simplified version).
               </p>
               <p>
                 <strong>3. Check Browser Console:</strong> Look for detailed logs about what's happening during the
@@ -257,6 +240,10 @@ export default function DebugTotalClicksPage() {
               <p>
                 <strong>4. Check Firestore Console:</strong> Verify the changes are actually being written to the
                 database.
+              </p>
+              <p>
+                <strong>5. Simplified Structure:</strong> Analytics documents now only contain totalClicks, createdAt,
+                and lastClickAt. Detailed click data is in shortcode_clicks subcollection.
               </p>
             </CardContent>
           </Card>
