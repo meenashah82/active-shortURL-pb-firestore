@@ -17,9 +17,16 @@ import {
   Wifi,
   WifiOff,
   RefreshCw,
+  Clock,
+  Monitor,
+  Smartphone,
+  MapPin,
+  User,
+  LinkIcon,
 } from "lucide-react"
 import Link from "next/link"
 import { useRealTimeAnalytics } from "@/hooks/use-real-time-analytics"
+import { useClickHistory } from "@/hooks/use-click-history"
 import { RealTimeClickTracker } from "@/lib/real-time-tracker"
 
 export default function AnalyticsPage({
@@ -30,6 +37,8 @@ export default function AnalyticsPage({
   const { shortCode } = params
   const { urlData, analyticsData, loading, error, connectionStatus, clickCount, isNewClick, lastUpdate } =
     useRealTimeAnalytics(shortCode)
+
+  const { clickHistory, loading: historyLoading } = useClickHistory(shortCode, 100)
 
   const trackerRef = useRef<RealTimeClickTracker | null>(null)
 
@@ -63,6 +72,42 @@ export default function AnalyticsPage({
     trackAnalyticsClick(element, coordinates)
   }
 
+  // Helper function to format user agent
+  const formatUserAgent = (userAgent?: string) => {
+    if (!userAgent) return "Unknown"
+
+    // Extract browser info
+    if (userAgent.includes("Chrome")) return "Chrome"
+    if (userAgent.includes("Firefox")) return "Firefox"
+    if (userAgent.includes("Safari")) return "Safari"
+    if (userAgent.includes("Edge")) return "Edge"
+
+    return userAgent.substring(0, 30) + "..."
+  }
+
+  // Helper function to format referrer
+  const formatReferrer = (referer?: string) => {
+    if (!referer || referer === "") return "Direct"
+
+    try {
+      const url = new URL(referer)
+      return url.hostname
+    } catch {
+      return referer.substring(0, 30) + "..."
+    }
+  }
+
+  // Helper function to get device icon
+  const getDeviceIcon = (userAgent?: string) => {
+    if (!userAgent) return <Monitor className="h-4 w-4" />
+
+    if (userAgent.includes("Mobile") || userAgent.includes("Android") || userAgent.includes("iPhone")) {
+      return <Smartphone className="h-4 w-4" />
+    }
+
+    return <Monitor className="h-4 w-4" />
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
@@ -92,44 +137,12 @@ export default function AnalyticsPage({
     )
   }
 
-  // Process analytics for display
-  const recentClicks = analyticsData?.clickEvents?.slice(-15).reverse() || []
-  const realTimeClicks = recentClicks.filter((click) => click.clickSource === "analytics_page")
-
-  const clicksByDay =
-    analyticsData?.clickEvents?.reduce(
-      (acc, click) => {
-        if (click.timestamp && click.timestamp.toDate) {
-          const date = click.timestamp.toDate().toDateString()
-          acc[date] = (acc[date] || 0) + 1
-        }
-        return acc
-      },
-      {} as Record<string, number>,
-    ) || {}
-
-  const topReferrers =
-    analyticsData?.clickEvents
-      ?.filter((click) => click.referer && click.referer !== "")
-      .reduce(
-        (acc, click) => {
-          try {
-            const domain = new URL(click.referer!).hostname
-            acc[domain] = (acc[domain] || 0) + 1
-          } catch {
-            // Invalid URL, skip
-          }
-          return acc
-        },
-        {} as Record<string, number>,
-      ) || {}
-
   const shortUrl = `${window.location.origin}/${shortCode}`
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           {/* Real-time Connection Status */}
           <Card
             className={`mb-6 border-l-4 ${
@@ -277,44 +290,54 @@ export default function AnalyticsPage({
             </CardContent>
           </Card>
 
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Real-time Clicks Feed */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  Recent Clicks (Live WebSocket Feed)
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {recentClicks.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-gray-500 text-sm mb-2">No clicks yet</p>
-                    <p className="text-xs text-gray-400">
-                      Share your short URL to see real-time click analytics appear instantly!
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {recentClicks.map((click, index) => (
-                      <div
-                        key={click.id || index}
-                        className={`p-3 rounded-lg transition-all duration-500 ${
-                          index === 0 && isNewClick
-                            ? "bg-gradient-to-r from-green-100 to-blue-100 border-2 border-green-300 animate-pulse shadow-md"
-                            : click.clickSource === "analytics_page"
-                              ? "bg-blue-50 border border-blue-200"
-                              : "bg-gray-50"
-                        }`}
-                        onClick={handleElementClick(`click-item-${index}`)}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="text-sm font-medium">
-                            {click.timestamp?.toDate?.()?.toLocaleString() || "Just now"}
-                          </div>
-                          <div className="flex items-center gap-2">
+          {/* Click History Section */}
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Detailed Click History
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {historyLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                  <span>Loading click history...</span>
+                </div>
+              ) : clickHistory.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500 text-sm mb-2">No clicks recorded yet</p>
+                  <p className="text-xs text-gray-400">
+                    Share your short URL to see detailed click analytics appear here!
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {clickHistory.map((click, index) => (
+                    <div
+                      key={click.id || index}
+                      className={`p-4 rounded-lg border transition-all duration-300 ${
+                        index === 0 && isNewClick
+                          ? "bg-gradient-to-r from-green-50 to-blue-50 border-green-300 shadow-md"
+                          : click.clickSource === "analytics_page"
+                            ? "bg-blue-50 border-blue-200"
+                            : "bg-gray-50 border-gray-200"
+                      }`}
+                      onClick={handleElementClick(`click-history-${index}`)}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          {/* Timestamp and Status */}
+                          <div className="flex items-center gap-2 mb-2">
+                            <Clock className="h-4 w-4 text-gray-500" />
+                            <span className="text-sm font-medium">
+                              {click.timestamp?.toDate?.()?.toLocaleString() || "Just now"}
+                            </span>
                             {index === 0 && isNewClick && (
-                              <span className="text-green-600 text-xs font-bold animate-bounce">LIVE!</span>
+                              <span className="text-green-600 text-xs font-bold animate-bounce bg-green-100 px-2 py-1 rounded">
+                                LIVE!
+                              </span>
                             )}
                             {click.clickSource === "analytics_page" && (
                               <span className="text-blue-600 text-xs bg-blue-100 px-2 py-1 rounded">Analytics</span>
@@ -323,56 +346,59 @@ export default function AnalyticsPage({
                               <span className="text-green-600 text-xs bg-green-100 px-2 py-1 rounded">URL Click</span>
                             )}
                           </div>
-                        </div>
-                        {click.referer && (
-                          <div className="text-xs text-gray-600 mt-1">
-                            From: {(() => {
-                              try {
-                                return new URL(click.referer).hostname
-                              } catch {
-                                return click.referer
-                              }
-                            })()}
-                          </div>
-                        )}
-                        {click.sessionId && (
-                          <div className="text-xs text-gray-500 mt-1">
-                            Session: {click.sessionId.substring(0, 8)}...
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
 
-            {/* Analytics Page Interactions */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Analytics Page Interactions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {realTimeClicks.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-gray-500 text-sm mb-2">No analytics interactions yet</p>
-                    <p className="text-xs text-gray-400">Click elements on this page to see interaction tracking</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {realTimeClicks.slice(0, 10).map((click, index) => (
-                      <div key={click.id || index} className="p-2 bg-blue-50 rounded border border-blue-200">
-                        <div className="text-sm font-medium">
-                          {click.timestamp?.toDate?.()?.toLocaleString() || "Just now"}
+                          {/* Device and Browser Info */}
+                          <div className="flex items-center gap-4 mb-2 text-xs text-gray-600">
+                            <div className="flex items-center gap-1">
+                              {getDeviceIcon(click.userAgent)}
+                              <span>{formatUserAgent(click.userAgent)}</span>
+                            </div>
+                            {click.referer && (
+                              <div className="flex items-center gap-1">
+                                <LinkIcon className="h-3 w-3" />
+                                <span>From: {formatReferrer(click.referer)}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Additional Details */}
+                          <div className="grid grid-cols-2 gap-4 text-xs text-gray-500">
+                            {click.ip && (
+                              <div className="flex items-center gap-1">
+                                <MapPin className="h-3 w-3" />
+                                <span>IP: {click.ip}</span>
+                              </div>
+                            )}
+                            {click.sessionId && (
+                              <div className="flex items-center gap-1">
+                                <User className="h-3 w-3" />
+                                <span>Session: {click.sessionId.substring(0, 8)}...</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Device Details if available */}
+                          {click.device && (
+                            <div className="mt-2 text-xs text-gray-500">
+                              <span className="bg-gray-100 px-2 py-1 rounded mr-2">
+                                {click.device.os || "Unknown OS"}
+                              </span>
+                              <span className="bg-gray-100 px-2 py-1 rounded mr-2">
+                                {click.device.browser || "Unknown Browser"}
+                              </span>
+                              {click.device.isMobile && (
+                                <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs">Mobile</span>
+                              )}
+                            </div>
+                          )}
                         </div>
-                        <div className="text-xs text-blue-600 mt-1">Element: {click.element || "Unknown"}</div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Test Real-time Tracking */}
           <Card className="mt-6">
@@ -430,32 +456,6 @@ export default function AnalyticsPage({
               </div>
             </CardContent>
           </Card>
-
-          {/* Clicks by Day */}
-          {Object.keys(clicksByDay).length > 0 && (
-            <Card className="mt-6">
-              <CardHeader>
-                <CardTitle>Clicks by Day</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {Object.entries(clicksByDay)
-                    .sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime())
-                    .slice(0, 7)
-                    .map(([date, count]) => (
-                      <div
-                        key={date}
-                        className="flex justify-between items-center p-2 bg-gray-50 rounded cursor-pointer hover:bg-gray-100"
-                        onClick={handleElementClick(`day-${date}`)}
-                      >
-                        <span className="text-sm font-medium">{date}</span>
-                        <span className="text-sm text-gray-600">{count} clicks</span>
-                      </div>
-                    ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </div>
       </div>
     </div>

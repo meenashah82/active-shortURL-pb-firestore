@@ -232,6 +232,68 @@ export async function getAnalyticsData(shortCode: string): Promise<AnalyticsData
   }
 }
 
+// ✅ NEW: Get click history from shortcode_clicks subcollection
+export async function getClickHistory(shortCode: string, limitCount = 50): Promise<IndividualClickData[]> {
+  try {
+    console.log(`📊 Fetching click history for: ${shortCode}`)
+
+    const shortcodeClicksRef = collection(db, "clicks", shortCode, "shortcode_clicks")
+    const clickHistoryQuery = query(shortcodeClicksRef, orderBy("timestamp", "desc"), limit(limitCount))
+
+    const querySnapshot = await getDocs(clickHistoryQuery)
+    const clickHistory: IndividualClickData[] = []
+
+    querySnapshot.forEach((doc) => {
+      const data = doc.data() as IndividualClickData
+      clickHistory.push({
+        ...data,
+        id: doc.id, // Ensure we have the document ID
+      })
+    })
+
+    console.log(`📊 Found ${clickHistory.length} click records for: ${shortCode}`)
+    return clickHistory
+  } catch (error) {
+    console.error("❌ Error getting click history:", error)
+    return []
+  }
+}
+
+// ✅ NEW: Real-time subscription to click history
+export function subscribeToClickHistory(
+  shortCode: string,
+  callback: (clickHistory: IndividualClickData[]) => void,
+  limitCount = 50,
+): () => void {
+  console.log(`🔄 Subscribing to click history: ${shortCode}`)
+
+  const shortcodeClicksRef = collection(db, "clicks", shortCode, "shortcode_clicks")
+  const clickHistoryQuery = query(shortcodeClicksRef, orderBy("timestamp", "desc"), limit(limitCount))
+
+  return onSnapshot(
+    clickHistoryQuery,
+    { includeMetadataChanges: true },
+    (querySnapshot) => {
+      const clickHistory: IndividualClickData[] = []
+
+      querySnapshot.forEach((doc) => {
+        const data = doc.data() as IndividualClickData
+        clickHistory.push({
+          ...data,
+          id: doc.id,
+        })
+      })
+
+      console.log(`📊 Click history update: ${shortCode} - ${clickHistory.length} records`)
+      callback(clickHistory)
+    },
+    (error) => {
+      console.error("❌ Click history subscription error:", error)
+      callback([])
+    },
+  )
+}
+
 // Record click - ONLY update analytics (single source of truth) - SIMPLIFIED
 export async function recordClick(shortCode: string, userAgent: string, referer: string, ip: string): Promise<void> {
   try {
