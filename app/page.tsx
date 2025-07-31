@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { UrlShortenerForm } from "@/components/url-shortener-form"
 import { LinkHistory } from "@/components/link-history"
 import { Button } from "@/components/ui/button"
@@ -14,6 +14,41 @@ export default function HomePage() {
     // Trigger history refresh
     setRefreshTrigger((prev) => prev + 1)
   }
+
+  useEffect(() => {
+    // Tell dev.wodify.com that the app is loaded
+    const notifyParentLoaded = () => {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: "APP_LOADED" }, "https://dev.wodify.com")
+        console.log("Sent APP_LOADED message to parent")
+      }
+    }
+
+    // Listen for token from parent iframe
+    const handleMessage = (event: MessageEvent) => {
+      // Verify origin for security
+      if (event.origin !== "https://dev.wodify.com") {
+        return
+      }
+
+      if (event.data && event.data.type === "TOKEN") {
+        console.log("Received token from parent:", event.data.token)
+        // You can store the token or use it as needed
+        // localStorage.setItem('wodify_token', event.data.token)
+      }
+    }
+
+    // Notify parent that app is loaded
+    notifyParentLoaded()
+
+    // Add message listener
+    window.addEventListener("message", handleMessage)
+
+    // Cleanup
+    return () => {
+      window.removeEventListener("message", handleMessage)
+    }
+  }, [])
 
   return (
     <div className="min-h-screen bg-white">
