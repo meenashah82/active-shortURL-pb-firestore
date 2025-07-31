@@ -4,11 +4,13 @@ import { useState, useEffect } from "react"
 import { UrlShortenerForm } from "@/components/url-shortener-form"
 import { LinkHistory } from "@/components/link-history"
 import { Button } from "@/components/ui/button"
-import { BarChart3, Shield } from "lucide-react"
+import { BarChart3, Shield, User, LogOut } from "lucide-react"
 import Link from "next/link"
+import { useAuth } from "@/hooks/use-auth"
 
 export default function HomePage() {
   const [refreshTrigger, setRefreshTrigger] = useState(0)
+  const { user, isLoading, isAuthenticated, login, logout } = useAuth()
 
   const handleUrlCreated = () => {
     // Trigger history refresh
@@ -25,7 +27,7 @@ export default function HomePage() {
     }
 
     // Listen for token from parent iframe
-    const handleMessage = (event: MessageEvent) => {
+    const handleMessage = async (event: MessageEvent) => {
       // Verify origin for security
       if (event.origin !== "https://dev.wodify.com") {
         return
@@ -33,8 +35,14 @@ export default function HomePage() {
 
       if (event.data && event.data.type === "TOKEN") {
         console.log("Received token from parent:", event.data.token)
-        // You can store the token or use it as needed
-        // localStorage.setItem('wodify_token', event.data.token)
+
+        // Authenticate with the received token
+        const success = await login(event.data.token)
+        if (success) {
+          console.log("Successfully authenticated with Wodify token")
+        } else {
+          console.error("Failed to authenticate with Wodify token")
+        }
       }
     }
 
@@ -48,14 +56,56 @@ export default function HomePage() {
     return () => {
       window.removeEventListener("message", handleMessage)
     }
-  }, [])
+  }, [login])
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#7C3AED] mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto p-8">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Authentication Required</h1>
+          <p className="text-gray-600 mb-6">
+            This app requires authentication from Wodify. Please ensure you're accessing this app through the Wodify
+            platform.
+          </p>
+          <div className="animate-pulse">
+            <div className="h-4 bg-gray-200 rounded w-3/4 mx-auto mb-2"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/2 mx-auto"></div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-white">
       {/* Purple header bar like wodify.com */}
       <div className="bg-[#7C3AED] text-white py-3 px-4">
-        <div className="container mx-auto text-center text-sm font-medium">
-          URL SHORTENER | Transform your long URLs into short, memorable links | GET STARTED
+        <div className="container mx-auto flex justify-between items-center">
+          <div className="text-center flex-1 text-sm font-medium">
+            URL SHORTENER | Transform your long URLs into short, memorable links | GET STARTED
+          </div>
+          <div className="flex items-center gap-4 text-sm">
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4" />
+              <span>Customer: {user?.customerId}</span>
+              <span>User: {user?.userId}</span>
+            </div>
+            <button onClick={logout} className="flex items-center gap-1 hover:bg-[#6D28D9] px-2 py-1 rounded">
+              <LogOut className="h-4 w-4" />
+              Logout
+            </button>
+          </div>
         </div>
       </div>
 

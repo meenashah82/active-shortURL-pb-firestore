@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createShortUrl, getUrlData } from "@/lib/analytics-clean"
+import { requireAuth } from "@/lib/auth-middleware"
 
 function generateShortCode(): string {
   const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -25,6 +26,9 @@ function validateShortcode(shortcode: string): boolean {
 
 export async function POST(request: NextRequest) {
   try {
+    // Require authentication
+    const user = requireAuth(request)
+
     const body = await request.json()
     const { url, customShortcode } = body
 
@@ -77,8 +81,8 @@ export async function POST(request: NextRequest) {
       } while (await getUrlData(shortCode))
     }
 
-    // Create the short URL
-    await createShortUrl(shortCode, url)
+    // Create the short URL with user context
+    await createShortUrl(shortCode, url, user.customerId, user.userId)
 
     // Get the base URL for the response
     const baseUrl = request.nextUrl.origin
@@ -91,6 +95,10 @@ export async function POST(request: NextRequest) {
       isCustom: !!customShortcode,
     })
   } catch (error) {
+    if (error instanceof Error && error.message === "Authentication required") {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+    }
+
     console.error("Error in shorten API:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
