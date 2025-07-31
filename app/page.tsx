@@ -1,49 +1,69 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Loader2, User, Building } from "lucide-react"
+import { useState, useEffect } from "react"
 import { UrlShortenerForm } from "@/components/url-shortener-form"
-import { RecentUrls } from "@/components/recent-urls"
+import { LinkHistory } from "@/components/link-history"
+import { Button } from "@/components/ui/button"
+import { BarChart3, Shield, User, LogOut } from "lucide-react"
+import Link from "next/link"
 import { useAuth } from "@/hooks/use-auth"
 
-export default function Home() {
+export default function HomePage() {
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
   const { user, isLoading, isAuthenticated, login, logout } = useAuth()
-  const [iframeReady, setIframeReady] = useState(false)
+
+  const handleUrlCreated = () => {
+    // Trigger history refresh
+    setRefreshTrigger((prev) => prev + 1)
+  }
 
   useEffect(() => {
-    // Notify parent that app is loaded
-    if (window.parent !== window) {
-      window.parent.postMessage({ type: "APP_LOADED" }, "https://dev.wodify.com")
-      setIframeReady(true)
+    // Tell dev.wodify.com that the app is loaded
+    const notifyParentLoaded = () => {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: "APP_LOADED" }, "https://dev.wodify.com")
+        console.log("Sent APP_LOADED message to parent")
+      }
     }
 
-    // Listen for token from parent
+    // Listen for token from parent iframe
     const handleMessage = async (event: MessageEvent) => {
+      // Verify origin for security
       if (event.origin !== "https://dev.wodify.com") {
         return
       }
 
-      if (event.data.type === "TOKEN" && event.data.token) {
+      if (event.data && event.data.type === "TOKEN") {
         console.log("Received token from parent:", event.data.token)
+
+        // Authenticate with the received token
         const success = await login(event.data.token)
-        if (!success) {
-          console.error("Failed to authenticate with received token")
+        if (success) {
+          console.log("Successfully authenticated with Wodify token")
+        } else {
+          console.error("Failed to authenticate with Wodify token")
         }
       }
     }
 
+    // Notify parent that app is loaded
+    notifyParentLoaded()
+
+    // Add message listener
     window.addEventListener("message", handleMessage)
-    return () => window.removeEventListener("message", handleMessage)
+
+    // Cleanup
+    return () => {
+      window.removeEventListener("message", handleMessage)
+    }
   }, [login])
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#7C3AED] mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
         </div>
       </div>
     )
@@ -51,20 +71,18 @@ export default function Home() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <CardTitle>Authentication Required</CardTitle>
-            <CardDescription>
-              {iframeReady
-                ? "Waiting for authentication token from Wodify..."
-                : "This app must be loaded from Wodify to authenticate."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-center">
-            <Loader2 className="h-6 w-6 animate-spin mx-auto" />
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto p-8">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Authentication Required</h1>
+          <p className="text-gray-600 mb-6">
+            This app requires authentication from Wodify. Please ensure you're accessing this app through the Wodify
+            platform.
+          </p>
+          <div className="animate-pulse">
+            <div className="h-4 bg-gray-200 rounded w-3/4 mx-auto mb-2"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/2 mx-auto"></div>
+          </div>
+        </div>
       </div>
     )
   }
@@ -79,16 +97,14 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-4 text-sm">
             <div className="flex items-center gap-2">
-              <Building className="h-4 w-4" />
-              <span>Customer: {user?.customerId}</span>
-            </div>
-            <div className="flex items-center gap-2">
               <User className="h-4 w-4" />
+              <span>Customer: {user?.customerId}</span>
               <span>User: {user?.userId}</span>
             </div>
-            <Button variant="ghost" size="sm" onClick={logout} className="text-white hover:bg-[#6D28D9]">
+            <button onClick={logout} className="flex items-center gap-1 hover:bg-[#6D28D9] px-2 py-1 rounded">
+              <LogOut className="h-4 w-4" />
               Logout
-            </Button>
+            </button>
           </div>
         </div>
       </div>
@@ -97,19 +113,36 @@ export default function Home() {
         <div className="max-w-4xl mx-auto">
           {/* Header */}
           <div className="text-center mb-12">
-            <h1 className="text-4xl font-bold text-[#4D475B] mb-4">Make Short URL</h1>
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">Make Short URL</h1>
             <p className="text-lg text-gray-600 mb-8">
               Transform your long URLs into short, memorable links that are easy to share
             </p>
+            <div className="flex justify-center gap-4">
+              <Link href="/dashboard">
+                <Button
+                  variant="outline"
+                  className="border-gray-300 text-gray-700 hover:bg-gray-50 bg-white font-medium"
+                >
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  View Dashboard
+                </Button>
+              </Link>
+              <Link href="/admin">
+                <Button className="bg-[#EC4899] hover:bg-[#DB2777] text-white font-medium">
+                  <Shield className="h-4 w-4 mr-2" />
+                  Admin Panel
+                </Button>
+              </Link>
+            </div>
           </div>
 
           {/* URL Shortener Form */}
           <div className="mb-12">
-            <UrlShortenerForm />
+            <UrlShortenerForm onUrlCreated={handleUrlCreated} />
           </div>
 
-          {/* Recent URLs */}
-          <RecentUrls />
+          {/* Link History */}
+          <LinkHistory refreshTrigger={refreshTrigger} />
         </div>
       </div>
     </div>

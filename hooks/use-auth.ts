@@ -2,22 +2,22 @@
 
 import { useState, useEffect, useCallback } from "react"
 
-export interface WodifyUser {
+interface User {
   customerId: string
   userId: string
 }
 
 interface AuthState {
-  user: WodifyUser | null
-  isAuthenticated: boolean
+  user: User | null
   isLoading: boolean
+  isAuthenticated: boolean
 }
 
 export function useAuth() {
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
-    isAuthenticated: false,
     isLoading: true,
+    isAuthenticated: false,
   })
 
   // Check for existing auth on mount
@@ -30,8 +30,8 @@ export function useAuth() {
         const user = JSON.parse(userData)
         setAuthState({
           user,
-          isAuthenticated: true,
           isLoading: false,
+          isAuthenticated: true,
         })
       } catch (error) {
         console.error("Error parsing stored user data:", error)
@@ -39,15 +39,15 @@ export function useAuth() {
         localStorage.removeItem("user_data")
         setAuthState({
           user: null,
-          isAuthenticated: false,
           isLoading: false,
+          isAuthenticated: false,
         })
       }
     } else {
       setAuthState({
         user: null,
-        isAuthenticated: false,
         isLoading: false,
+        isAuthenticated: false,
       })
     }
   }, [])
@@ -64,32 +64,35 @@ export function useAuth() {
         body: JSON.stringify({ token: wodifyToken }),
       })
 
-      if (!response.ok) {
-        throw new Error("Authentication failed")
-      }
-
       const data = await response.json()
 
-      if (data.success && data.jwt && data.user) {
+      if (response.ok && data.success) {
+        // Store JWT and user data
         localStorage.setItem("auth_token", data.jwt)
         localStorage.setItem("user_data", JSON.stringify(data.user))
 
         setAuthState({
           user: data.user,
-          isAuthenticated: true,
           isLoading: false,
+          isAuthenticated: true,
         })
 
         return true
+      } else {
+        console.error("Authentication failed:", data.error)
+        setAuthState({
+          user: null,
+          isLoading: false,
+          isAuthenticated: false,
+        })
+        return false
       }
-
-      throw new Error("Invalid response from auth service")
     } catch (error) {
       console.error("Login error:", error)
       setAuthState({
         user: null,
-        isAuthenticated: false,
         isLoading: false,
+        isAuthenticated: false,
       })
       return false
     }
@@ -100,20 +103,27 @@ export function useAuth() {
     localStorage.removeItem("user_data")
     setAuthState({
       user: null,
-      isAuthenticated: false,
       isLoading: false,
+      isAuthenticated: false,
     })
   }, [])
 
   const getAuthHeaders = useCallback(() => {
     const token = localStorage.getItem("auth_token")
-    return token ? { Authorization: `Bearer ${token}` } : {}
+    return token
+      ? {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        }
+      : {
+          "Content-Type": "application/json",
+        }
   }, [])
 
   return {
     user: authState.user,
-    isAuthenticated: authState.isAuthenticated,
     isLoading: authState.isLoading,
+    isAuthenticated: authState.isAuthenticated,
     login,
     logout,
     getAuthHeaders,

@@ -1,7 +1,6 @@
-import { NextResponse } from "next/server"
-import { collection, addDoc, query, where, getDocs } from "firebase/firestore"
-import { db } from "@/lib/firebase"
-import { withAuth, type AuthenticatedRequest } from "@/lib/auth-middleware"
+import { type NextRequest, NextResponse } from "next/server"
+import { createShortUrl, getUrlData } from "@/lib/analytics-clean"
+import { requireAuth } from "@/lib/auth-middleware"
 
 function generateShortCode(): string {
   const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -12,70 +11,95 @@ function generateShortCode(): string {
   return result
 }
 
-async function isShortCodeUnique(shortCode: string): Promise<boolean> {
-  const q = query(collection(db, "urls"), where("shortCode", "==", shortCode))
-  const querySnapshot = await getDocs(q)
-  return querySnapshot.empty
+function validateUrl(url: string): boolean {
+  try {
+    new URL(url)
+    return true
+  } catch {
+    return false
+  }
 }
 
-async function handler(request: AuthenticatedRequest) {
-  if (request.method !== "POST") {
-    return NextResponse.json({ error: "Method not allowed" }, { status: 405 })
-  }
+function validateShortcode(shortcode: string): boolean {
+  return /^[a-zA-Z0-9_-]{3,20}$/.test(shortcode)
+}
 
+export async function POST(request: NextRequest) {
   try {
-    const { url } = await request.json()
+    // Require authentication
+    const user = requireAuth(request)
 
-    if (!url) {
+    const body = await request.json()
+    const { url, customShortcode } = body
+
+    // Validate URL
+    if (!url || typeof url !== "string") {
       return NextResponse.json({ error: "URL is required" }, { status: 400 })
     }
 
-    // Validate URL format
-    try {
-      new URL(url)
-    } catch {
+    if (!validateUrl(url)) {
       return NextResponse.json({ error: "Invalid URL format" }, { status: 400 })
     }
 
-    // Generate unique short code
-    let shortCode: string
-    let isUnique = false
-    let attempts = 0
-    const maxAttempts = 10
+    // Validate custom shortcode if provided
+    if (customShortcode) {
+      if (typeof customShortcode !== "string") {
+        return NextResponse.json({ error: "Invalid shortcode format" }, { status: 400 })
+      }
 
-    do {
-      shortCode = generateShortCode()
-      isUnique = await isShortCodeUnique(shortCode)
-      attempts++
-    } while (!isUnique && attempts < maxAttempts)
+      if (!validateShortcode(customShortcode)) {
+        return NextResponse.json(
+          {
+            error:
+              "Custom shortcode must be 3-20 characters long and contain only letters, numbers, hyphens, and underscores",
+          },
+          { status: 400 },
+        )
+      }
 
-    if (!isUnique) {
-      return NextResponse.json({ error: "Unable to generate unique short code" }, { status: 500 })
+      // Check if custom shortcode is already taken
+      const existingUrl = await getUrlData(customShortcode)
+      if (existingUrl) {
+        return NextResponse.json(
+          { error: "This shortcode is already taken. Please choose a different one." },
+          { status: 409 },
+        )
+      }
     }
 
-    // Save to Firestore with user context
-    const docRef = await addDoc(collection(db, "urls"), {
-      originalUrl: url,
-      shortCode,
-      customerId: request.user.customerId,
-      userId: request.user.userId,
-      createdAt: new Date().toISOString(),
-      totalClicks: 0,
-    })
+    // Generate or use custom shortcode
+    let shortCode = customShortcode
+    if (!shortCode) {
+      // Generate unique shortcode
+      let attempts = 0
+      do {
+        shortCode = generateShortCode()
+        attempts++
+        if (attempts > 10) {
+          return NextResponse.json({ error: "Unable to generate unique shortcode. Please try again." }, { status: 500 })
+        }
+      } while (await getUrlData(shortCode))
+    }
 
-    const shortUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/${shortCode}`
+    // Create the short URL with user context
+    await createShortUrl(shortCode, url, user.customerId, user.userId)
+
+    // Get the base URL for the response
+    const baseUrl = request.nextUrl.origin
+    const shortUrl = `${baseUrl}/${shortCode}`
 
     return NextResponse.json({
-      success: true,
-      shortUrl,
       shortCode,
+      shortUrl,
       originalUrl: url,
-      id: docRef.id,
+      isCustom: !!customShortcode,
     })
   } catch (error) {
-    console.error("Error creating short URL:", error)
+    if (error instanceof Error && error.message === "Authentication required") {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+    }
+
+    console.error("Error in shorten API:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
-
-export const POST = withAuth(handler)

@@ -10,79 +10,46 @@ import { Copy, ExternalLink, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/hooks/use-auth"
 
-interface ShortenResponse {
-  success: boolean
-  shortUrl: string
-  shortCode: string
-  originalUrl: string
-  id: string
+interface UrlShortenerFormProps {
+  onUrlCreated?: () => void
 }
 
-export function UrlShortenerForm() {
+export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
   const [url, setUrl] = useState("")
+  const [shortUrl, setShortUrl] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [result, setResult] = useState<ShortenResponse | null>(null)
   const { toast } = useToast()
   const { getAuthHeaders } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    if (!url.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter a URL to shorten.",
-        variant: "destructive",
-      })
-      return
-    }
+    if (!url) return
 
     setIsLoading(true)
-    setResult(null)
-
     try {
       const response = await fetch("/api/shorten", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...getAuthHeaders(),
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ url }),
       })
 
-      const data = await response.json()
-
       if (!response.ok) {
-        throw new Error(data.error || "Failed to shorten URL")
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to shorten URL")
       }
 
-      setResult(data)
-
-      // Store in localStorage for recent URLs
-      const recentUrls = JSON.parse(localStorage.getItem("recentUrls") || "[]")
-      const newUrl = {
-        shortUrl: data.shortUrl,
-        originalUrl: data.originalUrl,
-        shortCode: data.shortCode,
-        createdAt: new Date().toISOString(),
-      }
-
-      recentUrls.unshift(newUrl)
-      if (recentUrls.length > 10) {
-        recentUrls.pop()
-      }
-
-      localStorage.setItem("recentUrls", JSON.stringify(recentUrls))
+      const data = await response.json()
+      setShortUrl(data.shortUrl)
+      onUrlCreated?.()
 
       toast({
         title: "Success!",
-        description: "URL shortened successfully.",
+        description: "Your URL has been shortened successfully.",
       })
     } catch (error) {
-      console.error("Error shortening URL:", error)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to shorten URL",
+        description: error instanceof Error ? error.message : "Failed to shorten URL. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -90,9 +57,9 @@ export function UrlShortenerForm() {
     }
   }
 
-  const copyToClipboard = async (text: string) => {
+  const copyToClipboard = async () => {
     try {
-      await navigator.clipboard.writeText(text)
+      await navigator.clipboard.writeText(shortUrl)
       toast({
         title: "Copied!",
         description: "Short URL copied to clipboard.",
@@ -100,30 +67,30 @@ export function UrlShortenerForm() {
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to copy to clipboard.",
+        description: "Failed to copy URL to clipboard.",
         variant: "destructive",
       })
     }
   }
 
   return (
-    <Card>
+    <Card className="w-full border-gray-200 shadow-sm">
       <CardHeader>
-        <CardTitle style={{ color: "#4D475B" }}>URL Shortener</CardTitle>
-        <CardDescription>Enter a long URL to create a short, shareable link</CardDescription>
+        <CardTitle className="text-gray-900">URL Shortener</CardTitle>
+        <CardDescription className="text-gray-600">Enter a long URL to create a short, shareable link</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="flex gap-2">
             <Input
               type="url"
-              placeholder="https://example.com/very/long/url"
+              placeholder="https://example.com/very-long-url"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              className="flex-1"
-              disabled={isLoading}
+              className="flex-1 border-gray-300"
+              required
             />
-            <Button type="submit" disabled={isLoading}>
+            <Button type="submit" disabled={isLoading} className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white">
               {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -136,35 +103,30 @@ export function UrlShortenerForm() {
           </div>
         </form>
 
-        {result && (
-          <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-            <h3 className="font-semibold text-green-800 mb-2">URL Shortened Successfully!</h3>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between p-2 bg-white rounded border">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-green-700">Short URL:</p>
-                  <a
-                    href={result.shortUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-800 break-all"
-                  >
-                    {result.shortUrl}
-                  </a>
-                </div>
-                <div className="flex gap-1 ml-2">
-                  <Button size="sm" variant="ghost" onClick={() => copyToClipboard(result.shortUrl)}>
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => window.open(result.shortUrl, "_blank")}>
-                    <ExternalLink className="h-4 w-4" />
-                  </Button>
-                </div>
+        {shortUrl && (
+          <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 mb-1">Your shortened URL:</p>
+                <p className="text-sm text-gray-600 truncate">{shortUrl}</p>
               </div>
-              <div className="text-sm text-gray-600">
-                <p>
-                  <strong>Original URL:</strong> {result.originalUrl}
-                </p>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={copyToClipboard}
+                  className="border-gray-300 text-gray-700 hover:bg-gray-50 bg-transparent"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => window.open(shortUrl, "_blank")}
+                  className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
               </div>
             </div>
           </div>

@@ -22,7 +22,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       jwt,
-      user,
+      user: {
+        customerId: user.CustomerId,
+        userId: user.UserId,
+      },
     })
   } catch (error) {
     console.error("Auth validation error:", error)

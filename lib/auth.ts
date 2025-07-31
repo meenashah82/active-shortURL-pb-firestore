@@ -1,16 +1,15 @@
 import jwt from "jsonwebtoken"
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production"
+const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key"
 
 export interface WodifyUser {
-  customerId: string
-  userId: string
+  CustomerId: string
+  UserId: string
 }
 
-export interface AuthToken {
-  user: WodifyUser
-  exp: number
+export interface JWTPayload extends WodifyUser {
   iat: number
+  exp: number
 }
 
 export async function validateWodifyToken(token: string): Promise<WodifyUser | null> {
@@ -19,6 +18,7 @@ export async function validateWodifyToken(token: string): Promise<WodifyUser | n
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ token }),
     })
@@ -32,8 +32,8 @@ export async function validateWodifyToken(token: string): Promise<WodifyUser | n
 
     if (data.CustomerId && data.UserId) {
       return {
-        customerId: data.CustomerId,
-        userId: data.UserId,
+        CustomerId: data.CustomerId,
+        UserId: data.UserId,
       }
     }
 
@@ -45,12 +45,19 @@ export async function validateWodifyToken(token: string): Promise<WodifyUser | n
 }
 
 export function createJWT(user: WodifyUser): string {
-  return jwt.sign({ user }, JWT_SECRET, { expiresIn: "24h" })
+  return jwt.sign(
+    {
+      CustomerId: user.CustomerId,
+      UserId: user.UserId,
+    },
+    JWT_SECRET,
+    { expiresIn: "24h" },
+  )
 }
 
-export function verifyJWT(token: string): AuthToken | null {
+export function verifyJWT(token: string): JWTPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as AuthToken
+    return jwt.verify(token, JWT_SECRET) as JWTPayload
   } catch (error) {
     console.error("JWT verification failed:", error)
     return null

@@ -1,35 +1,45 @@
 import type { NextRequest } from "next/server"
-import { verifyJWT, type WodifyUser } from "./auth"
+import { verifyJWT } from "@/lib/auth"
 
 export interface AuthenticatedRequest extends NextRequest {
-  user: WodifyUser
+  user: {
+    customerId: string
+    userId: string
+  }
 }
 
-export function withAuth(handler: (req: AuthenticatedRequest) => Promise<Response>) {
-  return async (request: NextRequest): Promise<Response> => {
-    const authHeader = request.headers.get("authorization")
+export function requireAuth(request: NextRequest): { customerId: string; userId: string } {
+  const authHeader = request.headers.get("authorization")
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Authorization header required" }), {
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    throw new Error("Authentication required")
+  }
+
+  const token = authHeader.substring(7)
+  const payload = verifyJWT(token)
+
+  if (!payload) {
+    throw new Error("Authentication required")
+  }
+
+  return {
+    customerId: payload.CustomerId,
+    userId: payload.UserId,
+  }
+}
+
+export function withAuth<T extends any[]>(handler: (req: AuthenticatedRequest, ...args: T) => Promise<Response>) {
+  return async (req: NextRequest, ...args: T): Promise<Response> => {
+    try {
+      const user = requireAuth(req)
+      const authenticatedReq = req as AuthenticatedRequest
+      authenticatedReq.user = user
+      return await handler(authenticatedReq, ...args)
+    } catch (error) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { "Content-Type": "application/json" },
       })
     }
-
-    const token = authHeader.substring(7) // Remove 'Bearer ' prefix
-    const decoded = verifyJWT(token)
-
-    if (!decoded) {
-      return new Response(JSON.stringify({ error: "Invalid or expired token" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      })
-    }
-
-    // Add user to request
-    const authenticatedRequest = request as AuthenticatedRequest
-    authenticatedRequest.user = decoded.user
-
-    return handler(authenticatedRequest)
   }
 }
