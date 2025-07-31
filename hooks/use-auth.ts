@@ -1,53 +1,58 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 
-export interface AuthUser {
+export interface WodifyUser {
   customerId: string
   userId: string
 }
 
-export interface AuthState {
-  user: AuthUser | null
-  jwt: string | null
-  isLoading: boolean
+interface AuthState {
+  user: WodifyUser | null
   isAuthenticated: boolean
+  isLoading: boolean
 }
 
 export function useAuth() {
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
-    jwt: null,
-    isLoading: true,
     isAuthenticated: false,
+    isLoading: true,
   })
 
+  // Check for existing auth on mount
   useEffect(() => {
-    // Check for existing JWT in localStorage
-    const storedJWT = localStorage.getItem("jwt")
-    const storedUser = localStorage.getItem("user")
+    const token = localStorage.getItem("auth_token")
+    const userData = localStorage.getItem("user_data")
 
-    if (storedJWT && storedUser) {
+    if (token && userData) {
       try {
-        const user = JSON.parse(storedUser)
+        const user = JSON.parse(userData)
         setAuthState({
           user,
-          jwt: storedJWT,
-          isLoading: false,
           isAuthenticated: true,
+          isLoading: false,
         })
       } catch (error) {
-        console.error("Error parsing stored user:", error)
-        localStorage.removeItem("jwt")
-        localStorage.removeItem("user")
-        setAuthState((prev) => ({ ...prev, isLoading: false }))
+        console.error("Error parsing stored user data:", error)
+        localStorage.removeItem("auth_token")
+        localStorage.removeItem("user_data")
+        setAuthState({
+          user: null,
+          isAuthenticated: false,
+          isLoading: false,
+        })
       }
     } else {
-      setAuthState((prev) => ({ ...prev, isLoading: false }))
+      setAuthState({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+      })
     }
   }, [])
 
-  const login = async (wodifyToken: string): Promise<boolean> => {
+  const login = useCallback(async (wodifyToken: string): Promise<boolean> => {
     try {
       setAuthState((prev) => ({ ...prev, isLoading: true }))
 
@@ -65,53 +70,50 @@ export function useAuth() {
 
       const data = await response.json()
 
-      if (data.success) {
-        localStorage.setItem("jwt", data.jwt)
-        localStorage.setItem("user", JSON.stringify(data.user))
+      if (data.success && data.jwt && data.user) {
+        localStorage.setItem("auth_token", data.jwt)
+        localStorage.setItem("user_data", JSON.stringify(data.user))
 
         setAuthState({
           user: data.user,
-          jwt: data.jwt,
-          isLoading: false,
           isAuthenticated: true,
+          isLoading: false,
         })
 
         return true
       }
 
-      return false
+      throw new Error("Invalid response from auth service")
     } catch (error) {
       console.error("Login error:", error)
-      setAuthState((prev) => ({ ...prev, isLoading: false }))
+      setAuthState({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+      })
       return false
     }
-  }
+  }, [])
 
-  const logout = () => {
-    localStorage.removeItem("jwt")
-    localStorage.removeItem("user")
+  const logout = useCallback(() => {
+    localStorage.removeItem("auth_token")
+    localStorage.removeItem("user_data")
     setAuthState({
       user: null,
-      jwt: null,
-      isLoading: false,
       isAuthenticated: false,
+      isLoading: false,
     })
-  }
+  }, [])
 
-  const getAuthHeaders = () => {
-    if (authState.jwt) {
-      return {
-        Authorization: `Bearer ${authState.jwt}`,
-        "Content-Type": "application/json",
-      }
-    }
-    return {
-      "Content-Type": "application/json",
-    }
-  }
+  const getAuthHeaders = useCallback(() => {
+    const token = localStorage.getItem("auth_token")
+    return token ? { Authorization: `Bearer ${token}` } : {}
+  }, [])
 
   return {
-    ...authState,
+    user: authState.user,
+    isAuthenticated: authState.isAuthenticated,
+    isLoading: authState.isLoading,
     login,
     logout,
     getAuthHeaders,

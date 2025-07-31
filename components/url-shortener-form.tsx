@@ -5,27 +5,21 @@ import type React from "react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
 import { Copy, ExternalLink, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/hooks/use-auth"
 
-interface UrlShortenerFormProps {
-  onUrlCreated?: () => void
-}
-
 interface ShortenResponse {
-  shortCode: string
+  success: boolean
   shortUrl: string
+  shortCode: string
   originalUrl: string
-  isCustom: boolean
+  id: string
 }
 
-export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
+export function UrlShortenerForm() {
   const [url, setUrl] = useState("")
-  const [customShortcode, setCustomShortcode] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [result, setResult] = useState<ShortenResponse | null>(null)
   const { toast } = useToast()
@@ -37,7 +31,7 @@ export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
     if (!url.trim()) {
       toast({
         title: "Error",
-        description: "Please enter a URL to shorten",
+        description: "Please enter a URL to shorten.",
         variant: "destructive",
       })
       return
@@ -49,11 +43,11 @@ export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
     try {
       const response = await fetch("/api/shorten", {
         method: "POST",
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          url: url.trim(),
-          customShortcode: customShortcode.trim() || undefined,
-        }),
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify({ url }),
       })
 
       const data = await response.json()
@@ -63,13 +57,26 @@ export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
       }
 
       setResult(data)
-      setUrl("")
-      setCustomShortcode("")
-      onUrlCreated?.()
+
+      // Store in localStorage for recent URLs
+      const recentUrls = JSON.parse(localStorage.getItem("recentUrls") || "[]")
+      const newUrl = {
+        shortUrl: data.shortUrl,
+        originalUrl: data.originalUrl,
+        shortCode: data.shortCode,
+        createdAt: new Date().toISOString(),
+      }
+
+      recentUrls.unshift(newUrl)
+      if (recentUrls.length > 10) {
+        recentUrls.pop()
+      }
+
+      localStorage.setItem("recentUrls", JSON.stringify(recentUrls))
 
       toast({
         title: "Success!",
-        description: "Your URL has been shortened successfully",
+        description: "URL shortened successfully.",
       })
     } catch (error) {
       console.error("Error shortening URL:", error)
@@ -88,97 +95,79 @@ export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
       await navigator.clipboard.writeText(text)
       toast({
         title: "Copied!",
-        description: "Short URL copied to clipboard",
+        description: "Short URL copied to clipboard.",
       })
     } catch (error) {
-      console.error("Failed to copy:", error)
       toast({
         title: "Error",
-        description: "Failed to copy to clipboard",
+        description: "Failed to copy to clipboard.",
         variant: "destructive",
       })
     }
   }
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
+    <Card>
       <CardHeader>
         <CardTitle style={{ color: "#4D475B" }}>URL Shortener</CardTitle>
         <CardDescription>Enter a long URL to create a short, shareable link</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="url">URL to shorten *</Label>
+          <div className="flex gap-2">
             <Input
-              id="url"
               type="url"
               placeholder="https://example.com/very/long/url"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              required
+              className="flex-1"
+              disabled={isLoading}
             />
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Shortening...
+                </>
+              ) : (
+                "Shorten"
+              )}
+            </Button>
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="custom">Custom short code (optional)</Label>
-            <Input
-              id="custom"
-              type="text"
-              placeholder="my-custom-link"
-              value={customShortcode}
-              onChange={(e) => setCustomShortcode(e.target.value)}
-              pattern="[a-zA-Z0-9_-]{3,20}"
-              title="3-20 characters: letters, numbers, hyphens, and underscores only"
-            />
-            <p className="text-sm text-gray-500">3-20 characters: letters, numbers, hyphens, and underscores only</p>
-          </div>
-
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Shortening...
-              </>
-            ) : (
-              "Shorten URL"
-            )}
-          </Button>
         </form>
 
         {result && (
-          <>
-            <Separator />
-            <div className="space-y-4">
-              <h3 className="font-semibold text-green-700">Success! Your short URL is ready:</h3>
-
-              <div className="space-y-3">
-                <div className="flex items-center space-x-2">
-                  <Input value={result.shortUrl} readOnly className="flex-1" />
-                  <Button variant="outline" size="icon" onClick={() => copyToClipboard(result.shortUrl)}>
+          <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <h3 className="font-semibold text-green-800 mb-2">URL Shortened Successfully!</h3>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between p-2 bg-white rounded border">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-green-700">Short URL:</p>
+                  <a
+                    href={result.shortUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 break-all"
+                  >
+                    {result.shortUrl}
+                  </a>
+                </div>
+                <div className="flex gap-1 ml-2">
+                  <Button size="sm" variant="ghost" onClick={() => copyToClipboard(result.shortUrl)}>
                     <Copy className="h-4 w-4" />
                   </Button>
-                  <Button variant="outline" size="icon" onClick={() => window.open(result.shortUrl, "_blank")}>
+                  <Button size="sm" variant="ghost" onClick={() => window.open(result.shortUrl, "_blank")}>
                     <ExternalLink className="h-4 w-4" />
                   </Button>
                 </div>
-
-                <div className="text-sm text-gray-600 space-y-1">
-                  <p>
-                    <strong>Original URL:</strong> {result.originalUrl}
-                  </p>
-                  <p>
-                    <strong>Short Code:</strong> {result.shortCode}
-                  </p>
-                  {result.isCustom && (
-                    <p className="text-blue-600">
-                      <strong>Custom shortcode used</strong>
-                    </p>
-                  )}
-                </div>
+              </div>
+              <div className="text-sm text-gray-600">
+                <p>
+                  <strong>Original URL:</strong> {result.originalUrl}
+                </p>
               </div>
             </div>
-          </>
+          </div>
         )}
       </CardContent>
     </Card>

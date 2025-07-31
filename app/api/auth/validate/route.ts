@@ -10,25 +10,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate token with Wodify
-    const wodifyResponse = await validateWodifyToken(token)
+    const user = await validateWodifyToken(token)
 
-    if (!wodifyResponse) {
+    if (!user) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 })
     }
 
     // Create JWT for our app
-    const jwt = createJWT({
-      customerId: wodifyResponse.CustomerId,
-      userId: wodifyResponse.UserId,
-    })
+    const jwt = createJWT(user)
 
     return NextResponse.json({
       success: true,
       jwt,
-      user: {
-        customerId: wodifyResponse.CustomerId,
-        userId: wodifyResponse.UserId,
-      },
+      user,
     })
   } catch (error) {
     console.error("Auth validation error:", error)

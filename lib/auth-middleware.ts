@@ -1,23 +1,35 @@
 import type { NextRequest } from "next/server"
-import { verifyJWT, type AuthUser } from "./auth"
+import { verifyJWT, type WodifyUser } from "./auth"
 
-export function getAuthUser(request: NextRequest): AuthUser | null {
-  const authHeader = request.headers.get("authorization")
-
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return null
-  }
-
-  const token = authHeader.substring(7)
-  return verifyJWT(token)
+export interface AuthenticatedRequest extends NextRequest {
+  user: WodifyUser
 }
 
-export function requireAuth(request: NextRequest): AuthUser {
-  const user = getAuthUser(request)
+export function withAuth(handler: (req: AuthenticatedRequest) => Promise<Response>) {
+  return async (request: NextRequest): Promise<Response> => {
+    const authHeader = request.headers.get("authorization")
 
-  if (!user) {
-    throw new Error("Authentication required")
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Authorization header required" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      })
+    }
+
+    const token = authHeader.substring(7) // Remove 'Bearer ' prefix
+    const decoded = verifyJWT(token)
+
+    if (!decoded) {
+      return new Response(JSON.stringify({ error: "Invalid or expired token" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      })
+    }
+
+    // Add user to request
+    const authenticatedRequest = request as AuthenticatedRequest
+    authenticatedRequest.user = decoded.user
+
+    return handler(authenticatedRequest)
   }
-
-  return user
 }
