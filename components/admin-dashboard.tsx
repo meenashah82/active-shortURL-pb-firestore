@@ -173,15 +173,15 @@ export function AdminDashboard() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <Card className="shadow-sm" style={{ borderColor: "#D9D8FD", backgroundColor: "#FFFFFF" }}>
+        <Card className="border-gray-200 shadow-sm">
           <CardHeader>
-            <CardTitle style={{ color: "#4D475B" }}>Admin Dashboard</CardTitle>
-            <CardDescription style={{ color: "#94909C" }}>Loading URL data...</CardDescription>
+            <CardTitle className="text-gray-900">Admin Dashboard</CardTitle>
+            <CardDescription className="text-gray-600">Loading URL data...</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center space-x-2">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2" style={{ borderColor: "#833ADF" }}></div>
-              <span style={{ color: "#94909C" }}>Loading...</span>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+              <span className="text-gray-600">Loading...</span>
             </div>
           </CardContent>
         </Card>
@@ -193,34 +193,26 @@ export function AdminDashboard() {
     <div className="space-y-6">
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-2xl font-semibold" style={{ color: "#4D475B" }}>
-            Admin Dashboard
-          </h1>
-          <p className="mt-1" style={{ color: "#94909C" }}>
-            Manage shortened URLs and view analytics
-          </p>
+          <h1 className="text-2xl font-semibold text-gray-900">Admin Dashboard</h1>
+          <p className="text-gray-600 mt-1">Manage shortened URLs and view analytics</p>
         </div>
 
         {/* Super Admin Only: Remove All Data Button */}
         {isSuperAdmin && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button
-                variant="destructive"
-                disabled={isDeleting}
-                style={{ backgroundColor: "#F22C7C", color: "#FFFFFF" }}
-              >
+              <Button variant="destructive" className="bg-red-600 hover:bg-red-700" disabled={isDeleting}>
                 <AlertTriangle className="mr-2 h-4 w-4" />
                 {isDeleting ? "Deleting..." : "Remove All Data"}
               </Button>
             </AlertDialogTrigger>
-            <AlertDialogContent style={{ backgroundColor: "#FFFFFF", borderColor: "#D9D8FD" }}>
+            <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle className="flex items-center" style={{ color: "#F22C7C" }}>
+                <AlertDialogTitle className="flex items-center text-red-600">
                   <AlertTriangle className="mr-2 h-5 w-5" />
                   Dangerous Operation
                 </AlertDialogTitle>
-                <AlertDialogDescription className="space-y-2" style={{ color: "#4D475B" }}>
+                <AlertDialogDescription className="space-y-2">
                   <p className="font-semibold">This will permanently delete ALL data from:</p>
                   <ul className="list-disc list-inside space-y-1 text-sm">
                     <li>All shortened URLs</li>
@@ -228,17 +220,17 @@ export function AdminDashboard() {
                     <li>All click tracking data</li>
                     <li>All subcollection data</li>
                   </ul>
-                  <p className="font-semibold mt-4" style={{ color: "#F22C7C" }}>
+                  <p className="text-red-600 font-semibold mt-4">
                     This action cannot be undone. Are you absolutely sure?
                   </p>
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel style={{ borderColor: "#D9D8FD", color: "#4D475B" }}>Cancel</AlertDialogCancel>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction
                   onClick={handleRemoveAllData}
+                  className="bg-red-600 hover:bg-red-700"
                   disabled={isDeleting}
-                  style={{ backgroundColor: "#F22C7C", color: "#FFFFFF" }}
                 >
                   {isDeleting ? "Deleting..." : "Yes, Delete Everything"}
                 </AlertDialogAction>
@@ -249,8 +241,8 @@ export function AdminDashboard() {
       </div>
 
       {error && (
-        <Alert style={{ borderColor: "#F22C7C", backgroundColor: "rgba(242, 44, 124, 0.1)" }}>
-          <AlertDescription style={{ color: "#F22C7C" }}>
+        <Alert className="border-red-200 bg-red-50">
+          <AlertDescription className="text-red-800">
             {error}
             {error.includes("Firestore is not available") && (
               <div className="mt-2">
@@ -267,52 +259,42 @@ export function AdminDashboard() {
       )}
 
       {deleteResult && (
-        <Alert style={{ borderColor: "#833ADF", backgroundColor: "rgba(131, 58, 223, 0.1)" }}>
-          <AlertDescription className="whitespace-pre-line" style={{ color: "#833ADF" }}>
-            {deleteResult}
-          </AlertDescription>
+        <Alert className="border-green-200 bg-green-50">
+          <AlertDescription className="text-green-800 whitespace-pre-line">{deleteResult}</AlertDescription>
         </Alert>
       )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="shadow-sm" style={{ borderColor: "#D9D8FD", backgroundColor: "#FFFFFF" }}>
+        <Card className="border-gray-200 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium" style={{ color: "#94909C" }}>
-              Total URLs
-            </CardTitle>
-            <ExternalLink className="h-4 w-4" style={{ color: "#833ADF" }} />
+            <CardTitle className="text-sm font-medium text-gray-600">Total URLs</CardTitle>
+            <ExternalLink className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold" style={{ color: "#4D475B" }}>
-              {urls.length}
-            </div>
+            <div className="text-2xl font-semibold text-gray-900">{urls.length}</div>
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm" style={{ borderColor: "#D9D8FD", backgroundColor: "#FFFFFF" }}>
+        <Card className="border-gray-200 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium" style={{ color: "#94909C" }}>
-              Total Clicks
-            </CardTitle>
-            <BarChart3 className="h-4 w-4" style={{ color: "#833ADF" }} />
+            <CardTitle className="text-sm font-medium text-gray-600">Total Clicks</CardTitle>
+            <BarChart3 className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold" style={{ color: "#4D475B" }}>
+            <div className="text-2xl font-semibold text-gray-900">
               {urls.reduce((sum, url) => sum + url.totalClicks, 0)}
             </div>
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm" style={{ borderColor: "#D9D8FD", backgroundColor: "#FFFFFF" }}>
+        <Card className="border-gray-200 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium" style={{ color: "#94909C" }}>
-              Average Clicks
-            </CardTitle>
-            <BarChart3 className="h-4 w-4" style={{ color: "#833ADF" }} />
+            <CardTitle className="text-sm font-medium text-gray-600">Average Clicks</CardTitle>
+            <BarChart3 className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold" style={{ color: "#4D475B" }}>
+            <div className="text-2xl font-semibold text-gray-900">
               {urls.length > 0 ? Math.round(urls.reduce((sum, url) => sum + url.totalClicks, 0) / urls.length) : 0}
             </div>
           </CardContent>
@@ -320,67 +302,64 @@ export function AdminDashboard() {
       </div>
 
       {/* URLs Table */}
-      <Card className="shadow-sm" style={{ borderColor: "#D9D8FD", backgroundColor: "#FFFFFF" }}>
+      <Card className="border-gray-200 shadow-sm">
         <CardHeader>
-          <CardTitle style={{ color: "#4D475B" }}>All Shortened URLs</CardTitle>
-          <CardDescription style={{ color: "#94909C" }}>Manage and monitor your shortened URLs</CardDescription>
+          <CardTitle className="text-gray-900">All Shortened URLs</CardTitle>
+          <CardDescription className="text-gray-600">Manage and monitor your shortened URLs</CardDescription>
         </CardHeader>
         <CardContent>
           {urls.length === 0 ? (
             <div className="text-center py-8">
-              <p style={{ color: "#94909C" }}>No URLs found. Create your first shortened URL!</p>
+              <p className="text-gray-500">No URLs found. Create your first shortened URL!</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow style={{ borderColor: "#D9D8FD" }}>
-                    <TableHead style={{ color: "#94909C" }}>Short Code</TableHead>
-                    <TableHead style={{ color: "#94909C" }}>Original URL</TableHead>
-                    <TableHead style={{ color: "#94909C" }}>Clicks</TableHead>
-                    <TableHead style={{ color: "#94909C" }}>Created</TableHead>
-                    <TableHead style={{ color: "#94909C" }}>Actions</TableHead>
+                  <TableRow className="border-gray-200">
+                    <TableHead className="text-gray-600">Short Code</TableHead>
+                    <TableHead className="text-gray-600">Original URL</TableHead>
+                    <TableHead className="text-gray-600">Clicks</TableHead>
+                    <TableHead className="text-gray-600">Created</TableHead>
+                    <TableHead className="text-gray-600">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {urls.map((url) => (
-                    <TableRow key={url.id} style={{ borderColor: "#D9D8FD" }}>
+                    <TableRow key={url.id} className="border-gray-200">
                       <TableCell>
                         <div className="flex items-center space-x-2">
-                          <Badge variant="outline" style={{ borderColor: "#D9D8FD", color: "#833ADF" }}>
+                          <Badge variant="outline" className="border-purple-300 text-purple-600">
                             {url.shortCode}
                           </Badge>
                           <a
                             href={`https://www.wodify.link/${url.shortCode}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            style={{ color: "#833ADF" }}
+                            className="text-purple-600 hover:text-purple-700"
                           >
                             <ExternalLink className="h-3 w-3" />
                           </a>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="max-w-xs truncate" title={url.originalUrl} style={{ color: "#4D475B" }}>
+                        <div className="max-w-xs truncate text-gray-900" title={url.originalUrl}>
                           {url.originalUrl}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge
-                          variant="secondary"
-                          style={{ backgroundColor: "rgba(131, 58, 223, 0.1)", color: "#833ADF" }}
-                        >
+                        <Badge variant="secondary" className="bg-purple-100 text-purple-700">
                           {url.totalClicks}
                         </Badge>
                       </TableCell>
-                      <TableCell style={{ color: "#94909C" }}>{url.createdAt.toLocaleDateString()}</TableCell>
+                      <TableCell className="text-gray-600">{url.createdAt.toLocaleDateString()}</TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => window.open(`/analytics/${url.shortCode}`, "_blank")}
-                            style={{ borderColor: "#D9D8FD", color: "#833ADF" }}
+                            className="border-purple-300 text-purple-600 hover:bg-purple-50"
                           >
                             <BarChart3 className="h-3 w-3" />
                           </Button>
@@ -388,7 +367,7 @@ export function AdminDashboard() {
                             size="sm"
                             variant="destructive"
                             onClick={() => deleteUrl(url.id, url.shortCode)}
-                            style={{ backgroundColor: "#F22C7C", color: "#FFFFFF" }}
+                            className="bg-red-600 hover:bg-red-700"
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>
