@@ -66,16 +66,32 @@ export function UrlShortenerForm() {
 
   const copyToClipboard = async (text: string) => {
     try {
-      await navigator.clipboard.writeText(text)
+      // Use the modern clipboard API if available
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text)
+      } else {
+        // Fallback for older browsers or non-secure contexts
+        const textArea = document.createElement("textarea")
+        textArea.value = text
+        textArea.style.position = "fixed"
+        textArea.style.left = "-999999px"
+        textArea.style.top = "-999999px"
+        document.body.appendChild(textArea)
+        textArea.focus()
+        textArea.select()
+        document.execCommand("copy")
+        textArea.remove()
+      }
+
       toast({
         title: "Copied!",
         description: "Short URL copied to clipboard.",
       })
     } catch (error) {
-      console.error("Failed to copy:", error)
+      console.error("Copy failed:", error)
       toast({
-        title: "Error",
-        description: "Failed to copy to clipboard.",
+        title: "Copy failed",
+        description: "Unable to copy to clipboard. Please copy manually.",
         variant: "destructive",
       })
     }

@@ -64,15 +64,33 @@ export function RealTimeDashboard() {
   const copyToClipboard = async (shortCode: string) => {
     try {
       const shortUrl = `${window.location.origin}/${shortCode}`
-      await navigator.clipboard.writeText(shortUrl)
+
+      // Use the modern clipboard API if available
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(shortUrl)
+      } else {
+        // Fallback for older browsers or non-secure contexts
+        const textArea = document.createElement("textarea")
+        textArea.value = shortUrl
+        textArea.style.position = "fixed"
+        textArea.style.left = "-999999px"
+        textArea.style.top = "-999999px"
+        document.body.appendChild(textArea)
+        textArea.focus()
+        textArea.select()
+        document.execCommand("copy")
+        textArea.remove()
+      }
+
       toast({
         title: "Copied!",
         description: "Short URL copied to clipboard",
       })
     } catch (err) {
+      console.error("Copy failed:", err)
       toast({
         title: "Copy failed",
-        description: "Could not copy URL to clipboard",
+        description: "Unable to copy to clipboard. Please copy manually.",
         variant: "destructive",
       })
     }

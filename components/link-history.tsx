@@ -47,15 +47,32 @@ export function LinkHistory({ refreshTrigger }: LinkHistoryProps) {
 
   const copyToClipboard = async (url: string) => {
     try {
-      await navigator.clipboard.writeText(url)
+      // Use the modern clipboard API if available
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(url)
+      } else {
+        // Fallback for older browsers or non-secure contexts
+        const textArea = document.createElement("textarea")
+        textArea.value = url
+        textArea.style.position = "fixed"
+        textArea.style.left = "-999999px"
+        textArea.style.top = "-999999px"
+        document.body.appendChild(textArea)
+        textArea.focus()
+        textArea.select()
+        document.execCommand("copy")
+        textArea.remove()
+      }
+
       toast({
         title: "Copied!",
         description: "URL copied to clipboard.",
       })
     } catch (error) {
+      console.error("Copy failed:", error)
       toast({
-        title: "Error",
-        description: "Failed to copy URL to clipboard.",
+        title: "Copy failed",
+        description: "Unable to copy to clipboard. Please copy manually.",
         variant: "destructive",
       })
     }
