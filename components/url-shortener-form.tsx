@@ -5,185 +5,163 @@ import type React from "react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent } from "@/components/ui/card"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Copy, ExternalLink, Loader2, CheckCircle2, AlertCircle } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Copy, ExternalLink, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/hooks/use-auth"
 
-interface UrlShortenerFormProps {
-  onUrlCreated?: () => void
-  disabled?: boolean
+interface ShortenedUrl {
+  shortCode: string
+  shortUrl: string
+  originalUrl: string
 }
 
-export function UrlShortenerForm({ onUrlCreated, disabled }: UrlShortenerFormProps) {
+export function UrlShortenerForm() {
   const [url, setUrl] = useState("")
-  const [shortUrl, setShortUrl] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
+  const [shortenedUrl, setShortenedUrl] = useState<ShortenedUrl | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
-  const { getAuthHeaders, isAuthenticated, loading: authLoading } = useAuth()
+  const { isAuthenticated, isLoading: authLoading } = useAuth()
 
-  console.log("🔍 UrlShortenerForm - Auth state:", { isAuthenticated, authLoading })
+  console.log("UrlShortenerForm - Auth state:", { isAuthenticated, authLoading })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!url.trim()) return
 
-    if (!isAuthenticated) {
-      setError("Authentication required")
-      return
-    }
-
-    if (!url.trim()) {
-      setError("Please enter a URL")
-      return
-    }
-
-    setLoading(true)
-    setError("")
-
+    setIsLoading(true)
     try {
       const response = await fetch("/api/shorten", {
         method: "POST",
-        headers: getAuthHeaders(),
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ url: url.trim() }),
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to create short URL")
+        const error = await response.json()
+        throw new Error(error.error || "Failed to shorten URL")
       }
 
       const data = await response.json()
-      setShortUrl(data.shortUrl)
+      setShortenedUrl(data)
       setUrl("")
 
       toast({
         title: "Success!",
-        description: "Short URL created successfully",
+        description: "Your URL has been shortened successfully.",
       })
-
-      onUrlCreated?.()
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "An error occurred"
-      setError(errorMessage)
+    } catch (error) {
+      console.error("Error shortening URL:", error)
       toast({
         title: "Error",
-        description: errorMessage,
+        description: error instanceof Error ? error.message : "Failed to shorten URL",
         variant: "destructive",
       })
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
-  const copyToClipboard = async () => {
+  const copyToClipboard = async (text: string) => {
     try {
-      await navigator.clipboard.writeText(shortUrl)
+      await navigator.clipboard.writeText(text)
       toast({
         title: "Copied!",
-        description: "Short URL copied to clipboard",
+        description: "Short URL copied to clipboard.",
       })
-    } catch (err) {
+    } catch (error) {
+      console.error("Failed to copy:", error)
       toast({
-        title: "Copy failed",
-        description: "Could not copy URL to clipboard",
+        title: "Error",
+        description: "Failed to copy to clipboard.",
         variant: "destructive",
       })
     }
   }
 
-  const openUrl = () => {
-    window.open(shortUrl, "_blank")
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <Card className="w-full max-w-2xl mx-auto">
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold text-center">URL Shortener</CardTitle>
+          <CardDescription className="text-center">Loading...</CardDescription>
+        </CardHeader>
+        <CardContent className="flex justify-center">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Show authentication required message
+  if (!isAuthenticated) {
+    return (
+      <Card className="w-full max-w-2xl mx-auto">
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold text-center">URL Shortener</CardTitle>
+          <CardDescription className="text-center">Please authenticate to access the URL shortener</CardDescription>
+        </CardHeader>
+        <CardContent className="text-center">
+          <p className="text-muted-foreground">Waiting for authentication token from parent application...</p>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (
-    <div className="space-y-4">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="flex gap-2">
-          <Input
-            type="url"
-            placeholder="Enter your long URL here..."
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            disabled={loading || disabled || !isAuthenticated}
-            className="flex-1"
-            style={{ borderColor: "#D9D8FD" }}
-          />
-          <Button
-            type="submit"
-            disabled={loading || disabled || !isAuthenticated || authLoading}
-            style={{ backgroundColor: "#833ADF", color: "#FFFFFF", border: "none" }}
-            className="hover:opacity-90"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Creating...
-              </>
-            ) : (
-              "Shorten URL"
-            )}
-          </Button>
-        </div>
-      </form>
+    <Card className="w-full max-w-2xl mx-auto">
+      <CardHeader>
+        <CardTitle className="text-2xl font-bold text-center">URL Shortener</CardTitle>
+        <CardDescription className="text-center">Transform long URLs into short, shareable links</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="flex gap-2">
+            <Input
+              type="url"
+              placeholder="Enter your URL here..."
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              className="flex-1"
+              disabled={isLoading}
+            />
+            <Button type="submit" disabled={isLoading || !url.trim()}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Shortening...
+                </>
+              ) : (
+                "Shorten"
+              )}
+            </Button>
+          </div>
+        </form>
 
-      {error && (
-        <Alert variant="destructive" className="border-red-200 bg-red-50">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription className="text-red-800">{error}</AlertDescription>
-        </Alert>
-      )}
-
-      {(authLoading || !isAuthenticated) && (
-        <Alert className="border-yellow-200 bg-yellow-50">
-          <AlertCircle className="h-4 w-4 text-yellow-600" />
-          <AlertDescription className="text-yellow-800">
-            {authLoading ? "Authenticating..." : "Please wait for authentication to create short URLs"}
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {shortUrl && (
-        <Card className="border-2" style={{ backgroundColor: "#D9D8FD", borderColor: "#833ADF" }}>
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-2 mb-2">
-              <CheckCircle2 className="h-5 w-5" style={{ color: "#833ADF" }} />
-              <span className="font-medium" style={{ color: "#4D475B" }}>
-                Short URL Created!
-              </span>
+        {shortenedUrl && (
+          <div className="space-y-3 p-4 bg-muted rounded-lg">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Short URL:</label>
+              <div className="flex gap-2">
+                <Input value={shortenedUrl.shortUrl} readOnly className="flex-1" />
+                <Button variant="outline" size="icon" onClick={() => copyToClipboard(shortenedUrl.shortUrl)}>
+                  <Copy className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="icon" onClick={() => window.open(shortenedUrl.shortUrl, "_blank")}>
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Input
-                value={shortUrl}
-                readOnly
-                className="flex-1 font-mono text-sm"
-                style={{ backgroundColor: "#FFFFFF", borderColor: "#833ADF" }}
-              />
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={copyToClipboard}
-                style={{ backgroundColor: "#FFFFFF", borderColor: "#833ADF", color: "#833ADF" }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(131, 58, 223, 0.1)")}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#FFFFFF")}
-              >
-                <Copy className="h-4 w-4" />
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={openUrl}
-                style={{ backgroundColor: "#FFFFFF", borderColor: "#833ADF", color: "#833ADF" }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(131, 58, 223, 0.1)")}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#FFFFFF")}
-              >
-                <ExternalLink className="h-4 w-4" />
-              </Button>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Original URL:</label>
+              <Input value={shortenedUrl.originalUrl} readOnly className="text-muted-foreground" />
             </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }

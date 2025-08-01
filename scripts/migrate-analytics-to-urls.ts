@@ -1,35 +1,62 @@
-import { db } from "../lib/firebase"
-import { collection, getDocs, doc, updateDoc } from "firebase/firestore"
+import { initializeApp } from "firebase/app"
+import { getFirestore, collection, getDocs, doc, updateDoc, getDoc } from "firebase/firestore"
+
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+}
+
+const app = initializeApp(firebaseConfig)
+const db = getFirestore(app)
 
 async function migrateAnalyticsToUrls() {
-  try {
-    console.log("Starting migration of analytics data to URLs collection...")
+  console.log("🚀 Starting analytics migration...")
 
+  try {
     // Get all analytics documents
     const analyticsSnapshot = await getDocs(collection(db, "analytics"))
-    console.log(`Found ${analyticsSnapshot.size} analytics documents`)
+    console.log(`📊 Found ${analyticsSnapshot.size} analytics documents`)
+
+    let migrated = 0
+    let errors = 0
 
     for (const analyticsDoc of analyticsSnapshot.docs) {
-      const analyticsData = analyticsDoc.data()
       const shortCode = analyticsDoc.id
+      const analyticsData = analyticsDoc.data()
 
       try {
-        // Update the corresponding URL document with analytics data
-        await updateDoc(doc(db, "urls", shortCode), {
+        // Check if URL document exists
+        const urlDocRef = doc(db, "urls", shortCode)
+        const urlDoc = await getDoc(urlDocRef)
+
+        if (!urlDoc.exists()) {
+          console.warn(`⚠️ URL document not found for shortCode: ${shortCode}`)
+          errors++
+          continue
+        }
+
+        // Update URL document with analytics data
+        await updateDoc(urlDocRef, {
           totalClicks: analyticsData.totalClicks || 0,
           lastClickAt: analyticsData.lastClickAt || null,
           clickEvents: analyticsData.clickEvents || [],
         })
 
-        console.log(`✅ Migrated analytics for ${shortCode}`)
+        migrated++
+        console.log(`✅ Migrated analytics for: ${shortCode}`)
       } catch (error) {
-        console.error(`❌ Failed to migrate ${shortCode}:`, error)
+        console.error(`❌ Error migrating ${shortCode}:`, error)
+        errors++
       }
     }
 
-    console.log("Migration completed!")
+    console.log(`🎉 Migration complete! Migrated: ${migrated}, Errors: ${errors}`)
   } catch (error) {
-    console.error("Migration failed:", error)
+    console.error("❌ Migration failed:", error)
   }
 }
 

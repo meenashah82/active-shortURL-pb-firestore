@@ -1,23 +1,20 @@
 import { db } from "./firebase"
 import { collection, query, where, orderBy, limit, onSnapshot, doc, getDoc } from "firebase/firestore"
 
-export interface ClickEvent {
-  timestamp: Date
-  userAgent: string
-  referer: string
-  ip: string
-}
-
 export interface UnifiedUrlData {
   shortCode: string
   originalUrl: string
-  createdAt: Date
+  createdAt: any
   isActive: boolean
-  customerId: string
-  userId: string
+  createdBy?: string
   totalClicks: number
-  lastClickAt: Date | null
-  clickEvents: ClickEvent[]
+  lastClickAt: any
+  clickEvents: Array<{
+    timestamp: any
+    userAgent: string
+    referer: string
+    ip: string
+  }>
 }
 
 export function subscribeToTopUrls(callback: (urls: UnifiedUrlData[]) => void, limitCount = 10) {
@@ -30,19 +27,8 @@ export function subscribeToTopUrls(callback: (urls: UnifiedUrlData[]) => void, l
 
   return onSnapshot(q, (snapshot) => {
     const urls: UnifiedUrlData[] = []
-    snapshot.forEach((docSnapshot) => {
-      const data = docSnapshot.data()
-      urls.push({
-        shortCode: docSnapshot.id,
-        originalUrl: data.originalUrl,
-        createdAt: data.createdAt?.toDate() || new Date(),
-        isActive: data.isActive,
-        customerId: data.customerId,
-        userId: data.userId,
-        totalClicks: data.totalClicks || 0,
-        lastClickAt: data.lastClickAt?.toDate() || null,
-        clickEvents: data.clickEvents || [],
-      })
+    snapshot.forEach((doc) => {
+      urls.push({ ...doc.data(), shortCode: doc.id } as UnifiedUrlData)
     })
     callback(urls)
   })
@@ -56,18 +42,7 @@ export async function getUrlAnalytics(shortCode: string): Promise<UnifiedUrlData
       return null
     }
 
-    const data = urlDoc.data()
-    return {
-      shortCode,
-      originalUrl: data.originalUrl,
-      createdAt: data.createdAt?.toDate() || new Date(),
-      isActive: data.isActive,
-      customerId: data.customerId,
-      userId: data.userId,
-      totalClicks: data.totalClicks || 0,
-      lastClickAt: data.lastClickAt?.toDate() || null,
-      clickEvents: data.clickEvents || [],
-    }
+    return { ...urlDoc.data(), shortCode } as UnifiedUrlData
   } catch (error) {
     console.error("Error fetching URL analytics:", error)
     return null
@@ -75,20 +50,9 @@ export async function getUrlAnalytics(shortCode: string): Promise<UnifiedUrlData
 }
 
 export function subscribeToUrlAnalytics(shortCode: string, callback: (data: UnifiedUrlData | null) => void) {
-  return onSnapshot(doc(db, "urls", shortCode), (docSnapshot) => {
-    if (docSnapshot.exists()) {
-      const data = docSnapshot.data()
-      callback({
-        shortCode,
-        originalUrl: data.originalUrl,
-        createdAt: data.createdAt?.toDate() || new Date(),
-        isActive: data.isActive,
-        customerId: data.customerId,
-        userId: data.userId,
-        totalClicks: data.totalClicks || 0,
-        lastClickAt: data.lastClickAt?.toDate() || null,
-        clickEvents: data.clickEvents || [],
-      })
+  return onSnapshot(doc(db, "urls", shortCode), (doc) => {
+    if (doc.exists()) {
+      callback({ ...doc.data(), shortCode } as UnifiedUrlData)
     } else {
       callback(null)
     }
