@@ -4,6 +4,7 @@ import { getUrlData, recordClick } from "@/lib/analytics-clean"
 export async function GET(request: NextRequest, { params }: { params: { shortCode: string } }) {
   try {
     const { shortCode } = params
+    console.log(`hi, this is nick`)
     console.log(`🔍 REDIRECT API: Processing redirect request for shortCode: ${shortCode}`)
 
     // Get URL data using the clean analytics system
