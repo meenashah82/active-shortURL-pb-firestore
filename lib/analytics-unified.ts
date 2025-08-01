@@ -2,19 +2,19 @@ import {
   collection,
   doc,
   getDoc,
-  getDocs,
+  setDoc,
   updateDoc,
   increment,
   arrayUnion,
-  serverTimestamp,
   query,
+  where,
   orderBy,
   limit,
-  where,
   onSnapshot,
+  serverTimestamp,
   type Timestamp,
 } from "firebase/firestore"
-import { db } from "./firebase"
+import { db } from "@/lib/firebase"
 
 export interface ClickEvent {
   timestamp: Timestamp
@@ -28,79 +28,91 @@ export interface UnifiedUrlData {
   originalUrl: string
   createdAt: Timestamp
   isActive: boolean
+  createdBy?: {
+    customerId?: string
+    userId?: string
+  }
+  // Embedded analytics data
   totalClicks: number
   lastClickAt?: Timestamp
   clickEvents: ClickEvent[]
 }
 
-export async function getUnifiedAnalytics(shortCode: string): Promise<UnifiedUrlData | null> {
-  try {
-    const urlDoc = await getDoc(doc(db, "urls", shortCode))
-
-    if (!urlDoc.exists()) {
-      return null
+export async function createShortUrl(
+  shortCode: string,
+  originalUrl: string,
+  metadata?: {
+    createdBy?: {
+      customerId?: string
+      userId?: string
     }
-
-    const data = urlDoc.data()
-    return {
-      shortCode,
-      originalUrl: data.originalUrl,
-      createdAt: data.createdAt,
-      isActive: data.isActive,
-      totalClicks: data.totalClicks || 0,
-      lastClickAt: data.lastClickAt,
-      clickEvents: data.clickEvents || [],
-    }
-  } catch (error) {
-    console.error("Error getting unified analytics:", error)
-    return null
+  },
+): Promise<void> {
+  const urlData: UnifiedUrlData = {
+    shortCode,
+    originalUrl,
+    createdAt: serverTimestamp() as Timestamp,
+    isActive: true,
+    createdBy: metadata?.createdBy,
+    // Initialize analytics data
+    totalClicks: 0,
+    clickEvents: [],
   }
+
+  await setDoc(doc(db, "urls", shortCode), urlData)
 }
 
-export async function trackClick(shortCode: string, clickData: Omit<ClickEvent, "timestamp"> = {}) {
-  try {
-    const urlRef = doc(db, "urls", shortCode)
+export async function getUrlData(shortCode: string): Promise<UnifiedUrlData | null> {
+  const docRef = doc(db, "urls", shortCode)
+  const docSnap = await getDoc(docRef)
 
-    const clickEvent: ClickEvent = {
-      timestamp: serverTimestamp() as Timestamp,
-      ...clickData,
+  if (docSnap.exists()) {
+    return docSnap.data() as UnifiedUrlData
+  }
+
+  return null
+}
+
+export async function trackClick(
+  shortCode: string,
+  clickData: {
+    userAgent?: string
+    referer?: string
+    ip?: string
+  },
+): Promise<void> {
+  const urlRef = doc(db, "urls", shortCode)
+
+  const clickEvent: ClickEvent = {
+    timestamp: serverTimestamp() as Timestamp,
+    userAgent: clickData.userAgent,
+    referer: clickData.referer,
+    ip: clickData.ip,
+  }
+
+  await updateDoc(urlRef, {
+    totalClicks: increment(1),
+    lastClickAt: serverTimestamp(),
+    clickEvents: arrayUnion(clickEvent),
+  })
+}
+
+export function subscribeToUrlAnalytics(
+  shortCode: string,
+  callback: (data: UnifiedUrlData | null) => void,
+): () => void {
+  const docRef = doc(db, "urls", shortCode)
+
+  return onSnapshot(docRef, (doc) => {
+    if (doc.exists()) {
+      callback(doc.data() as UnifiedUrlData)
+    } else {
+      callback(null)
     }
-
-    await updateDoc(urlRef, {
-      totalClicks: increment(1),
-      lastClickAt: serverTimestamp(),
-      clickEvents: arrayUnion(clickEvent),
-    })
-  } catch (error) {
-    console.error("Error tracking click:", error)
-    throw error
-  }
+  })
 }
 
-export async function getTopUrls(limitCount = 10): Promise<UnifiedUrlData[]> {
-  try {
-    const q = query(
-      collection(db, "urls"),
-      where("totalClicks", ">", 0),
-      orderBy("totalClicks", "desc"),
-      limit(limitCount),
-    )
-
-    const snapshot = await getDocs(q)
-    return snapshot.docs.map(
-      (doc) =>
-        ({
-          shortCode: doc.id,
-          ...doc.data(),
-        }) as UnifiedUrlData,
-    )
-  } catch (error) {
-    console.error("Error getting top URLs:", error)
-    return []
-  }
-}
-
-export function subscribeToTopUrls(limitCount = 10, callback: (urls: UnifiedUrlData[]) => void): () => void {
+export function subscribeToTopUrls(limitCount: number, callback: (urls: UnifiedUrlData[]) => void): () => void {
   const q = query(
     collection(db, "urls"),
     where("totalClicks", ">", 0),
@@ -108,52 +120,30 @@ export function subscribeToTopUrls(limitCount = 10, callback: (urls: UnifiedUrlD
     limit(limitCount),
   )
 
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      const urls = snapshot.docs.map(
-        (doc) =>
-          ({
-            shortCode: doc.id,
-            ...doc.data(),
-          }) as UnifiedUrlData,
-      )
-      callback(urls)
-    },
-    (error) => {
-      console.error("Error in subscribeToTopUrls:", error)
-      callback([])
-    },
-  )
+  return onSnapshot(q, (snapshot) => {
+    const urls: UnifiedUrlData[] = []
+    snapshot.forEach((doc) => {
+      urls.push(doc.data() as UnifiedUrlData)
+    })
+    callback(urls)
+  })
 }
 
-export function subscribeToUrlAnalytics(
-  shortCode: string,
-  callback: (data: UnifiedUrlData | null) => void,
-): () => void {
-  const urlRef = doc(db, "urls", shortCode)
+export async function getAllUrls(): Promise<UnifiedUrlData[]> {
+  const q = query(collection(db, "urls"), orderBy("createdAt", "desc"))
 
-  return onSnapshot(
-    urlRef,
-    (doc) => {
-      if (doc.exists()) {
-        const data = doc.data()
-        callback({
-          shortCode,
-          originalUrl: data.originalUrl,
-          createdAt: data.createdAt,
-          isActive: data.isActive,
-          totalClicks: data.totalClicks || 0,
-          lastClickAt: data.lastClickAt,
-          clickEvents: data.clickEvents || [],
+  return new Promise((resolve, reject) => {
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const urls: UnifiedUrlData[] = []
+        snapshot.forEach((doc) => {
+          urls.push(doc.data() as UnifiedUrlData)
         })
-      } else {
-        callback(null)
-      }
-    },
-    (error) => {
-      console.error("Error in subscribeToUrlAnalytics:", error)
-      callback(null)
-    },
-  )
+        unsubscribe()
+        resolve(urls)
+      },
+      reject,
+    )
+  })
 }

@@ -20,6 +20,7 @@ export function useAuth() {
       if (savedAuth) {
         const authData = JSON.parse(savedAuth)
         setUser(authData)
+        console.log("✅ Loaded auth from localStorage:", { customerId: authData.customerId, userId: authData.userId })
       }
     } catch (error) {
       console.error("Error loading auth from localStorage:", error)
@@ -90,9 +91,12 @@ export function useAuth() {
         customerId: userData.customerId,
         userId: userData.userId,
       })
+
+      return true
     } catch (error) {
       console.error("❌ Login error:", error)
       setError(error instanceof Error ? error.message : "Login failed")
+      return false
     } finally {
       setLoading(false)
     }

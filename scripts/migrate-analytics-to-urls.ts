@@ -15,53 +15,59 @@ const app = initializeApp(firebaseConfig)
 const db = getFirestore(app)
 
 async function migrateAnalyticsToUrls() {
-  console.log("Starting migration of analytics data to URLs collection...")
+  console.log("🚀 Starting migration of analytics data to URLs collection...")
 
   try {
-    // Get all analytics documents
+    // Get all documents from analytics collection
     const analyticsSnapshot = await getDocs(collection(db, "analytics"))
-    console.log(`Found ${analyticsSnapshot.docs.length} analytics documents`)
+    console.log(`📊 Found ${analyticsSnapshot.size} analytics documents`)
 
     let migratedCount = 0
-    let errorCount = 0
+    let skippedCount = 0
 
     for (const analyticsDoc of analyticsSnapshot.docs) {
       const shortCode = analyticsDoc.id
       const analyticsData = analyticsDoc.data()
 
-      try {
-        // Check if URL document exists
-        const urlDocRef = doc(db, "urls", shortCode)
-        const urlDoc = await getDoc(urlDocRef)
+      console.log(`🔄 Processing ${shortCode}...`)
 
-        if (urlDoc.exists()) {
-          // Update URL document with analytics data
-          await updateDoc(urlDocRef, {
-            totalClicks: analyticsData.totalClicks || 0,
-            lastClickAt: analyticsData.lastClickAt || null,
-            clickEvents: analyticsData.clickEvents || [],
-          })
+      // Check if corresponding URL document exists
+      const urlDocRef = doc(db, "urls", shortCode)
+      const urlDoc = await getDoc(urlDocRef)
 
-          migratedCount++
-          console.log(`✓ Migrated analytics for ${shortCode}`)
-        } else {
-          console.log(`⚠ URL document not found for ${shortCode}`)
-          errorCount++
-        }
-      } catch (error) {
-        console.error(`✗ Error migrating ${shortCode}:`, error)
-        errorCount++
+      if (!urlDoc.exists()) {
+        console.log(`⚠️  URL document for ${shortCode} not found, skipping...`)
+        skippedCount++
+        continue
       }
+
+      // Update URL document with analytics data
+      await updateDoc(urlDocRef, {
+        totalClicks: analyticsData.totalClicks || 0,
+        lastClickAt: analyticsData.lastClickAt || null,
+        clickEvents: analyticsData.clickEvents || [],
+      })
+
+      console.log(`✅ Migrated analytics for ${shortCode}`)
+      migratedCount++
     }
 
-    console.log("\n=== Migration Complete ===")
-    console.log(`Successfully migrated: ${migratedCount}`)
-    console.log(`Errors: ${errorCount}`)
-    console.log(`Total processed: ${analyticsSnapshot.docs.length}`)
+    console.log(`🎉 Migration completed!`)
+    console.log(`✅ Migrated: ${migratedCount} documents`)
+    console.log(`⚠️  Skipped: ${skippedCount} documents`)
   } catch (error) {
-    console.error("Migration failed:", error)
+    console.error("❌ Migration failed:", error)
+    process.exit(1)
   }
 }
 
 // Run the migration
 migrateAnalyticsToUrls()
+  .then(() => {
+    console.log("✅ Migration script completed successfully")
+    process.exit(0)
+  })
+  .catch((error) => {
+    console.error("❌ Migration script failed:", error)
+    process.exit(1)
+  })
