@@ -1,35 +1,34 @@
-import type { NextRequest } from "next/server"
-import { verifyJWT } from "./auth"
+import { type NextRequest, NextResponse } from "next/server"
+import { verifyJWT, type User } from "./auth"
 
-export function withAuth(handler: (request: NextRequest, user: any) => Promise<Response>) {
+export interface AuthenticatedRequest extends NextRequest {
+  user: User
+}
+
+export function withAuth(handler: (request: AuthenticatedRequest) => Promise<NextResponse>) {
   return async (request: NextRequest) => {
     try {
       const authHeader = request.headers.get("authorization")
 
       if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        return new Response(JSON.stringify({ error: "Authentication required" }), {
-          status: 401,
-          headers: { "Content-Type": "application/json" },
-        })
+        return NextResponse.json({ error: "Authentication required" }, { status: 401 })
       }
 
       const token = authHeader.substring(7)
       const user = verifyJWT(token)
 
       if (!user) {
-        return new Response(JSON.stringify({ error: "Invalid token" }), {
-          status: 401,
-          headers: { "Content-Type": "application/json" },
-        })
+        return NextResponse.json({ error: "Invalid token" }, { status: 401 })
       }
 
-      return handler(request, user)
+      // Add user to request
+      const authenticatedRequest = request as AuthenticatedRequest
+      authenticatedRequest.user = user
+
+      return handler(authenticatedRequest)
     } catch (error) {
       console.error("Auth middleware error:", error)
-      return new Response(JSON.stringify({ error: "Internal server error" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      })
+      return NextResponse.json({ error: "Authentication failed" }, { status: 401 })
     }
   }
 }

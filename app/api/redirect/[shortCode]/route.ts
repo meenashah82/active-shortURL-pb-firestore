@@ -1,12 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/firebase"
-import { doc, getDoc, updateDoc, arrayUnion, increment } from "firebase/firestore"
+import { doc, getDoc, updateDoc, increment, arrayUnion } from "firebase/firestore"
 
 export async function GET(request: NextRequest, { params }: { params: { shortCode: string } }) {
   try {
     const { shortCode } = params
 
-    // Get URL document
+    // Get URL data
     const urlDoc = await getDoc(doc(db, "urls", shortCode))
 
     if (!urlDoc.exists()) {
@@ -27,19 +27,17 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
       ip: request.ip || request.headers.get("x-forwarded-for") || "",
     }
 
-    // Update analytics in the same document
+    // Update embedded analytics
     await updateDoc(doc(db, "urls", shortCode), {
       totalClicks: increment(1),
-      lastClickAt: new Date(),
+      lastClickAt: clickEvent.timestamp,
       clickEvents: arrayUnion(clickEvent),
     })
-
-    console.log("✅ Click tracked for:", shortCode)
 
     // Redirect to original URL
     return NextResponse.redirect(urlData.originalUrl)
   } catch (error) {
-    console.error("Error in redirect:", error)
+    console.error("Error redirecting:", error)
     return NextResponse.redirect(new URL("/not-found", request.url))
   }
 }
