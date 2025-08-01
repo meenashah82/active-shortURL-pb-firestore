@@ -82,6 +82,7 @@ export interface IndividualClickData {
   Expect?: string
   "X-Requested-With"?: string
   "X-Forwarded-For"?: string
+  _placeholder?: boolean
 }
 
 // Create short URL - using new unified structure and create clicks subcollection
@@ -322,7 +323,24 @@ export async function recordClick(
     const urlRef = doc(db, "urls", shortCode)
     const clicksRef = collection(db, "urls", shortCode, "clicks")
 
-    // Create the detailed click document data
+    // First, update the main URL document with click count
+    await runTransaction(db, async (transaction) => {
+      const urlDoc = await transaction.get(urlRef)
+
+      if (urlDoc.exists()) {
+        transaction.update(urlRef, {
+          totalClicks: increment(1),
+          lastClickAt: serverTimestamp(),
+        })
+        console.log(`✅ Updated click count for shortCode: ${shortCode}`)
+      } else {
+        console.log(`⚠️ URL document does not exist for shortCode: ${shortCode}`)
+        // Don't create a new document here - this should not happen during normal redirect flow
+        throw new Error(`URL document not found for shortCode: ${shortCode}`)
+      }
+    })
+
+    // Then, create the detailed click document in the subcollection
     const clickData: Omit<IndividualClickData, "id"> = {
       timestamp: serverTimestamp(),
       shortCode,
@@ -352,26 +370,7 @@ export async function recordClick(
       "X-Forwarded-For": ip || headers?.["x-forwarded-for"] || headers?.["X-Forwarded-For"],
     }
 
-    // Execute both operations in parallel for better performance
-    const [, clickDocRef] = await Promise.all([
-      // Update the main URL document with click count
-      runTransaction(db, async (transaction) => {
-        const urlDoc = await transaction.get(urlRef)
-
-        if (urlDoc.exists()) {
-          transaction.update(urlRef, {
-            totalClicks: increment(1),
-            lastClickAt: serverTimestamp(),
-          })
-          console.log(`✅ Updated click count for shortCode: ${shortCode}`)
-        } else {
-          console.log(`⚠️ URL document does not exist for shortCode: ${shortCode}`)
-          // Don't create a new document here - this should not happen during normal redirect flow
-        }
-      }),
-      // Create the detailed click document in the subcollection
-      addDoc(clicksRef, clickData),
-    ])
+    const clickDocRef = await addDoc(clicksRef, clickData)
 
     console.log(`✅ Click recorded successfully for shortCode: ${shortCode}`)
     console.log(`✅ Created click document with ID: ${clickDocRef.id}`)
