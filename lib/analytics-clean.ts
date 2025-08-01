@@ -289,37 +289,12 @@ export async function recordClick(
   headers?: Record<string, string>,
 ): Promise<void> {
   try {
-    console.log(`🔄 Recording click for: ${shortCode}`)
+    console.log(`🔄 Recording click for shortCode: ${shortCode}`)
 
     const urlRef = doc(db, "urls", shortCode)
     const clicksRef = collection(db, "urls", shortCode, "clicks")
 
-    // First, update the main URL document with click count
-    await runTransaction(db, async (transaction) => {
-      const urlDoc = await transaction.get(urlRef)
-
-      if (urlDoc.exists()) {
-        transaction.update(urlRef, {
-          totalClicks: increment(1),
-          lastClickAt: serverTimestamp(),
-        })
-        console.log(`✅ Updated click count for: ${shortCode}`)
-      } else {
-        // Create URL document if it doesn't exist (shouldn't happen normally)
-        transaction.set(urlRef, {
-          shortCode,
-          totalClicks: 1,
-          createdAt: serverTimestamp(),
-          lastClickAt: serverTimestamp(),
-          isActive: true,
-          expiresAt: Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)), // 30 days
-          originalUrl: "", // This would need to be provided
-        })
-        console.log(`✅ Created new URL document for: ${shortCode}`)
-      }
-    })
-
-    // Then, create the detailed click document in the subcollection
+    // Create the detailed click document data
     const clickData: Omit<IndividualClickData, "id"> = {
       timestamp: serverTimestamp(),
       shortCode,
@@ -349,13 +324,41 @@ export async function recordClick(
       "X-Forwarded-For": ip || headers?.["x-forwarded-for"] || headers?.["X-Forwarded-For"],
     }
 
-    console.log(`🔄 Creating detailed click document for: ${shortCode}`)
-    console.log(`📊 Click data:`, clickData)
+    // Execute both operations in parallel for better performance
+    const [, clickDocRef] = await Promise.all([
+      // Update the main URL document with click count
+      runTransaction(db, async (transaction) => {
+        const urlDoc = await transaction.get(urlRef)
 
-    const clickDocRef = await addDoc(clicksRef, clickData)
-    console.log(`✅ Detailed click document created with ID: ${clickDocRef.id} for shortCode: ${shortCode}`)
+        if (urlDoc.exists()) {
+          transaction.update(urlRef, {
+            totalClicks: increment(1),
+            lastClickAt: serverTimestamp(),
+          })
+          console.log(`✅ Updated click count for shortCode: ${shortCode}`)
+        } else {
+          // Create URL document if it doesn't exist (shouldn't happen normally)
+          transaction.set(urlRef, {
+            shortCode,
+            totalClicks: 1,
+            createdAt: serverTimestamp(),
+            lastClickAt: serverTimestamp(),
+            isActive: true,
+            expiresAt: Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)), // 30 days
+            originalUrl: "", // This would need to be provided
+          })
+          console.log(`✅ Created new URL document for shortCode: ${shortCode}`)
+        }
+      }),
+      // Create the detailed click document in the subcollection
+      addDoc(clicksRef, clickData),
+    ])
+
+    console.log(`✅ Click recorded successfully for shortCode: ${shortCode}`)
+    console.log(`✅ Created click document with ID: ${clickDocRef.id}`)
+    console.log(`📊 Click document path: urls/${shortCode}/clicks/${clickDocRef.id}`)
   } catch (error) {
-    console.error("❌ Error recording click:", error)
+    console.error(`❌ Error recording click for shortCode: ${shortCode}`, error)
     throw error
   }
 }
