@@ -92,6 +92,22 @@ function generateClickId(): string {
   return `click_${timestamp}_${randomPart}`
 }
 
+// Helper function to extract header value with case-insensitive lookup
+function getHeaderValue(headers: Record<string, string> | undefined, headerName: string): string | undefined {
+  if (!headers) return undefined
+
+  // Try exact match first
+  if (headers[headerName]) return headers[headerName]
+
+  // Try lowercase version
+  const lowerHeaderName = headerName.toLowerCase()
+  if (headers[lowerHeaderName]) return headers[lowerHeaderName]
+
+  // Try to find case-insensitive match
+  const foundKey = Object.keys(headers).find((key) => key.toLowerCase() === lowerHeaderName)
+  return foundKey ? headers[foundKey] : undefined
+}
+
 // Create short URL - using new unified structure and create clicks subcollection
 export async function createShortUrl(shortCode: string, originalUrl: string, metadata?: any): Promise<void> {
   try {
@@ -351,34 +367,35 @@ export async function recordClick(
       }
     })
 
-    // Then, create the detailed click document in the subcollection with unique ID
+    // Create comprehensive click document with all requested header fields
     const clickData: Omit<IndividualClickData, "id"> = {
       timestamp: serverTimestamp(),
       shortCode,
-      Host: headers?.["host"] || headers?.["Host"],
-      "User-Agent": userAgent || headers?.["user-agent"] || headers?.["User-Agent"],
-      Accept: headers?.["accept"] || headers?.["Accept"],
-      "Accept-Language": headers?.["accept-language"] || headers?.["Accept-Language"],
-      "Accept-Encoding": headers?.["accept-encoding"] || headers?.["Accept-Encoding"],
-      "Accept-Charset": headers?.["accept-charset"] || headers?.["Accept-Charset"],
-      "Content-Type": headers?.["content-type"] || headers?.["Content-Type"],
-      "Content-Length": headers?.["content-length"] || headers?.["Content-Length"],
-      Authorization: headers?.["authorization"] || headers?.["Authorization"],
-      Cookie: headers?.["cookie"] || headers?.["Cookie"],
-      Referer: referer || headers?.["referer"] || headers?.["Referer"],
-      Origin: headers?.["origin"] || headers?.["Origin"],
-      Connection: headers?.["connection"] || headers?.["Connection"],
-      "Upgrade-Insecure-Requests": headers?.["upgrade-insecure-requests"] || headers?.["Upgrade-Insecure-Requests"],
-      "Cache-Control": headers?.["cache-control"] || headers?.["Cache-Control"],
-      Pragma: headers?.["pragma"] || headers?.["Pragma"],
-      "If-Modified-Since": headers?.["if-modified-since"] || headers?.["If-Modified-Since"],
-      "If-None-Match": headers?.["if-none-match"] || headers?.["If-None-Match"],
-      Range: headers?.["range"] || headers?.["Range"],
-      TE: headers?.["te"] || headers?.["TE"],
-      "Transfer-Encoding": headers?.["transfer-encoding"] || headers?.["Transfer-Encoding"],
-      Expect: headers?.["expect"] || headers?.["Expect"],
-      "X-Requested-With": headers?.["x-requested-with"] || headers?.["X-Requested-With"],
-      "X-Forwarded-For": ip || headers?.["x-forwarded-for"] || headers?.["X-Forwarded-For"],
+      // Extract all requested header fields with case-insensitive lookup
+      Host: getHeaderValue(headers, "Host"),
+      "User-Agent": userAgent || getHeaderValue(headers, "User-Agent"),
+      Accept: getHeaderValue(headers, "Accept"),
+      "Accept-Language": getHeaderValue(headers, "Accept-Language"),
+      "Accept-Encoding": getHeaderValue(headers, "Accept-Encoding"),
+      "Accept-Charset": getHeaderValue(headers, "Accept-Charset"),
+      "Content-Type": getHeaderValue(headers, "Content-Type"),
+      "Content-Length": getHeaderValue(headers, "Content-Length"),
+      Authorization: getHeaderValue(headers, "Authorization"),
+      Cookie: getHeaderValue(headers, "Cookie"),
+      Referer: referer || getHeaderValue(headers, "Referer"),
+      Origin: getHeaderValue(headers, "Origin"),
+      Connection: getHeaderValue(headers, "Connection"),
+      "Upgrade-Insecure-Requests": getHeaderValue(headers, "Upgrade-Insecure-Requests"),
+      "Cache-Control": getHeaderValue(headers, "Cache-Control"),
+      Pragma: getHeaderValue(headers, "Pragma"),
+      "If-Modified-Since": getHeaderValue(headers, "If-Modified-Since"),
+      "If-None-Match": getHeaderValue(headers, "If-None-Match"),
+      Range: getHeaderValue(headers, "Range"),
+      TE: getHeaderValue(headers, "TE"),
+      "Transfer-Encoding": getHeaderValue(headers, "Transfer-Encoding"),
+      Expect: getHeaderValue(headers, "Expect"),
+      "X-Requested-With": getHeaderValue(headers, "X-Requested-With"),
+      "X-Forwarded-For": ip || getHeaderValue(headers, "X-Forwarded-For"),
     }
 
     // Create document with specific ID instead of auto-generated ID
@@ -387,6 +404,11 @@ export async function recordClick(
 
     console.log(`✅ Click recorded successfully for shortCode: ${shortCode}`)
     console.log(`✅ Created click document with unique ID: ${clickId}`)
+    console.log(
+      `📊 Click data includes: ${Object.keys(clickData)
+        .filter((key) => clickData[key as keyof typeof clickData])
+        .join(", ")}`,
+    )
   } catch (error) {
     console.error(`❌ Error recording click for shortCode: ${shortCode}`, error)
     throw error
