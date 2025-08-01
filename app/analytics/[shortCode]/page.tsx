@@ -5,6 +5,7 @@ import React from "react"
 import { useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
   ArrowLeft,
   ExternalLink,
@@ -21,8 +22,6 @@ import {
   Monitor,
   Smartphone,
   MapPin,
-  User,
-  LinkIcon,
 } from "lucide-react"
 import Link from "next/link"
 import { useRealTimeAnalytics } from "@/hooks/use-real-time-analytics"
@@ -351,12 +350,12 @@ export default function AnalyticsPage({
             </CardContent>
           </Card>
 
-          {/* Click History Section */}
+          {/* Click History Table */}
           <Card className="mb-8 shadow-sm" style={{ backgroundColor: "#FFFFFF", borderColor: "#D9D8FD" }}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2" style={{ color: "#4D475B" }}>
                 <Clock className="h-5 w-5" style={{ color: "#833ADF" }} />
-                Detailed Click History
+                Click History (Real-time)
                 <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: "#F22C7C" }}></div>
               </CardTitle>
             </CardHeader>
@@ -376,135 +375,61 @@ export default function AnalyticsPage({
                   </p>
                 </div>
               ) : (
-                <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {clickHistory.map((click, index) => (
-                    <div
-                      key={click.id || index}
-                      className={`p-4 rounded-lg border transition-all duration-300 ${
-                        index === 0 && isNewClick ? "shadow-md" : ""
-                      }`}
-                      style={{
-                        backgroundColor:
-                          index === 0 && isNewClick
-                            ? "rgba(242, 44, 124, 0.05)"
-                            : click.clickSource === "analytics_page"
-                              ? "rgba(217, 216, 253, 0.3)"
-                              : "rgba(217, 216, 253, 0.1)",
-                        borderColor: index === 0 && isNewClick ? "#F22C7C" : "#D9D8FD",
-                      }}
-                      onClick={handleElementClick(`click-history-${index}`)}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          {/* Timestamp and Status */}
-                          <div className="flex items-center gap-2 mb-2">
-                            <Clock className="h-4 w-4" style={{ color: "#94909C" }} />
-                            <span className="text-sm font-medium" style={{ color: "#4D475B" }}>
-                              {click.timestamp?.toDate?.()?.toLocaleString() || "Just now"}
-                            </span>
-                            {index === 0 && isNewClick && (
-                              <span
-                                className="text-xs font-bold animate-bounce px-2 py-1 rounded"
-                                style={{
-                                  color: "#F22C7C",
-                                  backgroundColor: "rgba(242, 44, 124, 0.1)",
-                                }}
-                              >
-                                LIVE!
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead style={{ color: "#4D475B" }}>Timestamp</TableHead>
+                        <TableHead style={{ color: "#4D475B" }}>User Agent</TableHead>
+                        <TableHead style={{ color: "#4D475B" }}>IP Address</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {clickHistory.map((click, index) => (
+                        <TableRow
+                          key={click.id || index}
+                          className={`transition-all duration-300 ${
+                            index === 0 && isNewClick ? "bg-pink-50 border-pink-200" : ""
+                          }`}
+                          style={{
+                            backgroundColor: index === 0 && isNewClick ? "rgba(242, 44, 124, 0.05)" : undefined,
+                          }}
+                        >
+                          <TableCell style={{ color: "#4D475B" }}>
+                            <div className="flex items-center gap-2">
+                              <Clock className="h-4 w-4" style={{ color: "#94909C" }} />
+                              <span className="font-mono text-sm">
+                                {click.timestamp?.toDate?.()?.toLocaleString() || "Just now"}
                               </span>
-                            )}
-                            {click.clickSource === "analytics_page" && (
-                              <span
-                                className="text-xs px-2 py-1 rounded"
-                                style={{
-                                  color: "#833ADF",
-                                  backgroundColor: "rgba(131, 58, 223, 0.1)",
-                                }}
-                              >
-                                Analytics
-                              </span>
-                            )}
-                            {click.clickSource === "direct" && (
-                              <span
-                                className="text-xs px-2 py-1 rounded"
-                                style={{
-                                  color: "#F22C7C",
-                                  backgroundColor: "rgba(242, 44, 124, 0.1)",
-                                }}
-                              >
-                                URL Click
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Device and Browser Info */}
-                          <div className="flex items-center gap-4 mb-2 text-xs" style={{ color: "#94909C" }}>
-                            <div className="flex items-center gap-1">
-                              {getDeviceIcon(click.userAgent)}
-                              <span>{formatUserAgent(click.userAgent)}</span>
-                            </div>
-                            {click.referer && (
-                              <div className="flex items-center gap-1">
-                                <LinkIcon className="h-3 w-3" style={{ color: "#94909C" }} />
-                                <span>From: {formatReferrer(click.referer)}</span>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Additional Details */}
-                          <div className="grid grid-cols-2 gap-4 text-xs" style={{ color: "#94909C" }}>
-                            {click.ip && (
-                              <div className="flex items-center gap-1">
-                                <MapPin className="h-3 w-3" style={{ color: "#94909C" }} />
-                                <span>IP: {click.ip}</span>
-                              </div>
-                            )}
-                            {click.sessionId && (
-                              <div className="flex items-center gap-1">
-                                <User className="h-3 w-3" style={{ color: "#94909C" }} />
-                                <span>Session: {click.sessionId.substring(0, 8)}...</span>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Device Details if available */}
-                          {click.device && (
-                            <div className="mt-2 text-xs">
-                              <span
-                                className="px-2 py-1 rounded mr-2"
-                                style={{
-                                  backgroundColor: "rgba(131, 58, 223, 0.1)",
-                                  color: "#833ADF",
-                                }}
-                              >
-                                {click.device.os || "Unknown OS"}
-                              </span>
-                              <span
-                                className="px-2 py-1 rounded mr-2"
-                                style={{
-                                  backgroundColor: "rgba(131, 58, 223, 0.1)",
-                                  color: "#833ADF",
-                                }}
-                              >
-                                {click.device.browser || "Unknown Browser"}
-                              </span>
-                              {click.device.isMobile && (
+                              {index === 0 && isNewClick && (
                                 <span
-                                  className="px-2 py-1 rounded text-xs"
+                                  className="text-xs font-bold animate-bounce px-2 py-1 rounded"
                                   style={{
-                                    backgroundColor: "rgba(242, 44, 124, 0.1)",
                                     color: "#F22C7C",
+                                    backgroundColor: "rgba(242, 44, 124, 0.1)",
                                   }}
                                 >
-                                  Mobile
+                                  NEW!
                                 </span>
                               )}
                             </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                          </TableCell>
+                          <TableCell style={{ color: "#4D475B" }}>
+                            <div className="flex items-center gap-2">
+                              {getDeviceIcon(click["User-Agent"])}
+                              <span className="text-sm">{formatUserAgent(click["User-Agent"]) || "Unknown"}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell style={{ color: "#4D475B" }}>
+                            <div className="flex items-center gap-2">
+                              <MapPin className="h-4 w-4" style={{ color: "#94909C" }} />
+                              <span className="font-mono text-sm">{click["X-Forwarded-For"] || "Unknown"}</span>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
               )}
             </CardContent>
