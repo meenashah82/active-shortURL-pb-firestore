@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
-import { doc, getDoc } from "firebase/firestore"
+import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore"
 import { db } from "@/lib/firebase"
-import { createShortUrl } from "@/lib/analytics-unified"
 import { withAuth, type AuthenticatedRequest } from "@/lib/auth-middleware"
 
 function generateShortCode(): string {
@@ -15,13 +14,17 @@ function generateShortCode(): string {
 
 async function shortenHandler(request: AuthenticatedRequest) {
   try {
-    const { url } = await request.json()
+    console.log("🔗 Shorten API called by user:", request.user)
+
+    const body = await request.json()
+    const { url } = body
 
     if (!url) {
+      console.error("❌ No URL provided")
       return NextResponse.json({ error: "URL is required" }, { status: 400 })
     }
 
-    console.log(`🔗 Creating short URL for user ${request.user?.customerId}/${request.user?.userId}`)
+    console.log("🔗 Creating short URL for:", url)
 
     // Validate URL format
     let validUrl: string
@@ -33,6 +36,7 @@ async function shortenHandler(request: AuthenticatedRequest) {
       }
       new URL(validUrl) // This will throw if invalid
     } catch {
+      console.error("❌ Invalid URL format:", url)
       return NextResponse.json({ error: "Invalid URL format" }, { status: 400 })
     }
 
@@ -46,6 +50,7 @@ async function shortenHandler(request: AuthenticatedRequest) {
       attempts++
 
       if (attempts > maxAttempts) {
+        console.error("❌ Failed to generate unique short code after", maxAttempts, "attempts")
         return NextResponse.json({ error: "Failed to generate unique short code" }, { status: 500 })
       }
 
@@ -56,17 +61,24 @@ async function shortenHandler(request: AuthenticatedRequest) {
       }
     } while (true)
 
-    // Create the short URL with embedded analytics
-    await createShortUrl(shortCode, validUrl, {
-      createdBy: {
-        customerId: request.user?.customerId,
-        userId: request.user?.userId,
-      },
-    })
+    // Create the URL document with embedded analytics
+    const urlData = {
+      shortCode,
+      originalUrl: validUrl,
+      createdAt: Timestamp.now(),
+      isActive: true,
+      totalClicks: 0,
+      lastClickAt: null,
+      clickEvents: [],
+      customerId: request.user?.customerId,
+      userId: request.user?.userId,
+    }
+
+    await setDoc(doc(db, "urls", shortCode), urlData)
 
     const shortUrl = `${request.nextUrl.origin}/${shortCode}`
 
-    console.log(`✅ Short URL created: ${shortCode} -> ${validUrl}`)
+    console.log("✅ Short URL created:", shortCode, "->", validUrl)
 
     return NextResponse.json({
       shortUrl,
@@ -74,7 +86,7 @@ async function shortenHandler(request: AuthenticatedRequest) {
       originalUrl: validUrl,
     })
   } catch (error) {
-    console.error("❌ Error creating short URL:", error)
+    console.error("❌ Error in shorten API:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
