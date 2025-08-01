@@ -23,6 +23,8 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
       headers[key] = value
     })
 
+    console.log(`extracted header values ...`)
+
     // Record the click with detailed header information
     const userAgent = request.headers.get("user-agent") || ""
     const referer = request.headers.get("referer") || ""
