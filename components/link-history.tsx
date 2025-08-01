@@ -1,11 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Copy, ExternalLink, BarChart3 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import Link from "next/link"
 
 interface UrlData {
   id: string
@@ -24,6 +24,7 @@ export function LinkHistory({ refreshTrigger }: LinkHistoryProps) {
   const [urls, setUrls] = useState<UrlData[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const { toast } = useToast()
+  const router = useRouter()
 
   useEffect(() => {
     fetchUrls()
@@ -58,6 +59,14 @@ export function LinkHistory({ refreshTrigger }: LinkHistoryProps) {
         variant: "destructive",
       })
     }
+  }
+
+  const openUrl = (url: string) => {
+    window.open(url, "_blank")
+  }
+
+  const openAnalytics = (shortCode: string) => {
+    router.push(`/analytics/${shortCode}`)
   }
 
   if (isLoading) {
@@ -127,20 +136,19 @@ export function LinkHistory({ refreshTrigger }: LinkHistoryProps) {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => window.open(urlData.shortUrl, "_blank")}
+                    onClick={() => openUrl(urlData.shortUrl)}
                     className="border-gray-300 text-gray-700 hover:bg-gray-50"
                   >
                     <ExternalLink className="h-4 w-4" />
                   </Button>
-                  <Link href={`/analytics/${urlData.shortCode}`}>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="border-gray-300 text-gray-700 hover:bg-gray-50 bg-transparent"
-                    >
-                      <BarChart3 className="h-4 w-4" />
-                    </Button>
-                  </Link>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => openAnalytics(urlData.shortCode)}
+                    className="border-gray-300 text-gray-700 hover:bg-gray-50 bg-transparent"
+                  >
+                    <BarChart3 className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
             </div>

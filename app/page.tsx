@@ -1,20 +1,29 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { UrlShortenerForm } from "@/components/url-shortener-form"
 import { LinkHistory } from "@/components/link-history"
 import { BarChart3, Shield, User, LogOut } from "lucide-react"
-import Link from "next/link"
 import { useAuth } from "@/hooks/use-auth"
 
 export default function HomePage() {
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   const { user, isLoading, isAuthenticated, login, logout } = useAuth()
+  const router = useRouter()
 
   const handleUrlCreated = () => {
     // Trigger history refresh
     setRefreshTrigger((prev) => prev + 1)
+  }
+
+  const navigateToDashboard = () => {
+    router.push("/dashboard")
+  }
+
+  const navigateToAdmin = () => {
+    router.push("/admin")
   }
 
   useEffect(() => {
@@ -118,21 +127,18 @@ export default function HomePage() {
               Transform your long URLs into short, memorable links that are easy to share
             </p>
             <div className="flex justify-center gap-4">
-              <Link href="/dashboard">
-                <Button
-                  variant="outline"
-                  className="border-gray-300 text-gray-700 hover:bg-gray-50 bg-white font-medium"
-                >
-                  <BarChart3 className="h-4 w-4 mr-2" />
-                  View Dashboard
-                </Button>
-              </Link>
-              <Link href="/admin">
-                <Button className="bg-[#EC4899] hover:bg-[#DB2777] text-white font-medium">
-                  <Shield className="h-4 w-4 mr-2" />
-                  Admin Panel
-                </Button>
-              </Link>
+              <Button
+                variant="outline"
+                onClick={navigateToDashboard}
+                className="border-gray-300 text-gray-700 hover:bg-gray-50 bg-white font-medium"
+              >
+                <BarChart3 className="h-4 w-4 mr-2" />
+                View Dashboard
+              </Button>
+              <Button onClick={navigateToAdmin} className="bg-[#EC4899] hover:bg-[#DB2777] text-white font-medium">
+                <Shield className="h-4 w-4 mr-2" />
+                Admin Panel
+              </Button>
             </div>
           </div>
 

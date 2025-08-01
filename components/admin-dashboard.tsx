@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { getFirebase } from "@/lib/firebase"
 import { collection, getDocs, deleteDoc, doc, onSnapshot } from "firebase/firestore"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -37,6 +38,7 @@ export function AdminDashboard() {
   const [error, setError] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteResult, setDeleteResult] = useState<string | null>(null)
+  const router = useRouter()
 
   // Check if current user is superadmin
   const session = getSession()
@@ -125,6 +127,15 @@ export function AdminDashboard() {
     } finally {
       setIsDeleting(false)
     }
+  }
+
+  const openUrl = (shortCode: string) => {
+    const shortUrl = `https://www.wodify.link/${shortCode}`
+    window.open(shortUrl, "_blank")
+  }
+
+  const openAnalytics = (shortCode: string) => {
+    router.push(`/analytics/${shortCode}`)
   }
 
   // Set up real-time listeners for analytics updates
@@ -332,14 +343,12 @@ export function AdminDashboard() {
                           <Badge variant="outline" className="border-purple-300 text-purple-600">
                             {url.shortCode}
                           </Badge>
-                          <a
-                            href={`https://www.wodify.link/${url.shortCode}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <button
+                            onClick={() => openUrl(url.shortCode)}
                             className="text-purple-600 hover:text-purple-700"
                           >
                             <ExternalLink className="h-3 w-3" />
-                          </a>
+                          </button>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -358,7 +367,7 @@ export function AdminDashboard() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => window.open(`/analytics/${url.shortCode}`, "_blank")}
+                            onClick={() => openAnalytics(url.shortCode)}
                             className="border-purple-300 text-purple-600 hover:bg-purple-50"
                           >
                             <BarChart3 className="h-3 w-3" />
