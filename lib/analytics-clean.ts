@@ -138,12 +138,20 @@ export async function getUrlData(shortCode: string): Promise<UrlData | null> {
     const urlSnap = await getDoc(urlRef)
 
     if (!urlSnap.exists()) {
+      console.log(`URL document does not exist for shortCode: ${shortCode}`)
       return null
     }
 
     const data = urlSnap.data() as UrlData
 
-    if ((data.expiresAt && data.expiresAt.toDate() < new Date()) || !data.isActive) {
+    // Check if URL is expired or inactive
+    if (data.expiresAt && data.expiresAt.toDate() < new Date()) {
+      console.log(`URL expired for shortCode: ${shortCode}`)
+      return null
+    }
+
+    if (!data.isActive) {
+      console.log(`URL inactive for shortCode: ${shortCode}`)
       return null
     }
 
@@ -337,17 +345,8 @@ export async function recordClick(
           })
           console.log(`✅ Updated click count for shortCode: ${shortCode}`)
         } else {
-          // Create URL document if it doesn't exist (shouldn't happen normally)
-          transaction.set(urlRef, {
-            shortCode,
-            totalClicks: 1,
-            createdAt: serverTimestamp(),
-            lastClickAt: serverTimestamp(),
-            isActive: true,
-            expiresAt: Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)), // 30 days
-            originalUrl: "", // This would need to be provided
-          })
-          console.log(`✅ Created new URL document for shortCode: ${shortCode}`)
+          console.log(`⚠️ URL document does not exist for shortCode: ${shortCode}`)
+          // Don't create a new document here - this should not happen during normal redirect flow
         }
       }),
       // Create the detailed click document in the subcollection
@@ -356,7 +355,6 @@ export async function recordClick(
 
     console.log(`✅ Click recorded successfully for shortCode: ${shortCode}`)
     console.log(`✅ Created click document with ID: ${clickDocRef.id}`)
-    console.log(`📊 Click document path: urls/${shortCode}/clicks/${clickDocRef.id}`)
   } catch (error) {
     console.error(`❌ Error recording click for shortCode: ${shortCode}`, error)
     throw error

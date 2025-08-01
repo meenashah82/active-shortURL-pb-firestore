@@ -28,12 +28,15 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
     const ip = request.ip || request.headers.get("x-forwarded-for") || ""
 
     console.log(`🔄 Recording click for shortCode: ${shortCode}`)
-    console.log(`📊 Headers captured: ${Object.keys(headers).length} headers`)
 
-    // Record click - this will create a new document in urls/{shortCode}/clicks/{clickId}
-    await recordClick(shortCode, userAgent, referer, ip, headers)
-
-    console.log(`✅ Click recorded successfully for shortCode: ${shortCode}`)
+    try {
+      // Record click - this will create a new document in urls/{shortCode}/clicks/{clickId}
+      await recordClick(shortCode, userAgent, referer, ip, headers)
+      console.log(`✅ Click recorded successfully for shortCode: ${shortCode}`)
+    } catch (clickError) {
+      // Don't fail the redirect if click recording fails
+      console.error(`⚠️ Click recording failed for shortCode: ${shortCode}`, clickError)
+    }
 
     // Return redirect URL for client-side redirect
     return NextResponse.json({ redirectUrl: urlData.originalUrl })
