@@ -9,21 +9,20 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
       return NextResponse.json({ error: "Short code is required" }, { status: 400 })
     }
 
+    // Get URL with embedded analytics
     const urlData = await getUrlWithAnalytics(shortCode)
 
     if (!urlData) {
       return NextResponse.json({ error: "URL not found" }, { status: 404 })
     }
 
-    // Return analytics data from unified structure
+    // Return analytics data in the expected format
     return NextResponse.json({
       shortCode: urlData.shortCode,
-      originalUrl: urlData.originalUrl,
       totalClicks: urlData.totalClicks,
       lastClickAt: urlData.lastClickAt,
       clickEvents: urlData.clickEvents,
       createdAt: urlData.createdAt,
-      isActive: urlData.isActive,
     })
   } catch (error) {
     console.error("Error fetching analytics:", error)

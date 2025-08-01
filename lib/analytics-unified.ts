@@ -9,6 +9,10 @@ import {
   serverTimestamp,
   onSnapshot,
   writeBatch,
+  query,
+  where,
+  orderBy,
+  limit,
 } from "firebase/firestore"
 
 // Unified URL data structure with embedded analytics
@@ -160,6 +164,49 @@ export function subscribeToUrlAnalytics(shortCode: string, callback: (data: Unif
     (error) => {
       console.error("Error in real-time subscription:", error)
       callback(null)
+    },
+  )
+}
+
+// Subscribe to top URLs by click count (for dashboard)
+export function subscribeToTopUrls(
+  callback: (urls: Array<{ shortCode: string; clicks: number; originalUrl: string }>) => void,
+  limitCount = 10,
+): () => void {
+  if (!db) {
+    console.error("Firestore not initialized")
+    return () => {}
+  }
+
+  // Query URLs with totalClicks > 0, ordered by totalClicks descending
+  const urlsQuery = query(
+    collection(db, "urls"),
+    where("totalClicks", ">", 0),
+    orderBy("totalClicks", "desc"),
+    limit(limitCount),
+  )
+
+  return onSnapshot(
+    urlsQuery,
+    { includeMetadataChanges: true },
+    (snapshot) => {
+      const topUrls: Array<{ shortCode: string; clicks: number; originalUrl: string }> = []
+
+      snapshot.forEach((doc) => {
+        const urlData = doc.data()
+        topUrls.push({
+          shortCode: urlData.shortCode,
+          clicks: urlData.totalClicks || 0,
+          originalUrl: urlData.originalUrl,
+        })
+      })
+
+      console.log("📊 Top URLs update:", topUrls.length, "URLs")
+      callback(topUrls)
+    },
+    (error) => {
+      console.error("Error in unified top URLs subscription:", error)
+      callback([])
     },
   )
 }

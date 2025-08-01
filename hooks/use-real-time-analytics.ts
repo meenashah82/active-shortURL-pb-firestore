@@ -4,8 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { subscribeToAnalytics, subscribeToUrlAnalytics, type UnifiedUrlData } from "@/lib/analytics-unified"
 
 export function useRealTimeAnalytics(shortCode: string) {
-  const [urlData, setUrlData] = useState<UnifiedUrlData | null>(null)
-  const [analyticsData, setAnalyticsData] = useState<any>(null)
+  const [data, setData] = useState<UnifiedUrlData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [connectionStatus, setConnectionStatus] = useState<"connecting" | "connected" | "disconnected">("connecting")
@@ -37,7 +36,7 @@ export function useRealTimeAnalytics(shortCode: string) {
           setError("Short code not found")
           return
         }
-        setUrlData(urlResult)
+        setData(urlResult)
         setClickCount(urlResult.totalClicks || 0)
         previousClickCount.current = urlResult.totalClicks || 0
         console.log("✅ Initial unified data loaded successfully")
@@ -54,33 +53,26 @@ export function useRealTimeAnalytics(shortCode: string) {
     // Set up real-time listener
     console.log("🔗 Setting up unified real-time subscription...")
 
-    const unsubscribe = subscribeToAnalytics(shortCode, (data) => {
-      if (data) {
+    const unsubscribe = subscribeToAnalytics(shortCode, (urlData) => {
+      if (urlData) {
         console.log("📡 Unified real-time analytics data received:", {
           shortCode,
-          totalClicks: data.totalClicks,
-          clickEventsCount: data.clickEvents?.length || 0,
+          totalClicks: urlData.totalClicks,
+          clickEventsCount: urlData.clickEvents?.length || 0,
         })
 
-        setAnalyticsData(data)
+        setData(urlData)
         setLastUpdate(new Date())
         setConnectionStatus("connected")
 
         // Handle click count changes with animation
-        const newClickCount = data.totalClicks || 0
+        const newClickCount = urlData.totalClicks || 0
         if (newClickCount !== previousClickCount.current) {
           console.log(`🎉 Unified real-time click update! ${previousClickCount.current} → ${newClickCount}`)
 
           setIsNewClick(true)
           setClickCount(newClickCount)
           previousClickCount.current = newClickCount
-
-          // Update URL data to keep in sync
-          subscribeToUrlAnalytics(shortCode).then((updatedUrlData) => {
-            if (updatedUrlData) {
-              setUrlData(updatedUrlData)
-            }
-          })
 
           // Clear previous animation timeout
           if (animationTimeoutRef.current) {
@@ -113,14 +105,5 @@ export function useRealTimeAnalytics(shortCode: string) {
     }
   }, [shortCode])
 
-  return {
-    urlData,
-    analyticsData,
-    loading,
-    error,
-    connectionStatus,
-    clickCount,
-    isNewClick,
-    lastUpdate,
-  }
+  return { data, loading, error, connectionStatus, clickCount, isNewClick, lastUpdate }
 }
