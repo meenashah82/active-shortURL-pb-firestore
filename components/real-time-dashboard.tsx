@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -21,6 +22,7 @@ export function RealTimeDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
+  const router = useRouter()
 
   useEffect(() => {
     let unsubscribe: (() => void) | null = null
@@ -82,7 +84,7 @@ export function RealTimeDashboard() {
   }
 
   const openAnalytics = (shortCode: string) => {
-    window.open(`/analytics/${shortCode}`, "_blank")
+    router.push(`/analytics/${shortCode}`)
   }
 
   if (error) {
