@@ -345,7 +345,7 @@ export function subscribeToClickHistory(
   )
 }
 
-// Record click - update unified structure and create detailed click document with unique ID
+// Record click - SIMPLIFIED VERSION to ensure document creation works
 export async function recordClick(
   shortCode: string,
   userAgent: string,
@@ -353,9 +353,7 @@ export async function recordClick(
   ip: string,
   headers?: Record<string, string>,
 ): Promise<void> {
-  console.log(`🔄 recordClick: STARTING for shortCode: ${shortCode}`)
-  console.log(`🔄 recordClick: Parameters - userAgent: ${userAgent}, referer: ${referer}, ip: ${ip}`)
-  console.log(`🔄 recordClick: Headers count: ${headers ? Object.keys(headers).length : 0}`)
+  console.log(`🔄 recordClick: STARTING SIMPLIFIED VERSION for shortCode: ${shortCode}`)
 
   try {
     // Validate Firebase connection
@@ -365,48 +363,50 @@ export async function recordClick(
     }
     console.log(`✅ recordClick: Firebase database is initialized`)
 
-    const urlRef = doc(db, "urls", shortCode)
-    const clicksRef = collection(db, "urls", shortCode, "clicks")
-    console.log(`✅ recordClick: Created Firestore references for shortCode: ${shortCode}`)
-
-    // Generate unique click ID
+    // Generate unique click ID first
     const clickId = generateClickId()
     console.log(`🆔 recordClick: Generated click ID: ${clickId}`)
 
-    // Verify URL document exists before proceeding
-    console.log(`🔍 recordClick: Checking if URL document exists for shortCode: ${shortCode}`)
-    const urlDoc = await getDoc(urlRef)
-    if (!urlDoc.exists()) {
-      console.error(`❌ recordClick: URL document not found for shortCode: ${shortCode}`)
-      throw new Error(`URL document not found for shortCode: ${shortCode}`)
+    // Create references
+    const urlRef = doc(db, "urls", shortCode)
+    const clicksRef = collection(db, "urls", shortCode, "clicks")
+    const clickDocRef = doc(clicksRef, clickId)
+
+    console.log(`✅ recordClick: Created Firestore references`)
+    console.log(`📍 recordClick: URL ref path: urls/${shortCode}`)
+    console.log(`📍 recordClick: Click doc ref path: urls/${shortCode}/clicks/${clickId}`)
+
+    // Step 1: Update the main URL document with click count
+    console.log(`🔄 recordClick: STEP 1 - Updating main URL document`)
+    try {
+      await runTransaction(db, async (transaction) => {
+        const urlDoc = await transaction.get(urlRef)
+        if (urlDoc.exists()) {
+          transaction.update(urlRef, {
+            totalClicks: increment(1),
+            lastClickAt: serverTimestamp(),
+          })
+          console.log(`✅ recordClick: Transaction - Updated totalClicks for ${shortCode}`)
+        } else {
+          console.error(`❌ recordClick: URL document not found in transaction for ${shortCode}`)
+          throw new Error(`URL document not found for shortCode: ${shortCode}`)
+        }
+      })
+      console.log(`✅ recordClick: STEP 1 COMPLETE - Main document updated`)
+    } catch (transactionError) {
+      console.error(`❌ recordClick: Transaction failed:`, transactionError)
+      throw transactionError
     }
-    console.log(`✅ recordClick: URL document exists for shortCode: ${shortCode}`)
 
-    // First, update the main URL document with click count using transaction
-    console.log(`🔄 recordClick: Starting transaction to update click count for shortCode: ${shortCode}`)
-    await runTransaction(db, async (transaction) => {
-      const urlDocInTransaction = await transaction.get(urlRef)
-
-      if (urlDocInTransaction.exists()) {
-        transaction.update(urlRef, {
-          totalClicks: increment(1),
-          lastClickAt: serverTimestamp(),
-        })
-        console.log(`✅ recordClick: Transaction - Updated click count for shortCode: ${shortCode}`)
-      } else {
-        console.error(`❌ recordClick: URL document not found in transaction for shortCode: ${shortCode}`)
-        throw new Error(`URL document not found in transaction for shortCode: ${shortCode}`)
-      }
-    })
-    console.log(`✅ recordClick: Transaction completed successfully for shortCode: ${shortCode}`)
-
-    // Create comprehensive click document with all requested header fields
-    const clickData: Omit<IndividualClickData, "id"> = {
+    // Step 2: Create the click document with minimal data first
+    console.log(`🔄 recordClick: STEP 2 - Creating click document`)
+    const clickData = {
       timestamp: serverTimestamp(),
-      shortCode,
-      // Extract all requested header fields with case-insensitive lookup
+      shortCode: shortCode,
+      "User-Agent": userAgent,
+      Referer: referer,
+      "X-Forwarded-For": ip,
       Host: getHeaderValue(headers, "Host"),
-      "User-Agent": userAgent || getHeaderValue(headers, "User-Agent"),
       Accept: getHeaderValue(headers, "Accept"),
       "Accept-Language": getHeaderValue(headers, "Accept-Language"),
       "Accept-Encoding": getHeaderValue(headers, "Accept-Encoding"),
@@ -415,7 +415,6 @@ export async function recordClick(
       "Content-Length": getHeaderValue(headers, "Content-Length"),
       Authorization: getHeaderValue(headers, "Authorization"),
       Cookie: getHeaderValue(headers, "Cookie"),
-      Referer: referer || getHeaderValue(headers, "Referer"),
       Origin: getHeaderValue(headers, "Origin"),
       Connection: getHeaderValue(headers, "Connection"),
       "Upgrade-Insecure-Requests": getHeaderValue(headers, "Upgrade-Insecure-Requests"),
@@ -428,51 +427,45 @@ export async function recordClick(
       "Transfer-Encoding": getHeaderValue(headers, "Transfer-Encoding"),
       Expect: getHeaderValue(headers, "Expect"),
       "X-Requested-With": getHeaderValue(headers, "X-Requested-With"),
-      "X-Forwarded-For": ip || getHeaderValue(headers, "X-Forwarded-For"),
     }
 
-    console.log(`🔄 recordClick: BEFORE creating click document`)
-    console.log(`🔄 recordClick: Document path will be: urls/${shortCode}/clicks/${clickId}`)
-    console.log(`🔄 recordClick: Click data prepared with ${Object.keys(clickData).length} fields`)
-    console.log(`🔄 recordClick: Sample data:`, {
-      timestamp: "serverTimestamp()",
-      shortCode: clickData.shortCode,
-      "User-Agent": clickData["User-Agent"],
-      Host: clickData.Host,
-      Referer: clickData.Referer,
-    })
+    console.log(`🔄 recordClick: About to write click document to: urls/${shortCode}/clicks/${clickId}`)
+    console.log(`🔄 recordClick: Click data keys: ${Object.keys(clickData).join(", ")}`)
 
-    // Create document with specific ID instead of auto-generated ID
-    const clickDocRef = doc(clicksRef, clickId)
-    console.log(`🔄 recordClick: Created document reference, about to call setDoc`)
-
-    await setDoc(clickDocRef, clickData)
-
-    console.log(`✅ recordClick: AFTER setDoc - Document created successfully`)
-    console.log(`✅ recordClick: Click document created at path: urls/${shortCode}/clicks/${clickId}`)
-    console.log(`✅ recordClick: Document written to Firestore with ID: ${clickId}`)
-
-    // Verify the document was created by reading it back
-    console.log(`🔍 recordClick: Verifying document was created by reading it back`)
-    const verifyDoc = await getDoc(clickDocRef)
-    if (verifyDoc.exists()) {
-      console.log(`✅ recordClick: VERIFICATION SUCCESS - Document exists in Firestore`)
-      console.log(`✅ recordClick: Verified document data:`, verifyDoc.data())
-    } else {
-      console.error(`❌ recordClick: VERIFICATION FAILED - Document does not exist after creation`)
+    try {
+      await setDoc(clickDocRef, clickData)
+      console.log(`✅ recordClick: STEP 2 COMPLETE - Click document created successfully`)
+    } catch (setDocError) {
+      console.error(`❌ recordClick: setDoc failed:`, setDocError)
+      throw setDocError
     }
 
-    console.log(`✅ recordClick: SUCCESS - Click recorded for shortCode: ${shortCode}`)
-    console.log(
-      `📊 recordClick: Click data fields populated: ${Object.keys(clickData)
-        .filter((key) => clickData[key as keyof typeof clickData])
-        .join(", ")}`,
-    )
+    // Step 3: Verify the document was created
+    console.log(`🔄 recordClick: STEP 3 - Verifying document creation`)
+    try {
+      const verifyDoc = await getDoc(clickDocRef)
+      if (verifyDoc.exists()) {
+        console.log(`✅ recordClick: VERIFICATION SUCCESS - Document exists in Firestore`)
+        const verifyData = verifyDoc.data()
+        console.log(`✅ recordClick: Verified document contains ${Object.keys(verifyData).length} fields`)
+      } else {
+        console.error(`❌ recordClick: VERIFICATION FAILED - Document does not exist after creation`)
+        throw new Error("Document verification failed - document not found after creation")
+      }
+    } catch (verifyError) {
+      console.error(`❌ recordClick: Verification failed:`, verifyError)
+      throw verifyError
+    }
+
+    console.log(`✅ recordClick: SUCCESS - All steps completed for shortCode: ${shortCode}`)
+    console.log(`✅ recordClick: Click document created at: urls/${shortCode}/clicks/${clickId}`)
   } catch (error) {
-    console.error(`❌ recordClick: FAILED - Error recording click for shortCode: ${shortCode}`)
-    console.error(`❌ recordClick: Error name: ${error instanceof Error ? error.name : "Unknown"}`)
+    console.error(`❌ recordClick: FAILED - Error in recordClick for shortCode: ${shortCode}`)
+    console.error(`❌ recordClick: Error type: ${error instanceof Error ? error.constructor.name : typeof error}`)
     console.error(`❌ recordClick: Error message: ${error instanceof Error ? error.message : String(error)}`)
-    console.error(`❌ recordClick: Error stack:`, error instanceof Error ? error.stack : undefined)
+    if (error instanceof Error && error.stack) {
+      console.error(`❌ recordClick: Error stack:`, error.stack)
+    }
     throw error
   }
 }
