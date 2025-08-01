@@ -1,42 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { doc, getDoc, runTransaction, serverTimestamp, collection, setDoc, increment } from "firebase/firestore"
 import { db } from "@/lib/firebase"
-
-interface UrlData {
-  originalUrl: string
-  shortCode: string
-  createdAt: any
-  clicks?: number
-  isActive: boolean
-  expiresAt: any
-}
-
-interface AnalyticsData {
-  shortCode: string
-  totalClicks: number
-  createdAt: any
-  lastClickAt?: any
-  // ✅ REMOVED: clickEvents array (redundant with shortcode_clicks subcollection)
-}
-
-interface IndividualClickData {
-  id: string
-  timestamp: any
-  shortCode: string
-  userAgent?: string
-  referer?: string
-  ip?: string
-  sessionId?: string
-  clickSource?: "direct" | "analytics_page" | "test"
-  method?: string
-  url?: string
-  device?: {
-    type?: string
-    browser?: string
-    os?: string
-    isMobile?: boolean
-  }
-}
+import type { UnifiedUrlData, IndividualClickData } from "@/lib/analytics-unified"
 
 export async function GET(request: NextRequest, { params }: { params: { shortCode: string } }) {
   const { shortCode } = params
@@ -44,7 +9,7 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
   try {
     console.log(`🔗 Processing redirect for: ${shortCode}`)
 
-    // Get URL data from Firestore
+    // Get unified URL data from Firestore
     const urlRef = doc(db, "urls", shortCode)
     const urlSnap = await getDoc(urlRef)
 
@@ -53,7 +18,7 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
       return NextResponse.json({ error: "Short code not found" }, { status: 404 })
     }
 
-    const urlData = urlSnap.data() as UrlData
+    const urlData = urlSnap.data() as UnifiedUrlData
     console.log(`📄 URL data found for: ${shortCode}`)
 
     // Check if URL has expired or is inactive
@@ -81,10 +46,10 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
 
     console.log(`✅ Redirect URL prepared: ${redirectUrl}`)
 
-    // Record the click analytics - SIMPLIFIED VERSION (no clickEvents array)
+    // Record the click analytics in unified structure
     try {
       console.log(`📊 Recording click analytics for: ${shortCode}`)
-      await recordClickAnalyticsSimplified(shortCode, request)
+      await recordClickAnalyticsUnified(shortCode, request)
       console.log(`✅ Click analytics recorded successfully`)
     } catch (analyticsError) {
       console.error("⚠️ Analytics recording failed:", analyticsError)
@@ -110,9 +75,9 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
   }
 }
 
-async function recordClickAnalyticsSimplified(shortCode: string, request: NextRequest) {
+async function recordClickAnalyticsUnified(shortCode: string, request: NextRequest) {
   try {
-    console.log(`🔄 SIMPLIFIED: Starting click recording for ${shortCode}`)
+    console.log(`🔄 UNIFIED: Starting click recording for ${shortCode}`)
 
     // Create unique click ID
     const clickId = `click-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
@@ -120,13 +85,13 @@ async function recordClickAnalyticsSimplified(shortCode: string, request: NextRe
 
     console.log(`📝 Generated click ID: ${clickId}`)
 
-    // STEP 1: Create individual click document (MANDATORY)
+    // STEP 1: Create individual click document in subcollection
     const shortcodeClicksRef = collection(db, "clicks", shortCode, "shortcode_clicks")
     const individualClickRef = doc(shortcodeClicksRef, clickId)
 
     const individualClickData: IndividualClickData = {
       id: clickId,
-      timestamp: serverTimestamp(), // This is OK for setDoc
+      timestamp: serverTimestamp(),
       shortCode: shortCode,
       userAgent: request.headers.get("user-agent") || "",
       referer: request.headers.get("referer") || "",
@@ -151,61 +116,73 @@ async function recordClickAnalyticsSimplified(shortCode: string, request: NextRe
       })
     }
 
-    // Create individual click document (this automatically creates the subcollection)
+    // Create individual click document
     await setDoc(individualClickRef, individualClickData)
     console.log(`✅ Individual click document created: ${clickId}`)
-    console.log(`📍 Subcollection path: clicks/${shortCode}/shortcode_clicks/${clickId}`)
 
-    // STEP 2: Update analytics - SIMPLIFIED (no clickEvents array)
-    console.log(`🔄 SIMPLIFIED: Updating analytics for ${shortCode}`)
+    // STEP 2: Update embedded analytics in URL document
+    console.log(`🔄 UNIFIED: Updating embedded analytics for ${shortCode}`)
 
-    const analyticsRef = doc(db, "analytics", shortCode)
+    const urlRef = doc(db, "urls", shortCode)
 
-    // Use transaction to update analytics - SIMPLIFIED
+    // Create click event for embedding
+    const clickEvent = {
+      timestamp: serverTimestamp(),
+      userAgent: request.headers.get("user-agent") || "",
+      referer: request.headers.get("referer") || "",
+      ip: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "",
+      id: clickId,
+      clickSource: "direct" as const,
+      sessionId: sessionId,
+    }
+
+    // Use transaction to update embedded analytics
     await runTransaction(db, async (transaction) => {
-      console.log(`🔄 Inside analytics transaction`)
+      console.log(`🔄 Inside unified analytics transaction`)
 
-      const analyticsDoc = await transaction.get(analyticsRef)
-      console.log(`📊 Analytics document exists: ${analyticsDoc.exists()}`)
+      const urlDoc = await transaction.get(urlRef)
+      console.log(`📊 URL document exists: ${urlDoc.exists()}`)
 
-      if (analyticsDoc.exists()) {
-        const currentData = analyticsDoc.data() as AnalyticsData
+      if (urlDoc.exists()) {
+        const currentData = urlDoc.data() as UnifiedUrlData
+        const currentClickEvents = currentData.clickEvents || []
         console.log(`📊 Current totalClicks: ${currentData.totalClicks || 0}`)
 
-        transaction.update(analyticsRef, {
-          totalClicks: increment(1), // ✅ This should work now
-          lastClickAt: serverTimestamp(), // ✅ This is OK for update()
-          // ✅ REMOVED: clickEvents array update (redundant with subcollection)
+        transaction.update(urlRef, {
+          totalClicks: increment(1),
+          lastClickAt: serverTimestamp(),
+          clickEvents: [...currentClickEvents, clickEvent],
         })
-        console.log(`✅ Analytics update queued`)
+        console.log(`✅ Unified analytics update queued`)
       } else {
-        console.log(`📝 Creating new analytics document`)
-        transaction.set(analyticsRef, {
+        console.log(`📝 Creating new unified URL document with analytics`)
+        transaction.set(urlRef, {
           shortCode,
           totalClicks: 1,
-          createdAt: serverTimestamp(), // ✅ This is OK for set()
-          lastClickAt: serverTimestamp(), // ✅ This is OK for set()
-          // ✅ REMOVED: clickEvents: [clickEvent] (redundant with subcollection)
+          lastClickAt: serverTimestamp(),
+          clickEvents: [clickEvent],
+          createdAt: serverTimestamp(),
+          isActive: true,
         })
-        console.log(`✅ Analytics creation queued`)
+        console.log(`✅ Unified URL creation queued`)
       }
     })
 
-    console.log(`✅ Analytics transaction completed`)
+    console.log(`✅ Unified analytics transaction completed`)
 
     // VERIFICATION: Check if the update worked
-    console.log(`🔍 VERIFICATION: Checking analytics after update`)
-    const verifySnap = await getDoc(analyticsRef)
+    console.log(`🔍 VERIFICATION: Checking unified analytics after update`)
+    const verifySnap = await getDoc(urlRef)
     if (verifySnap.exists()) {
-      const verifyData = verifySnap.data() as AnalyticsData
+      const verifyData = verifySnap.data() as UnifiedUrlData
       console.log(`✅ VERIFICATION SUCCESS: totalClicks is now ${verifyData.totalClicks}`)
     } else {
-      console.log(`❌ VERIFICATION FAILED: Analytics document missing`)
+      console.log(`❌ VERIFICATION FAILED: URL document missing`)
     }
 
-    console.log(`🎯 SIMPLIFIED: Click recording completed for ${shortCode}`)
+    console.log(`🎯 UNIFIED: Click recording completed for ${shortCode}`)
   } catch (error) {
-    console.error(`❌ SIMPLIFIED: Error in recordClickAnalytics for ${shortCode}:`, error)
+    console.error(`❌ UNIFIED: Error in recordClickAnalytics for ${shortCode}:`, error)
     throw error
   }
 }

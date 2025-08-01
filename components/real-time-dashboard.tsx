@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ExternalLink, Copy, BarChart3, Clock, MousePointer, TrendingUp, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { subscribeToTopUrls } from "@/lib/analytics-clean"
+import { subscribeToTopUrls } from "@/lib/analytics-unified"
 
 interface TopUrl {
   shortCode: string
@@ -37,9 +37,9 @@ export function RealTimeDashboard() {
           return
         }
 
-        // Subscribe to top URLs
+        // Subscribe to top URLs from unified structure
         unsubscribe = subscribeToTopUrls((urls) => {
-          console.log("📊 Dashboard received top URLs:", urls)
+          console.log("📊 Dashboard received unified top URLs:", urls)
           setTopUrls(urls)
           setLoading(false)
         }, 10)
