@@ -411,12 +411,24 @@ export async function recordClick(
     }
 
     // Create document with specific ID instead of auto-generated ID
-    console.log(`🔄 Creating click document with ID: ${clickId}`)
+    console.log(`🔄 BEFORE: About to create click document with path: urls/${shortCode}/clicks/${clickId}`)
+    console.log(`🔄 BEFORE: Click data prepared with ${Object.keys(clickData).length} fields`)
+    console.log(`🔄 BEFORE: Click data preview:`, {
+      timestamp: "serverTimestamp()",
+      shortCode: clickData.shortCode,
+      "User-Agent": clickData["User-Agent"],
+      Host: clickData.Host,
+      Referer: clickData.Referer,
+    })
+
     const clickDocRef = doc(clicksRef, clickId)
     await setDoc(clickDocRef, clickData)
 
+    console.log(`✅ AFTER: Successfully created click document at path: urls/${shortCode}/clicks/${clickId}`)
+    console.log(`✅ AFTER: Click document created with unique ID: ${clickId}`)
+    console.log(`✅ AFTER: Document written to Firestore successfully`)
+
     console.log(`✅ SUCCESS: Click recorded for shortCode: ${shortCode}`)
-    console.log(`✅ SUCCESS: Created click document with unique ID: ${clickId}`)
     console.log(
       `📊 Click data fields populated: ${Object.keys(clickData)
         .filter((key) => clickData[key as keyof typeof clickData])
