@@ -1,18 +1,35 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getAnalytics } from "@/lib/analytics-unified"
+import { withAuth } from "@/lib/auth-middleware"
+import { db } from "@/lib/firebase"
+import { doc, getDoc } from "firebase/firestore"
 
-export async function GET(request: NextRequest, { params }: { params: { shortCode: string } }) {
+async function analyticsHandler(request: NextRequest, user: any, { params }: { params: { shortCode: string } }) {
   try {
-    const shortCode = params.shortCode
-    const analytics = await getAnalytics(shortCode)
+    const { shortCode } = params
 
-    if (!analytics) {
-      return NextResponse.json({ error: "Analytics not found" }, { status: 404 })
+    // Get URL document with embedded analytics
+    const urlDoc = await getDoc(doc(db, "urls", shortCode))
+
+    if (!urlDoc.exists()) {
+      return NextResponse.json({ error: "Short URL not found" }, { status: 404 })
     }
 
-    return NextResponse.json(analytics)
+    const urlData = urlDoc.data()
+
+    // Return analytics data
+    return NextResponse.json({
+      shortCode,
+      originalUrl: urlData.originalUrl,
+      totalClicks: urlData.totalClicks || 0,
+      lastClickAt: urlData.lastClickAt,
+      clickEvents: urlData.clickEvents || [],
+      createdAt: urlData.createdAt,
+      isActive: urlData.isActive,
+    })
   } catch (error) {
-    console.error("Analytics error:", error)
+    console.error("Error fetching analytics:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
+
+export const GET = withAuth(analyticsHandler)

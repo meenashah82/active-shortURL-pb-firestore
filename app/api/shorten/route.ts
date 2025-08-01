@@ -1,30 +1,48 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { withAuth } from "@/lib/auth-middleware"
-import { createShortUrl } from "@/lib/analytics-unified"
+import { db } from "@/lib/firebase"
+import { doc, setDoc } from "firebase/firestore"
 
-async function handler(request: NextRequest) {
+async function shortenHandler(request: NextRequest, user: any) {
   try {
-    const { originalUrl } = await request.json()
+    const { url } = await request.json()
 
-    if (!originalUrl) {
-      return NextResponse.json({ error: "Original URL is required" }, { status: 400 })
+    if (!url) {
+      return NextResponse.json({ error: "URL is required" }, { status: 400 })
     }
 
-    // Validate URL format
+    // Validate URL
     try {
-      new URL(originalUrl)
+      new URL(url)
     } catch {
-      return NextResponse.json({ error: "Invalid URL format" }, { status: 400 })
+      return NextResponse.json({ error: "Invalid URL" }, { status: 400 })
     }
 
-    const user = (request as any).user
-    const shortUrl = await createShortUrl(originalUrl, user.userId)
+    // Generate short code
+    const shortCode = Math.random().toString(36).substring(2, 8)
+
+    // Create URL document with embedded analytics
+    const urlData = {
+      originalUrl: url,
+      shortCode,
+      createdAt: new Date(),
+      isActive: true,
+      createdBy: user.customerId,
+      // Embedded analytics fields
+      totalClicks: 0,
+      lastClickAt: null,
+      clickEvents: [],
+    }
+
+    // Save to Firestore
+    await setDoc(doc(db, "urls", shortCode), urlData)
+
+    console.log("✅ Short URL created:", shortCode)
 
     return NextResponse.json({
-      success: true,
-      shortUrl: shortUrl.shortCode,
-      originalUrl: shortUrl.originalUrl,
-      fullShortUrl: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/${shortUrl.shortCode}`,
+      shortCode,
+      shortUrl: `${process.env.NEXT_PUBLIC_BASE_URL || "https://wodify.link"}/${shortCode}`,
+      originalUrl: url,
     })
   } catch (error) {
     console.error("Error creating short URL:", error)
@@ -32,4 +50,4 @@ async function handler(request: NextRequest) {
   }
 }
 
-export const POST = withAuth(handler)
+export const POST = withAuth(shortenHandler)

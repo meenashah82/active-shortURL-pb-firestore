@@ -8,8 +8,6 @@
     "dev": "next dev",
     "lint": "next lint",
     "migrate-analytics": "tsx scripts/migrate-analytics-to-urls.ts",
-    "migrate-clicks": "tsx scripts/migrate-clicks-collection.ts",
-    "migrate-shortcode-clicks": "tsx scripts/migrate-shortcode-clicks-subcollections.ts",
     "start": "next start"
   },
   "dependencies": {

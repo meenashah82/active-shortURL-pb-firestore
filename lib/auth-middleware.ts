@@ -1,55 +1,35 @@
-import { type NextRequest, NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
 import { verifyJWT } from "./auth"
 
-export interface AuthenticatedRequest extends NextRequest {
-  user: {
-    customerId: string
-    userId: string
-  }
-}
-
-export function requireAuth(request: NextRequest): { customerId: string; userId: string } {
-  const authHeader = request.headers.get("authorization")
-
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    throw new Error("Authentication required")
-  }
-
-  const token = authHeader.substring(7)
-  const payload = verifyJWT(token)
-
-  if (!payload) {
-    throw new Error("Authentication required")
-  }
-
-  return {
-    customerId: payload.CustomerId,
-    userId: payload.UserId,
-  }
-}
-
-export function withAuth(handler: (request: NextRequest, context: any) => Promise<NextResponse>) {
-  return async (request: NextRequest, context: any) => {
+export function withAuth(handler: (request: NextRequest, user: any) => Promise<Response>) {
+  return async (request: NextRequest) => {
     try {
       const authHeader = request.headers.get("authorization")
 
       if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        return NextResponse.json({ error: "Authorization header required" }, { status: 401 })
+        return new Response(JSON.stringify({ error: "Authentication required" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        })
       }
 
       const token = authHeader.substring(7)
-      const payload = verifyJWT(token)
+      const user = verifyJWT(token)
 
-      if (!payload) {
-        return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 })
+      if (!user) {
+        return new Response(JSON.stringify({ error: "Invalid token" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        })
       }
-      // Add user info to request context
-      ;(request as any).user = payload
 
-      return handler(request, context)
+      return handler(request, user)
     } catch (error) {
       console.error("Auth middleware error:", error)
-      return NextResponse.json({ error: "Authentication failed" }, { status: 401 })
+      return new Response(JSON.stringify({ error: "Internal server error" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      })
     }
   }
 }

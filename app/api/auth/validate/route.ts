@@ -5,27 +5,31 @@ export async function POST(request: NextRequest) {
   try {
     const { token } = await request.json()
 
-    console.log("📋 Validating token:", token ? "Token received" : "No token")
+    console.log("📋 Auth validation API called")
+    console.log("📋 Token received:", token ? "Yes" : "No")
 
     if (!token) {
+      console.error("❌ No token provided")
       return NextResponse.json({ error: "Token is required" }, { status: 400 })
     }
 
     // Validate token with Wodify API
     console.log("🔍 Calling Wodify API for token validation...")
-    const wodifyResponse = await fetch("https://dev.wodify.com/api/v1/auth/validate", {
+
+    const wodifyResponse = await fetch("https://dev.wodify.com/Token_OS/rest/TESTPOC/ValidateTokenLoginAs", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
+      body: JSON.stringify({ token }),
     })
 
     console.log("📡 Wodify API response status:", wodifyResponse.status)
 
     if (!wodifyResponse.ok) {
       const errorText = await wodifyResponse.text()
-      console.error("❌ Wodify validation failed:", errorText)
+      console.error("❌ Wodify validation failed:", wodifyResponse.status, errorText)
       return NextResponse.json({ error: "Invalid token" }, { status: 401 })
     }
 
@@ -41,8 +45,8 @@ export async function POST(request: NextRequest) {
 
     const appJWT = jwt.sign(
       {
-        userId: userData.id || userData.user_id,
-        email: userData.email,
+        customerId: userData.CustomerId,
+        userId: userData.UserId,
         wodifyToken: token,
       },
       jwtSecret,
@@ -54,7 +58,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       jwt: appJWT,
-      user: userData,
+      user: {
+        customerId: userData.CustomerId,
+        userId: userData.UserId,
+      },
     })
   } catch (error) {
     console.error("❌ Token validation error:", error)
