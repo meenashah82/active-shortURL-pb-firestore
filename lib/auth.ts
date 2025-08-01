@@ -35,6 +35,8 @@ export async function validateWodifyToken(token: string): Promise<WodifyTokenVal
       body: JSON.stringify({ token }),
     })
 
+    console.log("📋 Wodify API response status:", response.status)
+
     if (!response.ok) {
       console.error("❌ Wodify API error:", response.status, response.statusText)
       return {
@@ -46,12 +48,23 @@ export async function validateWodifyToken(token: string): Promise<WodifyTokenVal
     }
 
     const data = await response.json()
-    console.log("✅ Wodify token validated successfully")
+    console.log("📋 Wodify API response data:", data)
 
-    return {
-      CustomerId: data.CustomerId || "",
-      UserId: data.UserId || "",
-      success: true,
+    if (data.CustomerId && data.UserId) {
+      console.log("✅ Wodify token validated successfully")
+      return {
+        CustomerId: data.CustomerId,
+        UserId: data.UserId,
+        success: true,
+      }
+    } else {
+      console.error("❌ Invalid Wodify response structure:", data)
+      return {
+        CustomerId: "",
+        UserId: "",
+        success: false,
+        error: "Invalid response from Wodify API",
+      }
     }
   } catch (error) {
     console.error("❌ Error validating Wodify token:", error)

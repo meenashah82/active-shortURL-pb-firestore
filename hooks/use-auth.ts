@@ -37,19 +37,32 @@ export function useAuth() {
         body: JSON.stringify({ token: wodifyToken }),
       })
 
+      const data = await response.json()
+      console.log("📋 Full API response:", data)
+      console.log("📋 Response status:", response.status)
+
       if (!response.ok) {
-        const errorData = await response.json()
-        console.error("❌ Token validation failed:", errorData)
+        console.error("❌ Token validation failed:", data)
         setAuthState((prev) => ({
           ...prev,
           loading: false,
-          error: errorData.error || "Authentication failed",
+          error: data.error || "Authentication failed",
           isAuthenticated: false,
         }))
         return false
       }
 
-      const data = await response.json()
+      if (!data.success || !data.user) {
+        console.error("❌ Invalid response structure:", data)
+        setAuthState((prev) => ({
+          ...prev,
+          loading: false,
+          error: "Invalid response from server",
+          isAuthenticated: false,
+        }))
+        return false
+      }
+
       console.log("✅ Token validation successful:", data)
 
       const user: User = {
