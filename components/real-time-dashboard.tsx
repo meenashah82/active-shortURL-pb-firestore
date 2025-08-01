@@ -72,27 +72,51 @@ export function RealTimeDashboard() {
         // Fallback for older browsers or non-secure contexts
         const textArea = document.createElement("textarea")
         textArea.value = shortUrl
-        textArea.style.position = "fixed"
-        textArea.style.left = "-999999px"
-        textArea.style.top = "-999999px"
+        textArea.style.position = "absolute"
+        textArea.style.left = "-9999px"
+        textArea.style.top = "-9999px"
+        textArea.style.opacity = "0"
+        textArea.style.pointerEvents = "none"
+        textArea.setAttribute("readonly", "")
+        textArea.setAttribute("contenteditable", "true")
         document.body.appendChild(textArea)
-        textArea.focus()
         textArea.select()
-        document.execCommand("copy")
-        textArea.remove()
+        textArea.setSelectionRange(0, 99999) // For mobile devices
+        const successful = document.execCommand("copy")
+        document.body.removeChild(textArea)
+        if (successful) {
+          toast({
+            title: "Copied!",
+            description: "Short URL copied to clipboard",
+          })
+        } else {
+          throw new Error("Copy command failed")
+        }
       }
-
-      toast({
-        title: "Copied!",
-        description: "Short URL copied to clipboard",
-      })
     } catch (err) {
       console.error("Copy failed:", err)
-      toast({
-        title: "Copy failed",
-        description: "Unable to copy to clipboard. Please copy manually.",
-        variant: "destructive",
-      })
+      const shortUrl = `${window.location.origin}/${shortCode}`
+      const userAgent = navigator.userAgent.toLowerCase()
+      const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/.test(userAgent)
+      if (isMobile) {
+        const input = document.createElement("input")
+        input.value = shortUrl
+        input.style.position = "absolute"
+        input.style.left = "-9999px"
+        document.body.appendChild(input)
+        input.select()
+        input.setSelectionRange(0, 99999)
+        toast({
+          title: "Copy manually",
+          description: "Please manually copy the selected text.",
+          duration: 5000,
+        })
+        setTimeout(() => {
+          document.body.removeChild(input)
+        }, 5000)
+      } else {
+        prompt("Copy this URL manually:", shortUrl)
+      }
     }
   }
 

@@ -66,34 +66,70 @@ export function UrlShortenerForm() {
 
   const copyToClipboard = async (text: string) => {
     try {
-      // Use the modern clipboard API if available
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(text)
-      } else {
-        // Fallback for older browsers or non-secure contexts
-        const textArea = document.createElement("textarea")
-        textArea.value = text
-        textArea.style.position = "fixed"
-        textArea.style.left = "-999999px"
-        textArea.style.top = "-999999px"
-        document.body.appendChild(textArea)
-        textArea.focus()
-        textArea.select()
-        document.execCommand("copy")
-        textArea.remove()
-      }
+      // Create a temporary textarea element
+      const textArea = document.createElement("textarea")
+      textArea.value = text
 
-      toast({
-        title: "Copied!",
-        description: "Short URL copied to clipboard.",
-      })
+      // Make it invisible but still selectable
+      textArea.style.position = "absolute"
+      textArea.style.left = "-9999px"
+      textArea.style.top = "-9999px"
+      textArea.style.opacity = "0"
+      textArea.style.pointerEvents = "none"
+      textArea.setAttribute("readonly", "")
+      textArea.setAttribute("contenteditable", "true")
+
+      // Add to DOM
+      document.body.appendChild(textArea)
+
+      // Select and copy
+      textArea.select()
+      textArea.setSelectionRange(0, 99999) // For mobile devices
+
+      // Try to copy using execCommand
+      const successful = document.execCommand("copy")
+
+      // Remove from DOM
+      document.body.removeChild(textArea)
+
+      if (successful) {
+        toast({
+          title: "Copied!",
+          description: "Short URL copied to clipboard.",
+        })
+      } else {
+        throw new Error("Copy command failed")
+      }
     } catch (error) {
       console.error("Copy failed:", error)
-      toast({
-        title: "Copy failed",
-        description: "Unable to copy to clipboard. Please copy manually.",
-        variant: "destructive",
-      })
+
+      // Final fallback - show the URL in a prompt for manual copying
+      const userAgent = navigator.userAgent.toLowerCase()
+      const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/.test(userAgent)
+
+      if (isMobile) {
+        // On mobile, try to select the text in a temporary input
+        const input = document.createElement("input")
+        input.value = text
+        input.style.position = "absolute"
+        input.style.left = "-9999px"
+        document.body.appendChild(input)
+        input.select()
+        input.setSelectionRange(0, 99999)
+
+        toast({
+          title: "Copy manually",
+          description: "Please manually copy the selected text.",
+          duration: 5000,
+        })
+
+        setTimeout(() => {
+          document.body.removeChild(input)
+        }, 5000)
+      } else {
+        // On desktop, show in a prompt
+        prompt("Copy this URL manually:", text)
+      }
     }
   }
 
