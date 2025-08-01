@@ -289,59 +289,21 @@ export async function recordClick(
   headers?: Record<string, string>,
 ): Promise<void> {
   try {
+    console.log(`🔄 Recording click for: ${shortCode}`)
+
     const urlRef = doc(db, "urls", shortCode)
     const clicksRef = collection(db, "urls", shortCode, "clicks")
 
+    // First, update the main URL document with click count
     await runTransaction(db, async (transaction) => {
       const urlDoc = await transaction.get(urlRef)
 
       if (urlDoc.exists()) {
-        // Update the main URL document with click count and last click time
         transaction.update(urlRef, {
           totalClicks: increment(1),
           lastClickAt: serverTimestamp(),
         })
-
-        // Create detailed click document in subcollection
-        const clickData: Omit<IndividualClickData, "id"> = {
-          timestamp: serverTimestamp(),
-          shortCode,
-          Host: headers?.["host"] || headers?.["Host"],
-          "User-Agent": userAgent || headers?.["user-agent"] || headers?.["User-Agent"],
-          Accept: headers?.["accept"] || headers?.["Accept"],
-          "Accept-Language": headers?.["accept-language"] || headers?.["Accept-Language"],
-          "Accept-Encoding": headers?.["accept-encoding"] || headers?.["Accept-Encoding"],
-          "Accept-Charset": headers?.["accept-charset"] || headers?.["Accept-Charset"],
-          "Content-Type": headers?.["content-type"] || headers?.["Content-Type"],
-          "Content-Length": headers?.["content-length"] || headers?.["Content-Length"],
-          Authorization: headers?.["authorization"] || headers?.["Authorization"],
-          Cookie: headers?.["cookie"] || headers?.["Cookie"],
-          Referer: referer || headers?.["referer"] || headers?.["Referer"],
-          Origin: headers?.["origin"] || headers?.["Origin"],
-          Connection: headers?.["connection"] || headers?.["Connection"],
-          "Upgrade-Insecure-Requests": headers?.["upgrade-insecure-requests"] || headers?.["Upgrade-Insecure-Requests"],
-          "Cache-Control": headers?.["cache-control"] || headers?.["Cache-Control"],
-          Pragma: headers?.["pragma"] || headers?.["Pragma"],
-          "If-Modified-Since": headers?.["if-modified-since"] || headers?.["If-Modified-Since"],
-          "If-None-Match": headers?.["if-none-match"] || headers?.["If-None-Match"],
-          Range: headers?.["range"] || headers?.["Range"],
-          TE: headers?.["te"] || headers?.["TE"],
-          "Transfer-Encoding": headers?.["transfer-encoding"] || headers?.["Transfer-Encoding"],
-          Expect: headers?.["expect"] || headers?.["Expect"],
-          "X-Requested-With": headers?.["x-requested-with"] || headers?.["X-Requested-With"],
-          "X-Forwarded-For": ip || headers?.["x-forwarded-for"] || headers?.["X-Forwarded-For"],
-        }
-
-        // Add the click document to the subcollection (outside transaction since addDoc doesn't work in transactions)
-        // We'll do this after the transaction
-        setTimeout(async () => {
-          try {
-            await addDoc(clicksRef, clickData)
-            console.log(`✅ Detailed click document created for: ${shortCode}`)
-          } catch (error) {
-            console.error("❌ Error creating detailed click document:", error)
-          }
-        }, 0)
+        console.log(`✅ Updated click count for: ${shortCode}`)
       } else {
         // Create URL document if it doesn't exist (shouldn't happen normally)
         transaction.set(urlRef, {
@@ -353,10 +315,45 @@ export async function recordClick(
           expiresAt: Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)), // 30 days
           originalUrl: "", // This would need to be provided
         })
+        console.log(`✅ Created new URL document for: ${shortCode}`)
       }
     })
 
-    console.log(`✅ Click recorded in unified structure: ${shortCode}`)
+    // Then, create the detailed click document in the subcollection
+    const clickData: Omit<IndividualClickData, "id"> = {
+      timestamp: serverTimestamp(),
+      shortCode,
+      Host: headers?.["host"] || headers?.["Host"],
+      "User-Agent": userAgent || headers?.["user-agent"] || headers?.["User-Agent"],
+      Accept: headers?.["accept"] || headers?.["Accept"],
+      "Accept-Language": headers?.["accept-language"] || headers?.["Accept-Language"],
+      "Accept-Encoding": headers?.["accept-encoding"] || headers?.["Accept-Encoding"],
+      "Accept-Charset": headers?.["accept-charset"] || headers?.["Accept-Charset"],
+      "Content-Type": headers?.["content-type"] || headers?.["Content-Type"],
+      "Content-Length": headers?.["content-length"] || headers?.["Content-Length"],
+      Authorization: headers?.["authorization"] || headers?.["Authorization"],
+      Cookie: headers?.["cookie"] || headers?.["Cookie"],
+      Referer: referer || headers?.["referer"] || headers?.["Referer"],
+      Origin: headers?.["origin"] || headers?.["Origin"],
+      Connection: headers?.["connection"] || headers?.["Connection"],
+      "Upgrade-Insecure-Requests": headers?.["upgrade-insecure-requests"] || headers?.["Upgrade-Insecure-Requests"],
+      "Cache-Control": headers?.["cache-control"] || headers?.["Cache-Control"],
+      Pragma: headers?.["pragma"] || headers?.["Pragma"],
+      "If-Modified-Since": headers?.["if-modified-since"] || headers?.["If-Modified-Since"],
+      "If-None-Match": headers?.["if-none-match"] || headers?.["If-None-Match"],
+      Range: headers?.["range"] || headers?.["Range"],
+      TE: headers?.["te"] || headers?.["TE"],
+      "Transfer-Encoding": headers?.["transfer-encoding"] || headers?.["Transfer-Encoding"],
+      Expect: headers?.["expect"] || headers?.["Expect"],
+      "X-Requested-With": headers?.["x-requested-with"] || headers?.["X-Requested-With"],
+      "X-Forwarded-For": ip || headers?.["x-forwarded-for"] || headers?.["X-Forwarded-For"],
+    }
+
+    console.log(`🔄 Creating detailed click document for: ${shortCode}`)
+    console.log(`📊 Click data:`, clickData)
+
+    const clickDocRef = await addDoc(clicksRef, clickData)
+    console.log(`✅ Detailed click document created with ID: ${clickDocRef.id} for shortCode: ${shortCode}`)
   } catch (error) {
     console.error("❌ Error recording click:", error)
     throw error
