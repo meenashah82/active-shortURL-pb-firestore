@@ -20,7 +20,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { Trash2, ExternalLink, BarChart3, AlertTriangle } from "lucide-react"
+import { Trash2, ExternalLink, BarChart3, AlertTriangle } from 'lucide-react'
 import { getSession } from "@/lib/admin-auth"
 import { removeAllClicksData } from "@/lib/admin"
 
@@ -64,9 +64,9 @@ export function AdminDashboard() {
         urlsData.push({
           id: doc.id,
           originalUrl: data.originalUrl || "",
-          shortCode: data.shortCode || "",
+          shortCode: data.shortCode || doc.id,
           createdAt: data.createdAt?.toDate() || new Date(),
-          totalClicks: 0, // Initialize with 0, will be updated by real-time listener
+          totalClicks: data.totalClicks || 0,
         })
       })
 
@@ -113,8 +113,8 @@ export function AdminDashboard() {
         setDeleteResult(
           `Successfully deleted all data:\n` +
             `• URLs: ${result.deletedCounts.urls}\n` +
-            `• Analytics: ${result.deletedCounts.analytics}\n` +
-            `• Clicks: ${result.deletedCounts.clicks}\n` +
+            `• Legacy Analytics: ${result.deletedCounts.analytics}\n` +
+            `• Legacy Clicks: ${result.deletedCounts.clicks}\n` +
             `• Subcollections: ${result.deletedCounts.subcollections}`,
         )
         // Refresh the URLs list
@@ -138,33 +138,33 @@ export function AdminDashboard() {
     router.push(`/analytics/${shortCode}`)
   }
 
-  // Set up real-time listeners for analytics updates
+  // Set up real-time listeners for URL updates
   useEffect(() => {
     const { db } = getFirebase()
     if (!db || urls.length === 0) return
 
     const unsubscribers: (() => void)[] = []
 
-    // Set up real-time listener for each URL's analytics
+    // Set up real-time listener for each URL
     urls.forEach((url) => {
-      const analyticsRef = doc(db, "analytics", url.shortCode)
+      const urlRef = doc(db, "urls", url.id)
 
       const unsubscribe = onSnapshot(
-        analyticsRef,
+        urlRef,
         { includeMetadataChanges: true },
         (doc) => {
           if (doc.exists()) {
-            const analyticsData = doc.data()
-            const totalClicks = analyticsData.totalClicks || 0
+            const urlData = doc.data()
+            const totalClicks = urlData.totalClicks || 0
 
             // Update the specific URL's click count in state
             setUrls((prevUrls) =>
-              prevUrls.map((prevUrl) => (prevUrl.shortCode === url.shortCode ? { ...prevUrl, totalClicks } : prevUrl)),
+              prevUrls.map((prevUrl) => (prevUrl.id === url.id ? { ...prevUrl, totalClicks } : prevUrl)),
             )
           }
         },
         (error) => {
-          console.error(`Error listening to analytics for ${url.shortCode}:`, error)
+          console.error(`Error listening to URL ${url.id}:`, error)
         },
       )
 

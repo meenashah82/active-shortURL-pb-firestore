@@ -13,7 +13,7 @@ import {
   type DocumentData,
 } from "firebase/firestore"
 import { db } from "./firebase"
-import type { UrlData, AnalyticsData } from "./analytics-clean"
+import type { UrlData } from "./analytics-clean"
 
 export interface AdminUrlData extends UrlData {
   id: string
@@ -27,7 +27,7 @@ export interface PaginationInfo {
   total: number
 }
 
-// Get all URLs with pagination for admin
+// Get all URLs with pagination for admin - using unified structure
 export async function getAllUrls(
   pageSize = 20,
   lastDoc?: QueryDocumentSnapshot<DocumentData>,
@@ -42,30 +42,16 @@ export async function getAllUrls(
     const urlsSnapshot = await getDocs(urlsQuery)
     const urls: AdminUrlData[] = []
 
-    // Get analytics data for each URL
-    for (const urlDoc of urlsSnapshot.docs) {
+    urlsSnapshot.forEach((urlDoc) => {
       const urlData = urlDoc.data() as UrlData
-
-      // Get analytics data
-      const analyticsRef = doc(db, "analytics", urlDoc.id)
-      const analyticsSnap = await getDocs(query(collection(db, "analytics"), where("shortCode", "==", urlDoc.id)))
-
-      let clicks = 0
-      let lastClickAt = null
-
-      if (!analyticsSnap.empty) {
-        const analyticsData = analyticsSnap.docs[0].data() as AnalyticsData
-        clicks = analyticsData.totalClicks || 0
-        lastClickAt = analyticsData.lastClickAt
-      }
 
       urls.push({
         ...urlData,
         id: urlDoc.id,
-        clicks,
-        lastClickAt,
+        clicks: urlData.totalClicks || 0,
+        lastClickAt: urlData.lastClickAt,
       })
-    }
+    })
 
     // Check if there are more documents
     const hasMore = urlsSnapshot.docs.length === pageSize
@@ -85,74 +71,45 @@ export async function getAllUrls(
   }
 }
 
-// Search URLs by shortCode or originalUrl
+// Search URLs by shortCode or originalUrl - using unified structure
 export async function searchUrls(searchTerm: string): Promise<AdminUrlData[]> {
   try {
     const urls: AdminUrlData[] = []
 
     // Search by shortCode (exact match)
     const shortCodeQuery = query(collection(db, "urls"), where("shortCode", "==", searchTerm), limit(10))
-
     const shortCodeSnapshot = await getDocs(shortCodeQuery)
 
-    for (const urlDoc of shortCodeSnapshot.docs) {
+    shortCodeSnapshot.forEach((urlDoc) => {
       const urlData = urlDoc.data() as UrlData
-
-      // Get analytics data
-      const analyticsRef = doc(db, "analytics", urlDoc.id)
-      const analyticsSnap = await getDocs(query(collection(db, "analytics"), where("shortCode", "==", urlDoc.id)))
-
-      let clicks = 0
-      let lastClickAt = null
-
-      if (!analyticsSnap.empty) {
-        const analyticsData = analyticsSnap.docs[0].data() as AnalyticsData
-        clicks = analyticsData.totalClicks || 0
-        lastClickAt = analyticsData.lastClickAt
-      }
-
       urls.push({
         ...urlData,
         id: urlDoc.id,
-        clicks,
-        lastClickAt,
+        clicks: urlData.totalClicks || 0,
+        lastClickAt: urlData.lastClickAt,
       })
-    }
+    })
 
     // Search by originalUrl (contains search term)
     const urlQuery = query(collection(db, "urls"), orderBy("originalUrl"), limit(10))
-
     const urlSnapshot = await getDocs(urlQuery)
 
-    for (const urlDoc of urlSnapshot.docs) {
+    urlSnapshot.forEach((urlDoc) => {
       const urlData = urlDoc.data() as UrlData
 
       // Filter by search term in originalUrl
       if (urlData.originalUrl.toLowerCase().includes(searchTerm.toLowerCase())) {
         // Check if already added by shortCode search
         if (!urls.find((u) => u.id === urlDoc.id)) {
-          // Get analytics data
-          const analyticsRef = doc(db, "analytics", urlDoc.id)
-          const analyticsSnap = await getDocs(query(collection(db, "analytics"), where("shortCode", "==", urlDoc.id)))
-
-          let clicks = 0
-          let lastClickAt = null
-
-          if (!analyticsSnap.empty) {
-            const analyticsData = analyticsSnap.docs[0].data() as AnalyticsData
-            clicks = analyticsData.totalClicks || 0
-            lastClickAt = analyticsData.lastClickAt
-          }
-
           urls.push({
             ...urlData,
             id: urlDoc.id,
-            clicks,
-            lastClickAt,
+            clicks: urlData.totalClicks || 0,
+            lastClickAt: urlData.lastClickAt,
           })
         }
       }
-    }
+    })
 
     return urls
   } catch (error) {
@@ -161,7 +118,7 @@ export async function searchUrls(searchTerm: string): Promise<AdminUrlData[]> {
   }
 }
 
-// Deactivate a URL
+// Deactivate a URL - using unified structure
 export async function deactivateUrl(shortCode: string): Promise<void> {
   try {
     const urlRef = doc(db, "urls", shortCode)
@@ -177,7 +134,7 @@ export async function deactivateUrl(shortCode: string): Promise<void> {
   }
 }
 
-// Reactivate a URL
+// Reactivate a URL - using unified structure
 export async function reactivateUrl(shortCode: string): Promise<void> {
   try {
     const urlRef = doc(db, "urls", shortCode)
@@ -193,7 +150,7 @@ export async function reactivateUrl(shortCode: string): Promise<void> {
   }
 }
 
-// Get admin statistics
+// Get admin statistics - using unified structure
 export async function getAdminStats(): Promise<{
   totalUrls: number
   activeUrls: number
@@ -207,6 +164,7 @@ export async function getAdminStats(): Promise<{
 
     let activeUrls = 0
     let inactiveUrls = 0
+    let totalClicks = 0
 
     urlsSnapshot.docs.forEach((doc) => {
       const data = doc.data() as UrlData
@@ -215,15 +173,6 @@ export async function getAdminStats(): Promise<{
       } else {
         inactiveUrls++
       }
-    })
-
-    // Get total clicks from analytics
-    const analyticsQuery = query(collection(db, "analytics"))
-    const analyticsSnapshot = await getDocs(analyticsQuery)
-
-    let totalClicks = 0
-    analyticsSnapshot.docs.forEach((doc) => {
-      const data = doc.data() as AnalyticsData
       totalClicks += data.totalClicks || 0
     })
 
@@ -239,7 +188,7 @@ export async function getAdminStats(): Promise<{
   }
 }
 
-// Remove all clicks related data from all collections
+// Remove all data from unified structure
 export async function removeAllClicksData(): Promise<{
   success: boolean
   deletedCounts: {
@@ -251,21 +200,17 @@ export async function removeAllClicksData(): Promise<{
   error?: string
 }> {
   try {
-    console.log("🧹 Starting removal of all clicks related data...")
+    console.log("🧹 Starting removal of all data from unified structure...")
 
     const deletedCounts = {
       urls: 0,
-      analytics: 0,
-      clicks: 0,
+      analytics: 0, // Not applicable in unified structure
+      clicks: 0, // Legacy clicks collection if it exists
       subcollections: 0,
     }
 
-    // Get all documents from each collection
-    const [urlsSnapshot, analyticsSnapshot, clicksSnapshot] = await Promise.all([
-      getDocs(collection(db, "urls")),
-      getDocs(collection(db, "analytics")),
-      getDocs(collection(db, "clicks")),
-    ])
+    // Get all documents from urls collection
+    const urlsSnapshot = await getDocs(collection(db, "urls"))
 
     // Process in batches to avoid Firestore limits
     const BATCH_SIZE = 500
@@ -290,40 +235,49 @@ export async function removeAllClicksData(): Promise<{
       await commitBatchIfNeeded()
     }
 
-    // Delete all analytics documents
-    console.log(`🔄 Deleting ${analyticsSnapshot.docs.length} analytics documents...`)
-    for (const analyticsDoc of analyticsSnapshot.docs) {
-      batch.delete(analyticsDoc.ref)
-      operationCount++
-      deletedCounts.analytics++
-      await commitBatchIfNeeded()
+    // Try to clean up legacy collections if they exist
+    try {
+      const analyticsSnapshot = await getDocs(collection(db, "analytics"))
+      console.log(`🔄 Deleting ${analyticsSnapshot.docs.length} legacy analytics documents...`)
+      for (const analyticsDoc of analyticsSnapshot.docs) {
+        batch.delete(analyticsDoc.ref)
+        operationCount++
+        deletedCounts.analytics++
+        await commitBatchIfNeeded()
+      }
+    } catch (error) {
+      console.log("No legacy analytics collection found")
     }
 
-    // Delete all clicks documents and their subcollections
-    console.log(`🔄 Deleting ${clicksSnapshot.docs.length} clicks documents and subcollections...`)
-    for (const clickDoc of clicksSnapshot.docs) {
-      const shortCode = clickDoc.id
+    try {
+      const clicksSnapshot = await getDocs(collection(db, "clicks"))
+      console.log(`🔄 Deleting ${clicksSnapshot.docs.length} legacy clicks documents...`)
+      for (const clickDoc of clicksSnapshot.docs) {
+        const shortCode = clickDoc.id
 
-      // Delete subcollection documents first
-      try {
-        const subcollectionRef = collection(db, "clicks", shortCode, "shortcode_clicks")
-        const subcollectionSnapshot = await getDocs(subcollectionRef)
+        // Delete subcollection documents first
+        try {
+          const subcollectionRef = collection(db, "clicks", shortCode, "shortcode_clicks")
+          const subcollectionSnapshot = await getDocs(subcollectionRef)
 
-        for (const subDoc of subcollectionSnapshot.docs) {
-          batch.delete(subDoc.ref)
-          operationCount++
-          deletedCounts.subcollections++
-          await commitBatchIfNeeded()
+          for (const subDoc of subcollectionSnapshot.docs) {
+            batch.delete(subDoc.ref)
+            operationCount++
+            deletedCounts.subcollections++
+            await commitBatchIfNeeded()
+          }
+        } catch (subcollectionError) {
+          console.warn(`⚠️ Could not delete subcollection for ${shortCode}:`, subcollectionError)
         }
-      } catch (subcollectionError) {
-        console.warn(`⚠️ Could not delete subcollection for ${shortCode}:`, subcollectionError)
-      }
 
-      // Delete main clicks document
-      batch.delete(clickDoc.ref)
-      operationCount++
-      deletedCounts.clicks++
-      await commitBatchIfNeeded()
+        // Delete main clicks document
+        batch.delete(clickDoc.ref)
+        operationCount++
+        deletedCounts.clicks++
+        await commitBatchIfNeeded()
+      }
+    } catch (error) {
+      console.log("No legacy clicks collection found")
     }
 
     // Commit any remaining operations
@@ -331,11 +285,11 @@ export async function removeAllClicksData(): Promise<{
       await batch.commit()
     }
 
-    console.log("✅ All clicks related data removed successfully!")
+    console.log("✅ All data removed successfully!")
     console.log(`📊 Deletion summary:`)
     console.log(`   - URLs: ${deletedCounts.urls}`)
-    console.log(`   - Analytics: ${deletedCounts.analytics}`)
-    console.log(`   - Clicks: ${deletedCounts.clicks}`)
+    console.log(`   - Legacy Analytics: ${deletedCounts.analytics}`)
+    console.log(`   - Legacy Clicks: ${deletedCounts.clicks}`)
     console.log(`   - Subcollections: ${deletedCounts.subcollections}`)
 
     return {
@@ -343,7 +297,7 @@ export async function removeAllClicksData(): Promise<{
       deletedCounts,
     }
   } catch (error) {
-    console.error("❌ Error removing all clicks data:", error)
+    console.error("❌ Error removing all data:", error)
     return {
       success: false,
       deletedCounts: {

@@ -1,62 +1,93 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Copy, ExternalLink, Loader2 } from "lucide-react"
+import { Copy, ExternalLink, Loader2 } from 'lucide-react'
 import { useToast } from "@/hooks/use-toast"
-import { useAuth } from "@/hooks/use-auth"
 
-interface ShortenedUrl {
-  shortCode: string
-  shortUrl: string
-  originalUrl: string
+interface UrlShortenerFormProps {
+  onUrlCreated?: () => void
 }
 
-export function UrlShortenerForm() {
+export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
   const [url, setUrl] = useState("")
-  const [shortenedUrl, setShortenedUrl] = useState<ShortenedUrl | null>(null)
+  const [shortUrl, setShortUrl] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
-  const { isAuthenticated, isLoading: authLoading } = useAuth()
-
-  console.log("UrlShortenerForm - Auth state:", { isAuthenticated, authLoading })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!url.trim()) return
+
+    if (!url) {
+      toast({
+        title: "Error",
+        description: "Please enter a URL to shorten.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Basic URL validation
+    try {
+      new URL(url)
+    } catch {
+      toast({
+        title: "Error",
+        description: "Please enter a valid URL (including http:// or https://).",
+        variant: "destructive",
+      })
+      return
+    }
 
     setIsLoading(true)
+
     try {
       const response = await fetch("/api/shorten", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ url: url.trim() }),
+        body: JSON.stringify({ url }),
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to shorten URL")
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to shorten URL")
       }
 
       const data = await response.json()
-      setShortenedUrl(data)
-      setUrl("")
+      setShortUrl(data.shortUrl)
+
+      // Store in localStorage for history
+      const storedUrls = JSON.parse(localStorage.getItem("shortened-urls") || "[]")
+      const newUrl = {
+        id: data.shortCode,
+        originalUrl: url,
+        shortCode: data.shortCode,
+        shortUrl: data.shortUrl,
+        createdAt: new Date().toISOString(),
+        totalClicks: 0,
+      }
+      storedUrls.unshift(newUrl)
+      localStorage.setItem("shortened-urls", JSON.stringify(storedUrls.slice(0, 50))) // Keep last 50
 
       toast({
         title: "Success!",
-        description: "Your URL has been shortened successfully.",
+        description: "URL shortened successfully.",
       })
-    } catch (error) {
+
+      // Clear the input
+      setUrl("")
+
+      // Notify parent component
+      onUrlCreated?.()
+    } catch (error: any) {
       console.error("Error shortening URL:", error)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to shorten URL",
+        description: error.message || "Failed to shorten URL. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -95,7 +126,7 @@ export function UrlShortenerForm() {
       if (successful) {
         toast({
           title: "Copied!",
-          description: "Short URL copied to clipboard.",
+          description: "URL copied to clipboard.",
         })
       } else {
         throw new Error("Copy command failed")
@@ -133,54 +164,30 @@ export function UrlShortenerForm() {
     }
   }
 
-  // Show loading state while checking authentication
-  if (authLoading) {
-    return (
-      <Card className="w-full max-w-2xl mx-auto">
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold text-center">URL Shortener</CardTitle>
-          <CardDescription className="text-center">Loading...</CardDescription>
-        </CardHeader>
-        <CardContent className="flex justify-center">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </CardContent>
-      </Card>
-    )
-  }
-
-  // Show authentication required message
-  if (!isAuthenticated) {
-    return (
-      <Card className="w-full max-w-2xl mx-auto">
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold text-center">URL Shortener</CardTitle>
-          <CardDescription className="text-center">Please authenticate to access the URL shortener</CardDescription>
-        </CardHeader>
-        <CardContent className="text-center">
-          <p className="text-muted-foreground">Waiting for authentication token from parent application...</p>
-        </CardContent>
-      </Card>
-    )
-  }
-
   return (
-    <Card className="w-full max-w-2xl mx-auto">
+    <Card className="w-full border-gray-200 shadow-sm">
       <CardHeader>
-        <CardTitle className="text-2xl font-bold text-center">URL Shortener</CardTitle>
-        <CardDescription className="text-center">Transform long URLs into short, shareable links</CardDescription>
+        <CardTitle className="text-gray-900">Shorten URL</CardTitle>
+        <CardDescription className="text-gray-600">
+          Enter a long URL to create a short, shareable link
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="flex gap-2">
             <Input
               type="url"
-              placeholder="Enter your URL here..."
+              placeholder="https://example.com/very/long/url"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              className="flex-1"
+              className="flex-1 border-gray-300 focus:border-purple-500 focus:ring-purple-500"
               disabled={isLoading}
             />
-            <Button type="submit" disabled={isLoading || !url.trim()}>
+            <Button
+              type="submit"
+              disabled={isLoading || !url}
+              className="bg-purple-600 hover:bg-purple-700 text-white px-6"
+            >
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -193,23 +200,31 @@ export function UrlShortenerForm() {
           </div>
         </form>
 
-        {shortenedUrl && (
-          <div className="space-y-3 p-4 bg-muted rounded-lg">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Short URL:</label>
+        {shortUrl && (
+          <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-green-800 mb-1">Your shortened URL:</p>
+                <p className="text-green-700 font-mono text-sm truncate">{shortUrl}</p>
+              </div>
               <div className="flex gap-2">
-                <Input value={shortenedUrl.shortUrl} readOnly className="flex-1" />
-                <Button variant="outline" size="icon" onClick={() => copyToClipboard(shortenedUrl.shortUrl)}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => copyToClipboard(shortUrl)}
+                  className="border-green-300 text-green-700 hover:bg-green-100"
+                >
                   <Copy className="h-4 w-4" />
                 </Button>
-                <Button variant="outline" size="icon" onClick={() => window.open(shortenedUrl.shortUrl, "_blank")}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => window.open(shortUrl, "_blank")}
+                  className="border-green-300 text-green-700 hover:bg-green-100"
+                >
                   <ExternalLink className="h-4 w-4" />
                 </Button>
               </div>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Original URL:</label>
-              <Input value={shortenedUrl.originalUrl} readOnly className="text-muted-foreground" />
             </div>
           </div>
         )}

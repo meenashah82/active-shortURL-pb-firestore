@@ -26,27 +26,26 @@ export interface ClickEvent {
   sessionId?: string
 }
 
-// Clean URL data structure - NO CLICKS stored here
+// Updated URL data structure - now contains all data including clicks
 export interface UrlData {
   originalUrl: string
   shortCode: string
   createdAt: any
   isActive: boolean
   expiresAt: any
-  deactivatedAt?: any
-  reactivatedAt?: any
+  lastClickAt?: any
+  totalClicks: number
 }
 
-// Analytics is the SINGLE SOURCE OF TRUTH for clicks - SIMPLIFIED
+// Analytics data interface for backward compatibility
 export interface AnalyticsData {
   shortCode: string
-  totalClicks: number // ✅ ONLY field for click tracking
+  totalClicks: number
   createdAt: any
   lastClickAt?: any
-  // ✅ REMOVED: clickEvents array (redundant with shortcode_clicks subcollection)
 }
 
-// New Clicks collection data structure
+// Clicks collection data structure (kept for backward compatibility)
 export interface ClicksData {
   shortCode: string
   createdAt: any
@@ -91,70 +90,54 @@ export interface IndividualClickData {
   }
 }
 
-// Create short URL - NO click tracking in URL document
+// Create short URL - using new unified structure
 export async function createShortUrl(shortCode: string, originalUrl: string, metadata?: any): Promise<void> {
   try {
     console.log(`Creating short URL: ${shortCode} -> ${originalUrl}`)
 
     const urlRef = doc(db, "urls", shortCode)
-    const analyticsRef = doc(db, "analytics", shortCode)
-    const clicksRef = doc(db, "clicks", shortCode)
 
     const expiresAt = new Date()
     expiresAt.setDate(expiresAt.getDate() + 30)
 
-    // Clean URL document - NO clicks field
+    // Unified URL document with all data
     const urlData: UrlData = {
       originalUrl,
       shortCode,
       createdAt: serverTimestamp(),
       isActive: true,
       expiresAt: Timestamp.fromDate(expiresAt),
+      totalClicks: 0,
+      lastClickAt: null,
     }
 
-    // Analytics is the single source of truth for clicks - SIMPLIFIED
-    const analyticsData: AnalyticsData = {
-      shortCode,
-      totalClicks: 0, // ✅ ONLY place clicks are tracked
-      createdAt: serverTimestamp(),
-      // ✅ REMOVED: clickEvents: [] (redundant with subcollection)
-    }
+    await setDoc(urlRef, urlData)
 
-    // New clicks collection document
-    const clicksData: ClicksData = {
-      shortCode,
-      createdAt: serverTimestamp(),
-      isActive: true,
-    }
-
-    // Create all main documents
-    await Promise.all([setDoc(urlRef, urlData), setDoc(analyticsRef, analyticsData), setDoc(clicksRef, clicksData)])
-
-    console.log(`✅ Complete URL structure created: ${shortCode}`)
+    console.log(`✅ URL created with unified structure: ${shortCode}`)
   } catch (error) {
     console.error("❌ Error creating short URL:", error)
     throw error
   }
 }
 
-// Get clicks data
+// Get clicks data (for backward compatibility)
 export async function getClicksData(shortCode: string): Promise<ClicksData | null> {
   try {
-    const clicksRef = doc(db, "clicks", shortCode)
-    const clicksSnap = await getDoc(clicksRef)
+    const urlData = await getUrlData(shortCode)
+    if (!urlData) return null
 
-    if (!clicksSnap.exists()) {
-      return null
+    return {
+      shortCode,
+      createdAt: urlData.createdAt,
+      isActive: urlData.isActive,
     }
-
-    return clicksSnap.data() as ClicksData
   } catch (error) {
     console.error("Error getting clicks data:", error)
     return null
   }
 }
 
-// Get URL data - clean structure
+// Get URL data from unified structure
 export async function getUrlData(shortCode: string): Promise<UrlData | null> {
   try {
     const urlRef = doc(db, "urls", shortCode)
@@ -177,36 +160,41 @@ export async function getUrlData(shortCode: string): Promise<UrlData | null> {
   }
 }
 
-// Get click count from analytics (single source of truth)
+// Get click count from unified structure
 export async function getClickCount(shortCode: string): Promise<number> {
   try {
-    const analyticsRef = doc(db, "analytics", shortCode)
-    const analyticsSnap = await getDoc(analyticsRef)
-
-    if (!analyticsSnap.exists()) {
-      return 0
-    }
-
-    const data = analyticsSnap.data() as AnalyticsData
-    return data.totalClicks || 0
+    const urlData = await getUrlData(shortCode)
+    return urlData?.totalClicks || 0
   } catch (error) {
     console.error("Error getting click count:", error)
     return 0
   }
 }
 
-// Get complete URL info with click count from analytics
+// Get complete URL info with click count
 export async function getUrlWithAnalytics(shortCode: string): Promise<{
   url: UrlData | null
   clicks: number
   analytics: AnalyticsData | null
 }> {
   try {
-    const [urlData, analyticsData] = await Promise.all([getUrlData(shortCode), getAnalyticsData(shortCode)])
+    const urlData = await getUrlData(shortCode)
+
+    if (!urlData) {
+      return { url: null, clicks: 0, analytics: null }
+    }
+
+    // Create analytics data from URL data for backward compatibility
+    const analyticsData: AnalyticsData = {
+      shortCode: urlData.shortCode,
+      totalClicks: urlData.totalClicks,
+      createdAt: urlData.createdAt,
+      lastClickAt: urlData.lastClickAt,
+    }
 
     return {
       url: urlData,
-      clicks: analyticsData?.totalClicks || 0,
+      clicks: urlData.totalClicks,
       analytics: analyticsData,
     }
   } catch (error) {
@@ -215,24 +203,28 @@ export async function getUrlWithAnalytics(shortCode: string): Promise<{
   }
 }
 
-// Analytics data - single source of truth
+// Get analytics data from unified structure (for backward compatibility)
 export async function getAnalyticsData(shortCode: string): Promise<AnalyticsData | null> {
   try {
-    const analyticsRef = doc(db, "analytics", shortCode)
-    const analyticsSnap = await getDoc(analyticsRef)
+    const urlData = await getUrlData(shortCode)
 
-    if (!analyticsSnap.exists()) {
+    if (!urlData) {
       return null
     }
 
-    return analyticsSnap.data() as AnalyticsData
+    return {
+      shortCode: urlData.shortCode,
+      totalClicks: urlData.totalClicks,
+      createdAt: urlData.createdAt,
+      lastClickAt: urlData.lastClickAt,
+    }
   } catch (error) {
     console.error("Error getting analytics data:", error)
     return null
   }
 }
 
-// ✅ NEW: Get click history from shortcode_clicks subcollection
+// Get click history from shortcode_clicks subcollection (kept for detailed analytics)
 export async function getClickHistory(shortCode: string, limitCount = 50): Promise<IndividualClickData[]> {
   try {
     console.log(`📊 Fetching click history for: ${shortCode}`)
@@ -247,7 +239,7 @@ export async function getClickHistory(shortCode: string, limitCount = 50): Promi
       const data = doc.data() as IndividualClickData
       clickHistory.push({
         ...data,
-        id: doc.id, // Ensure we have the document ID
+        id: doc.id,
       })
     })
 
@@ -259,7 +251,7 @@ export async function getClickHistory(shortCode: string, limitCount = 50): Promi
   }
 }
 
-// ✅ NEW: Real-time subscription to click history
+// Real-time subscription to click history
 export function subscribeToClickHistory(
   shortCode: string,
   callback: (clickHistory: IndividualClickData[]) => void,
@@ -294,97 +286,97 @@ export function subscribeToClickHistory(
   )
 }
 
-// Record click - ONLY update analytics (single source of truth) - SIMPLIFIED
+// Record click - update unified structure
 export async function recordClick(shortCode: string, userAgent: string, referer: string, ip: string): Promise<void> {
   try {
-    const analyticsRef = doc(db, "analytics", shortCode)
+    const urlRef = doc(db, "urls", shortCode)
 
-    // ✅ SIMPLIFIED: Only update analytics with totalClicks and lastClickAt
     await runTransaction(db, async (transaction) => {
-      const analyticsDoc = await transaction.get(analyticsRef)
+      const urlDoc = await transaction.get(urlRef)
 
-      if (analyticsDoc.exists()) {
-        transaction.update(analyticsRef, {
-          totalClicks: increment(1), // ✅ Single source of truth
+      if (urlDoc.exists()) {
+        transaction.update(urlRef, {
+          totalClicks: increment(1),
           lastClickAt: serverTimestamp(),
-          // ✅ REMOVED: clickEvents array update (redundant)
         })
       } else {
-        // Create analytics document if it doesn't exist
-        transaction.set(analyticsRef, {
+        // Create URL document if it doesn't exist (shouldn't happen normally)
+        transaction.set(urlRef, {
           shortCode,
           totalClicks: 1,
           createdAt: serverTimestamp(),
           lastClickAt: serverTimestamp(),
-          // ✅ REMOVED: clickEvents: [clickEvent] (redundant)
+          isActive: true,
+          expiresAt: Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)), // 30 days
+          originalUrl: "", // This would need to be provided
         })
       }
     })
 
-    console.log(`✅ Click recorded in analytics only: ${shortCode}`)
+    console.log(`✅ Click recorded in unified structure: ${shortCode}`)
   } catch (error) {
     console.error("❌ Error recording click:", error)
     throw error
   }
 }
 
-// Real-time subscription to analytics (single source of truth)
+// Real-time subscription to analytics from unified structure
 export function subscribeToAnalytics(shortCode: string, callback: (data: AnalyticsData | null) => void): () => void {
-  const analyticsRef = doc(db, "analytics", shortCode)
+  const urlRef = doc(db, "urls", shortCode)
 
-  console.log(`🔄 Subscribing to analytics (single source): ${shortCode}`)
+  console.log(`🔄 Subscribing to unified analytics: ${shortCode}`)
 
   return onSnapshot(
-    analyticsRef,
+    urlRef,
     { includeMetadataChanges: true },
     (doc) => {
       if (doc.exists()) {
-        const data = doc.data() as AnalyticsData
-        console.log(`📊 Analytics update: ${shortCode} - ${data.totalClicks} clicks`)
-        callback(data)
+        const urlData = doc.data() as UrlData
+        const analyticsData: AnalyticsData = {
+          shortCode: urlData.shortCode,
+          totalClicks: urlData.totalClicks,
+          createdAt: urlData.createdAt,
+          lastClickAt: urlData.lastClickAt,
+        }
+        console.log(`📊 Unified analytics update: ${shortCode} - ${analyticsData.totalClicks} clicks`)
+        callback(analyticsData)
       } else {
         callback(null)
       }
     },
     (error) => {
-      console.error("❌ Analytics subscription error:", error)
+      console.error("❌ Unified analytics subscription error:", error)
       callback(null)
     },
   )
 }
 
-// Get top URLs by click count (from analytics only)
+// Get top URLs by click count from unified structure
 export function subscribeToTopUrls(
   callback: (urls: Array<{ shortCode: string; clicks: number; originalUrl: string }>) => void,
   limitCount = 10,
 ): () => void {
-  // Query analytics for top click counts
-  const analyticsQuery = query(
-    collection(db, "analytics"),
+  const urlsQuery = query(
+    collection(db, "urls"),
     where("totalClicks", ">", 0),
     orderBy("totalClicks", "desc"),
     limit(limitCount),
   )
 
   return onSnapshot(
-    analyticsQuery,
+    urlsQuery,
     { includeMetadataChanges: true },
-    async (snapshot) => {
+    (snapshot) => {
       const topUrls: Array<{ shortCode: string; clicks: number; originalUrl: string }> = []
 
-      // Get URL data for each top analytics entry
-      for (const urlDoc of snapshot.docs) {
-        const analyticsData = urlDoc.data() as AnalyticsData
-        const urlData = await getUrlData(analyticsData.shortCode)
-
-        if (urlData) {
-          topUrls.push({
-            shortCode: analyticsData.shortCode,
-            clicks: analyticsData.totalClicks, // ✅ From analytics (single source)
-            originalUrl: urlData.originalUrl,
-          })
-        }
-      }
+      snapshot.forEach((doc) => {
+        const urlData = doc.data() as UrlData
+        topUrls.push({
+          shortCode: urlData.shortCode,
+          clicks: urlData.totalClicks,
+          originalUrl: urlData.originalUrl,
+        })
+      })
 
       callback(topUrls)
     },
@@ -395,151 +387,19 @@ export function subscribeToTopUrls(
   )
 }
 
-// Migration function to clean up redundant clicks from URL documents
+// Migration functions (kept for backward compatibility but may not be needed)
 export async function migrateToCleanArchitecture(): Promise<void> {
-  try {
-    console.log("🧹 Starting migration to clean architecture...")
-
-    const urlsQuery = query(collection(db, "urls"))
-    const urlsSnapshot = await getDocs(urlsQuery)
-
-    const migrations: Promise<void>[] = []
-
-    urlsSnapshot.forEach((urlDoc) => {
-      const urlData = urlDoc.data()
-
-      // If URL document has clicks field, remove it
-      if ("clicks" in urlData) {
-        console.log(`🧹 Removing redundant clicks field from URL: ${urlDoc.id}`)
-
-        const migration = runTransaction(db, async (transaction) => {
-          const urlRef = urlDoc.ref
-
-          // Remove clicks field from URL document
-          const cleanUrlData = { ...urlData }
-          delete cleanUrlData.clicks
-
-          transaction.set(urlRef, cleanUrlData)
-        })
-
-        migrations.push(migration)
-      }
-    })
-
-    await Promise.all(migrations)
-    console.log(`✅ Migration complete: cleaned ${migrations.length} URL documents`)
-  } catch (error) {
-    console.error("❌ Migration error:", error)
-    throw error
-  }
+  console.log("🧹 Migration not needed - already using unified structure")
 }
 
-// Migration function to create clicks collection for existing shortcodes
 export async function migrateToClicksCollection(): Promise<void> {
-  try {
-    console.log("🔄 Starting migration to create clicks collection...")
-
-    const urlsQuery = query(collection(db, "urls"))
-    const urlsSnapshot = await getDocs(urlsQuery)
-
-    const migrations: Promise<void>[] = []
-
-    urlsSnapshot.forEach((urlDoc) => {
-      const urlData = urlDoc.data()
-      const shortCode = urlDoc.id
-
-      console.log(`🔄 Creating clicks document for: ${shortCode}`)
-
-      const migration = runTransaction(db, async (transaction) => {
-        const clicksRef = doc(db, "clicks", shortCode)
-
-        // Check if clicks document already exists
-        const clicksDoc = await transaction.get(clicksRef)
-
-        if (!clicksDoc.exists()) {
-          const clicksData: ClicksData = {
-            shortCode,
-            createdAt: urlData.createdAt || serverTimestamp(),
-            isActive: urlData.isActive !== undefined ? urlData.isActive : true,
-          }
-
-          transaction.set(clicksRef, clicksData)
-        }
-      })
-
-      migrations.push(migration)
-    })
-
-    await Promise.all(migrations)
-    console.log(`✅ Clicks collection migration complete: created ${migrations.length} documents`)
-  } catch (error) {
-    console.error("❌ Clicks collection migration error:", error)
-    throw error
-  }
+  console.log("🔄 Migration not needed - using unified structure")
 }
 
-// Migration function to remove clickEvents from analytics documents
 export async function migrateRemoveClickEvents(): Promise<void> {
-  try {
-    console.log("🧹 Starting migration to remove clickEvents from analytics...")
-
-    const analyticsQuery = query(collection(db, "analytics"))
-    const analyticsSnapshot = await getDocs(analyticsQuery)
-
-    const migrations: Promise<void>[] = []
-
-    analyticsSnapshot.forEach((analyticsDoc) => {
-      const analyticsData = analyticsDoc.data()
-
-      // If analytics document has clickEvents field, remove it
-      if ("clickEvents" in analyticsData) {
-        console.log(`🧹 Removing redundant clickEvents field from analytics: ${analyticsDoc.id}`)
-
-        const migration = runTransaction(db, async (transaction) => {
-          const analyticsRef = analyticsDoc.ref
-
-          // Remove clickEvents field from analytics document
-          const cleanAnalyticsData = { ...analyticsData }
-          delete cleanAnalyticsData.clickEvents
-
-          transaction.set(analyticsRef, cleanAnalyticsData)
-        })
-
-        migrations.push(migration)
-      }
-    })
-
-    await Promise.all(migrations)
-    console.log(`✅ ClickEvents removal migration complete: cleaned ${migrations.length} documents`)
-  } catch (error) {
-    console.error("❌ ClickEvents removal migration error:", error)
-    throw error
-  }
+  console.log("🧹 Migration not needed - using unified structure")
 }
 
-// Migration function to create shortcode_clicks subcollections for existing clicks documents
 export async function migrateToShortcodeClicksSubcollections(): Promise<void> {
-  try {
-    console.log("🔄 Starting migration to create shortcode_clicks subcollections...")
-
-    const clicksQuery = query(collection(db, "clicks"))
-    const clicksSnapshot = await getDocs(clicksQuery)
-
-    let processedCount = 0
-
-    for (const clickDoc of clicksSnapshot.docs) {
-      const shortCode = clickDoc.id
-      console.log(`🔄 Processing clicks document for shortcode: ${shortCode}`)
-
-      // The subcollection will be created automatically when the first real click happens
-      processedCount++
-      console.log(`✅ Prepared shortcode_clicks structure for: ${shortCode}`)
-    }
-
-    console.log(`✅ Shortcode clicks subcollections migration complete: processed ${processedCount} documents`)
-    console.log("📝 Note: Subcollections will be created automatically when the first real click occurs.")
-  } catch (error) {
-    console.error("❌ Shortcode clicks subcollections migration error:", error)
-    throw error
-  }
+  console.log("🔄 Migration not needed - using unified structure")
 }

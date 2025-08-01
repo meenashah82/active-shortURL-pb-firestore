@@ -6,15 +6,10 @@ export interface UnifiedUrlData {
   originalUrl: string
   createdAt: any
   isActive: boolean
-  createdBy?: string
+  expiresAt: any
+  lastClickAt?: any
   totalClicks: number
-  lastClickAt: any
-  clickEvents: Array<{
-    timestamp: any
-    userAgent: string
-    referer: string
-    ip: string
-  }>
+  createdBy?: string
 }
 
 export function subscribeToTopUrls(callback: (urls: UnifiedUrlData[]) => void, limitCount = 10) {
@@ -28,7 +23,17 @@ export function subscribeToTopUrls(callback: (urls: UnifiedUrlData[]) => void, l
   return onSnapshot(q, (snapshot) => {
     const urls: UnifiedUrlData[] = []
     snapshot.forEach((doc) => {
-      urls.push({ ...doc.data(), shortCode: doc.id } as UnifiedUrlData)
+      const data = doc.data()
+      urls.push({
+        shortCode: doc.id,
+        originalUrl: data.originalUrl,
+        createdAt: data.createdAt,
+        isActive: data.isActive,
+        expiresAt: data.expiresAt,
+        lastClickAt: data.lastClickAt,
+        totalClicks: data.totalClicks,
+        createdBy: data.createdBy,
+      } as UnifiedUrlData)
     })
     callback(urls)
   })
@@ -42,7 +47,17 @@ export async function getUrlAnalytics(shortCode: string): Promise<UnifiedUrlData
       return null
     }
 
-    return { ...urlDoc.data(), shortCode } as UnifiedUrlData
+    const data = urlDoc.data()
+    return {
+      shortCode,
+      originalUrl: data.originalUrl,
+      createdAt: data.createdAt,
+      isActive: data.isActive,
+      expiresAt: data.expiresAt,
+      lastClickAt: data.lastClickAt,
+      totalClicks: data.totalClicks,
+      createdBy: data.createdBy,
+    } as UnifiedUrlData
   } catch (error) {
     console.error("Error fetching URL analytics:", error)
     return null
@@ -52,7 +67,17 @@ export async function getUrlAnalytics(shortCode: string): Promise<UnifiedUrlData
 export function subscribeToUrlAnalytics(shortCode: string, callback: (data: UnifiedUrlData | null) => void) {
   return onSnapshot(doc(db, "urls", shortCode), (doc) => {
     if (doc.exists()) {
-      callback({ ...doc.data(), shortCode } as UnifiedUrlData)
+      const data = doc.data()
+      callback({
+        shortCode,
+        originalUrl: data.originalUrl,
+        createdAt: data.createdAt,
+        isActive: data.isActive,
+        expiresAt: data.expiresAt,
+        lastClickAt: data.lastClickAt,
+        totalClicks: data.totalClicks,
+        createdBy: data.createdBy,
+      } as UnifiedUrlData)
     } else {
       callback(null)
     }
