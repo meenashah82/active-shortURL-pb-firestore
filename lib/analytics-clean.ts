@@ -84,12 +84,13 @@ export interface IndividualClickData {
   "X-Forwarded-For"?: string
 }
 
-// Create short URL - using new unified structure
+// Create short URL - using new unified structure and create clicks subcollection
 export async function createShortUrl(shortCode: string, originalUrl: string, metadata?: any): Promise<void> {
   try {
     console.log(`Creating short URL: ${shortCode} -> ${originalUrl}`)
 
     const urlRef = doc(db, "urls", shortCode)
+    const clicksRef = collection(db, "urls", shortCode, "clicks")
 
     const expiresAt = new Date()
     expiresAt.setDate(expiresAt.getDate() + 30)
@@ -105,9 +106,22 @@ export async function createShortUrl(shortCode: string, originalUrl: string, met
       lastClickAt: null,
     }
 
+    // Create the main URL document
     await setDoc(urlRef, urlData)
 
+    // Create the clicks subcollection by adding an initial placeholder document
+    // This ensures the subcollection exists immediately when the shortcode is created
+    const placeholderClickData = {
+      _placeholder: true,
+      createdAt: serverTimestamp(),
+      shortCode: shortCode,
+      note: "This is a placeholder document to initialize the clicks subcollection",
+    }
+
+    await addDoc(clicksRef, placeholderClickData)
+
     console.log(`✅ URL created with unified structure: ${shortCode}`)
+    console.log(`✅ Clicks subcollection created for: ${shortCode}`)
   } catch (error) {
     console.error("❌ Error creating short URL:", error)
     throw error
@@ -239,10 +253,13 @@ export async function getClickHistory(shortCode: string, limitCount = 50): Promi
 
     querySnapshot.forEach((doc) => {
       const data = doc.data() as IndividualClickData
-      clickHistory.push({
-        ...data,
-        id: doc.id,
-      })
+      // Skip placeholder documents
+      if (!data._placeholder) {
+        clickHistory.push({
+          ...data,
+          id: doc.id,
+        })
+      }
     })
 
     console.log(`📊 Found ${clickHistory.length} click records for: ${shortCode}`)
@@ -272,10 +289,13 @@ export function subscribeToClickHistory(
 
       querySnapshot.forEach((doc) => {
         const data = doc.data() as IndividualClickData
-        clickHistory.push({
-          ...data,
-          id: doc.id,
-        })
+        // Skip placeholder documents
+        if (!data._placeholder) {
+          clickHistory.push({
+            ...data,
+            id: doc.id,
+          })
+        }
       })
 
       console.log(`📊 Click history update: ${shortCode} - ${clickHistory.length} records`)
