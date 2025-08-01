@@ -6,9 +6,10 @@ async function runMigration() {
   console.log("")
 
   try {
-    await migrateAnalyticsToUrls()
+    const migratedCount = await migrateAnalyticsToUrls()
     console.log("")
     console.log("✅ Migration completed successfully!")
+    console.log(`📊 Migrated ${migratedCount} analytics records`)
     console.log("")
     console.log("📋 What was migrated:")
     console.log("   • totalClicks from analytics → embedded in URL documents")
@@ -19,7 +20,7 @@ async function runMigration() {
     console.log("   urls/{shortCode} now contains embedded analytics data")
     console.log("")
     console.log("📝 Next step: You can now safely delete the 'analytics' collection")
-    console.log("   Run the cleanup script if you want to remove it automatically")
+    console.log("   Run: npm run cleanup-analytics")
     process.exit(0)
   } catch (error) {
     console.error("")

@@ -1,25 +1,21 @@
 import { cleanupAnalyticsCollection } from "../lib/analytics-unified"
 
 async function runCleanup() {
-  console.log("🧹 Starting analytics collection cleanup...")
-  console.log("⚠️  WARNING: This will permanently delete the 'analytics' collection!")
-  console.log("Make sure you have run the migration script first.")
+  console.log("🧹 Starting cleanup of analytics collection...")
+  console.log("This will permanently delete the old analytics collection.")
+  console.log("")
+  console.log("⚠️  WARNING: This action cannot be undone!")
+  console.log("   Make sure the migration was successful before proceeding.")
   console.log("")
 
-  // Simple confirmation (in a real app, you might want a more robust confirmation)
-  console.log("Proceeding with cleanup in 3 seconds...")
-  await new Promise((resolve) => setTimeout(resolve, 3000))
-
   try {
-    await cleanupAnalyticsCollection()
+    const deletedCount = await cleanupAnalyticsCollection()
     console.log("")
     console.log("✅ Cleanup completed successfully!")
+    console.log(`🗑️  Deleted ${deletedCount} analytics documents`)
     console.log("")
-    console.log("📋 What was cleaned up:")
-    console.log("   • Deleted all documents in the 'analytics' collection")
-    console.log("   • Analytics data is now only stored in URL documents")
-    console.log("")
-    console.log("🎉 Database structure is now unified!")
+    console.log("🎉 Database migration is now complete!")
+    console.log("   Your URLs collection now contains all analytics data.")
     process.exit(0)
   } catch (error) {
     console.error("")

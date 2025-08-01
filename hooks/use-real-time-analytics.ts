@@ -1,8 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { subscribeToAnalytics } from "@/lib/analytics-unified"
-import { getUrlData, type UnifiedUrlData } from "@/lib/analytics-unified"
+import { subscribeToAnalytics, subscribeToUrlAnalytics, type UnifiedUrlData } from "@/lib/analytics-unified"
 
 export function useRealTimeAnalytics(shortCode: string) {
   const [urlData, setUrlData] = useState<UnifiedUrlData | null>(null)
@@ -21,11 +20,19 @@ export function useRealTimeAnalytics(shortCode: string) {
   useEffect(() => {
     console.log(`🚀 Initializing unified real-time analytics hook for: ${shortCode}`)
 
+    if (!shortCode) {
+      setLoading(false)
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+
     // Load initial data
     async function loadInitialData() {
       try {
         console.log(`📊 Loading initial unified data for: ${shortCode}`)
-        const urlResult = await getUrlData(shortCode)
+        const urlResult = await subscribeToUrlAnalytics(shortCode)
         if (!urlResult) {
           setError("Short code not found")
           return
@@ -69,7 +76,7 @@ export function useRealTimeAnalytics(shortCode: string) {
           previousClickCount.current = newClickCount
 
           // Update URL data to keep in sync
-          getUrlData(shortCode).then((updatedUrlData) => {
+          subscribeToUrlAnalytics(shortCode).then((updatedUrlData) => {
             if (updatedUrlData) {
               setUrlData(updatedUrlData)
             }

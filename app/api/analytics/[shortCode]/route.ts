@@ -2,31 +2,31 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getUrlWithAnalytics } from "@/lib/analytics-unified"
 
 export async function GET(request: NextRequest, { params }: { params: { shortCode: string } }) {
-  const { shortCode } = params
-
   try {
-    // Get unified URL data with embedded analytics
-    const result = await getUrlWithAnalytics(shortCode)
+    const { shortCode } = params
 
-    if (!result.url) {
-      return NextResponse.json({ error: "Short code not found" }, { status: 404 })
+    if (!shortCode) {
+      return NextResponse.json({ error: "Short code is required" }, { status: 400 })
     }
 
+    const urlData = await getUrlWithAnalytics(shortCode)
+
+    if (!urlData) {
+      return NextResponse.json({ error: "URL not found" }, { status: 404 })
+    }
+
+    // Return analytics data from unified structure
     return NextResponse.json({
-      urlData: {
-        originalUrl: result.url.originalUrl,
-        shortCode: result.url.shortCode,
-        createdAt: result.url.createdAt,
-        clicks: result.url.totalClicks || 0,
-      },
-      analyticsData: {
-        clicks: result.url.totalClicks || 0,
-        clickHistory: result.url.clickEvents || [],
-        createdAt: result.url.createdAt,
-      },
+      shortCode: urlData.shortCode,
+      originalUrl: urlData.originalUrl,
+      totalClicks: urlData.totalClicks,
+      lastClickAt: urlData.lastClickAt,
+      clickEvents: urlData.clickEvents,
+      createdAt: urlData.createdAt,
+      isActive: urlData.isActive,
     })
   } catch (error) {
-    console.error("Error loading unified analytics:", error)
+    console.error("Error fetching analytics:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
