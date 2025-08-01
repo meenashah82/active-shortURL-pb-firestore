@@ -1,33 +1,40 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getUnifiedUrlData, trackClick } from "@/lib/analytics-unified"
+import { db } from "@/lib/firebase"
+import { collection, query, where, getDocs, doc, updateDoc, arrayUnion, serverTimestamp } from "firebase/firestore"
 
 export async function GET(request: NextRequest, { params }: { params: { shortCode: string } }) {
   try {
     const { shortCode } = params
 
-    if (!shortCode) {
-      return NextResponse.json({ error: "Short code is required" }, { status: 400 })
+    // Find URL by shortCode
+    const urlsRef = collection(db, "urls")
+    const q = query(urlsRef, where("shortCode", "==", shortCode), where("isActive", "==", true))
+    const querySnapshot = await getDocs(q)
+
+    if (querySnapshot.empty) {
+      return NextResponse.redirect(new URL("/not-found", request.url))
     }
 
-    const urlData = await getUnifiedUrlData(shortCode)
+    const urlDoc = querySnapshot.docs[0]
+    const urlData = urlDoc.data()
 
-    if (!urlData || !urlData.isActive) {
-      return NextResponse.json({ error: "URL not found or inactive" }, { status: 404 })
+    // Update analytics in the same document
+    const clickEvent = {
+      timestamp: serverTimestamp(),
+      userAgent: request.headers.get("user-agent") || "",
+      ip: request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "",
+      referer: request.headers.get("referer") || "",
     }
 
-    // Track the click with unified analytics
-    const clickData = {
-      userAgent: request.headers.get("user-agent") || undefined,
-      referer: request.headers.get("referer") || undefined,
-      ip: request.ip || request.headers.get("x-forwarded-for") || undefined,
-    }
+    await updateDoc(doc(db, "urls", urlDoc.id), {
+      totalClicks: (urlData.totalClicks || 0) + 1,
+      lastClickAt: serverTimestamp(),
+      clickEvents: arrayUnion(clickEvent),
+    })
 
-    await trackClick(shortCode, clickData)
-
-    // Redirect to the original URL
-    return NextResponse.redirect(urlData.originalUrl, { status: 302 })
+    return NextResponse.redirect(urlData.originalUrl)
   } catch (error) {
-    console.error("Error processing redirect:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("Error redirecting:", error)
+    return NextResponse.redirect(new URL("/not-found", request.url))
   }
 }

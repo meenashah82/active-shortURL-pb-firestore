@@ -1,26 +1,43 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { subscribeToTopUrls, type UnifiedUrlData } from "@/lib/analytics-unified"
+import { subscribeToUserUrls, subscribeToTopUrls, type UnifiedUrlData } from "@/lib/analytics-unified"
+import { useAuth } from "./use-auth"
 
 export function useRealTimeAnalytics() {
+  const [userUrls, setUserUrls] = useState<UnifiedUrlData[]>([])
   const [topUrls, setTopUrls] = useState<UnifiedUrlData[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { user, isAuthenticated } = useAuth()
 
   useEffect(() => {
-    setLoading(true)
-    setError(null)
+    if (!isAuthenticated || !user) {
+      setLoading(false)
+      return
+    }
 
-    const unsubscribe = subscribeToTopUrls((urls) => {
-      setTopUrls(urls)
+    setLoading(true)
+
+    // Subscribe to user's URLs
+    const unsubscribeUser = subscribeToUserUrls(user.customerId, (urls) => {
+      setUserUrls(urls)
       setLoading(false)
     })
 
-    return () => {
-      unsubscribe()
-    }
-  }, [])
+    // Subscribe to top URLs
+    const unsubscribeTop = subscribeToTopUrls((urls) => {
+      setTopUrls(urls)
+    })
 
-  return { topUrls, loading, error }
+    return () => {
+      unsubscribeUser()
+      unsubscribeTop()
+    }
+  }, [isAuthenticated, user])
+
+  return {
+    userUrls,
+    topUrls,
+    loading,
+  }
 }

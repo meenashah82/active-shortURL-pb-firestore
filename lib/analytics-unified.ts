@@ -1,159 +1,144 @@
-import {
-  collection,
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  increment,
-  arrayUnion,
-  query,
-  where,
-  orderBy,
-  limit,
-  onSnapshot,
-  getDocs,
-  Timestamp,
-} from "firebase/firestore"
-import { db } from "./firebase"
-
-export interface ClickEvent {
-  timestamp: Timestamp
-  userAgent?: string
-  referer?: string
-  ip?: string
-}
+import { db } from "@/lib/firebase"
+import { collection, query, where, orderBy, limit, onSnapshot, getDocs, type Timestamp } from "firebase/firestore"
 
 export interface UnifiedUrlData {
+  id: string
   shortCode: string
   originalUrl: string
   createdAt: Timestamp
   isActive: boolean
+  customerId: string
+  userId: string
   totalClicks: number
   lastClickAt: Timestamp | null
   clickEvents: ClickEvent[]
-  customerId?: string
-  userId?: string
 }
 
-export async function getUnifiedUrlData(shortCode: string): Promise<UnifiedUrlData | null> {
-  try {
-    const urlDoc = await getDoc(doc(db, "urls", shortCode))
+export interface ClickEvent {
+  timestamp: Timestamp
+  userAgent: string
+  ip: string
+  referer: string
+}
 
-    if (!urlDoc.exists()) {
+export interface AnalyticsData {
+  shortCode: string
+  originalUrl: string
+  totalClicks: number
+  lastClickAt: Timestamp | null
+  clickEvents: ClickEvent[]
+  createdAt: Timestamp
+}
+
+export async function getUrlAnalytics(shortCode: string, customerId: string): Promise<AnalyticsData | null> {
+  try {
+    const urlsRef = collection(db, "urls")
+    const q = query(urlsRef, where("shortCode", "==", shortCode), where("customerId", "==", customerId))
+    const querySnapshot = await getDocs(q)
+
+    if (querySnapshot.empty) {
       return null
     }
 
-    const data = urlDoc.data()
+    const urlDoc = querySnapshot.docs[0]
+    const data = urlDoc.data() as UnifiedUrlData
+
     return {
-      shortCode,
+      shortCode: data.shortCode,
       originalUrl: data.originalUrl,
+      totalClicks: data.totalClicks || 0,
+      lastClickAt: data.lastClickAt,
+      clickEvents: data.clickEvents || [],
       createdAt: data.createdAt,
-      isActive: data.isActive ?? true,
-      totalClicks: data.totalClicks ?? 0,
-      lastClickAt: data.lastClickAt ?? null,
-      clickEvents: data.clickEvents ?? [],
-      customerId: data.customerId,
-      userId: data.userId,
     }
   } catch (error) {
-    console.error("Error getting unified URL data:", error)
+    console.error("Error fetching analytics:", error)
     return null
   }
 }
 
-export async function trackClick(shortCode: string, clickData: Partial<ClickEvent> = {}): Promise<void> {
+export async function getUserUrls(customerId: string, limitCount = 10): Promise<UnifiedUrlData[]> {
   try {
-    const urlRef = doc(db, "urls", shortCode)
-    const clickEvent: ClickEvent = {
-      timestamp: Timestamp.now(),
-      ...clickData,
-    }
+    const urlsRef = collection(db, "urls")
+    const q = query(
+      urlsRef,
+      where("customerId", "==", customerId),
+      where("isActive", "==", true),
+      orderBy("createdAt", "desc"),
+      limit(limitCount),
+    )
 
-    await updateDoc(urlRef, {
-      totalClicks: increment(1),
-      lastClickAt: clickEvent.timestamp,
-      clickEvents: arrayUnion(clickEvent),
-    })
+    const querySnapshot = await getDocs(q)
+    return querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as UnifiedUrlData[]
   } catch (error) {
-    console.error("Error tracking click:", error)
-    throw error
+    console.error("Error fetching user URLs:", error)
+    return []
   }
 }
 
-export async function createUnifiedUrl(data: {
-  shortCode: string
-  originalUrl: string
-  customerId?: string
-  userId?: string
-}): Promise<void> {
-  try {
-    const urlData: UnifiedUrlData = {
-      shortCode: data.shortCode,
-      originalUrl: data.originalUrl,
-      createdAt: Timestamp.now(),
-      isActive: true,
-      totalClicks: 0,
-      lastClickAt: null,
-      clickEvents: [],
-      customerId: data.customerId,
-      userId: data.userId,
-    }
+export function subscribeToUserUrls(
+  customerId: string,
+  callback: (urls: UnifiedUrlData[]) => void,
+  limitCount = 10,
+): () => void {
+  const urlsRef = collection(db, "urls")
+  const q = query(
+    urlsRef,
+    where("customerId", "==", customerId),
+    where("isActive", "==", true),
+    orderBy("createdAt", "desc"),
+    limit(limitCount),
+  )
 
-    await setDoc(doc(db, "urls", data.shortCode), urlData)
-  } catch (error) {
-    console.error("Error creating unified URL:", error)
-    throw error
-  }
-}
-
-export function subscribeToTopUrls(callback: (urls: UnifiedUrlData[]) => void): () => void {
-  const q = query(collection(db, "urls"), where("totalClicks", ">", 0), orderBy("totalClicks", "desc"), limit(10))
-
-  return onSnapshot(q, (snapshot) => {
-    const urls: UnifiedUrlData[] = []
-    snapshot.forEach((doc) => {
-      const data = doc.data()
-      urls.push({
-        shortCode: doc.id,
-        originalUrl: data.originalUrl,
-        createdAt: data.createdAt,
-        isActive: data.isActive ?? true,
-        totalClicks: data.totalClicks ?? 0,
-        lastClickAt: data.lastClickAt ?? null,
-        clickEvents: data.clickEvents ?? [],
-        customerId: data.customerId,
-        userId: data.userId,
-      })
-    })
+  return onSnapshot(q, (querySnapshot) => {
+    const urls = querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as UnifiedUrlData[]
     callback(urls)
   })
 }
 
-export async function getAllUrls(): Promise<UnifiedUrlData[]> {
+export function subscribeToTopUrls(callback: (urls: UnifiedUrlData[]) => void, limitCount = 10): () => void {
+  const urlsRef = collection(db, "urls")
+  const q = query(
+    urlsRef,
+    where("isActive", "==", true),
+    where("totalClicks", ">", 0),
+    orderBy("totalClicks", "desc"),
+    limit(limitCount),
+  )
+
+  return onSnapshot(q, (querySnapshot) => {
+    const urls = querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as UnifiedUrlData[]
+    callback(urls)
+  })
+}
+
+export async function getTopUrls(limitCount = 10): Promise<UnifiedUrlData[]> {
   try {
-    const q = query(collection(db, "urls"), orderBy("createdAt", "desc"))
+    const urlsRef = collection(db, "urls")
+    const q = query(
+      urlsRef,
+      where("isActive", "==", true),
+      where("totalClicks", ">", 0),
+      orderBy("totalClicks", "desc"),
+      limit(limitCount),
+    )
 
-    const snapshot = await getDocs(q)
-    const urls: UnifiedUrlData[] = []
-
-    snapshot.forEach((doc) => {
-      const data = doc.data()
-      urls.push({
-        shortCode: doc.id,
-        originalUrl: data.originalUrl,
-        createdAt: data.createdAt,
-        isActive: data.isActive ?? true,
-        totalClicks: data.totalClicks ?? 0,
-        lastClickAt: data.lastClickAt ?? null,
-        clickEvents: data.clickEvents ?? [],
-        customerId: data.customerId,
-        userId: data.userId,
-      })
-    })
-
-    return urls
+    const querySnapshot = await getDocs(q)
+    return querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as UnifiedUrlData[]
   } catch (error) {
-    console.error("Error getting all URLs:", error)
+    console.error("Error fetching top URLs:", error)
     return []
   }
 }

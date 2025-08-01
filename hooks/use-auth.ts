@@ -144,29 +144,30 @@ export function useAuth() {
       setAuthState((prev) => ({ ...prev, loading: false }))
     }
 
-    // Listen for Wodify token from parent window
+    // Listen for token from parent iframe
     const handleMessage = async (event: MessageEvent) => {
-      console.log("📨 Received message:", event.data)
+      // Verify origin for security
+      if (event.origin !== "https://dev.wodify.com") {
+        return
+      }
 
-      if (event.data?.type === "WODIFY_TOKEN" && event.data?.token) {
-        console.log("🔐 Received Wodify token from parent")
+      if (event.data && event.data.type === "TOKEN") {
+        console.log("Received token from parent:", event.data.token)
+
+        // Authenticate with the received token
         const success = await login(event.data.token)
         if (success) {
-          console.log("✅ Authentication completed successfully")
+          console.log("Successfully authenticated with Wodify token")
         } else {
-          console.log("❌ Authentication failed")
+          console.error("Failed to authenticate with Wodify token")
         }
       }
     }
 
+    // Add message listener
     window.addEventListener("message", handleMessage)
 
-    // Send ready message to parent
-    if (window.parent !== window) {
-      console.log("📤 Sending APP_LOADED message to parent")
-      window.parent.postMessage({ type: "APP_LOADED" }, "*")
-    }
-
+    // Cleanup
     return () => {
       window.removeEventListener("message", handleMessage)
     }

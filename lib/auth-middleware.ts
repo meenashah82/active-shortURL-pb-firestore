@@ -1,48 +1,43 @@
 import type { NextRequest } from "next/server"
-import { verifyJWT } from "./auth"
+import { verifyJWT } from "@/lib/auth"
 
 export interface AuthenticatedRequest extends NextRequest {
-  user?: {
+  user: {
     customerId: string
     userId: string
   }
 }
 
-export function withAuth(handler: (req: AuthenticatedRequest) => Promise<Response>) {
-  return async (request: NextRequest) => {
+export function requireAuth(request: NextRequest): { customerId: string; userId: string } {
+  const authHeader = request.headers.get("authorization")
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    throw new Error("Authentication required")
+  }
+
+  const token = authHeader.substring(7)
+  const payload = verifyJWT(token)
+
+  if (!payload) {
+    throw new Error("Authentication required")
+  }
+
+  return {
+    customerId: payload.CustomerId,
+    userId: payload.UserId,
+  }
+}
+
+export function withAuth<T extends any[]>(handler: (req: AuthenticatedRequest, ...args: T) => Promise<Response>) {
+  return async (req: NextRequest, ...args: T): Promise<Response> => {
     try {
-      const authHeader = request.headers.get("authorization")
-
-      if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        console.error("❌ No valid authorization header")
-        return new Response(JSON.stringify({ error: "Authentication required" }), {
-          status: 401,
-          headers: { "Content-Type": "application/json" },
-        })
-      }
-
-      const token = authHeader.substring(7)
-      const user = verifyJWT(token)
-
-      if (!user) {
-        console.error("❌ Invalid JWT token")
-        return new Response(JSON.stringify({ error: "Invalid token" }), {
-          status: 401,
-          headers: { "Content-Type": "application/json" },
-        })
-      }
-
-      console.log("✅ User authenticated:", user)
-
-      // Add user to request
-      const authenticatedRequest = request as AuthenticatedRequest
-      authenticatedRequest.user = user
-
-      return handler(authenticatedRequest)
+      const user = requireAuth(req)
+      const authenticatedReq = req as AuthenticatedRequest
+      authenticatedReq.user = user
+      return await handler(authenticatedReq, ...args)
     } catch (error) {
-      console.error("❌ Auth middleware error:", error)
-      return new Response(JSON.stringify({ error: "Authentication error" }), {
-        status: 500,
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
         headers: { "Content-Type": "application/json" },
       })
     }
