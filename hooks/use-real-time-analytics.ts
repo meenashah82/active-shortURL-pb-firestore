@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { subscribeToTopUrls, type UnifiedUrlData } from "@/lib/analytics-unified"
 
-export function useRealTimeAnalytics(limit = 10) {
+export function useRealTimeAnalytics() {
   const [topUrls, setTopUrls] = useState<UnifiedUrlData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -15,12 +15,12 @@ export function useRealTimeAnalytics(limit = 10) {
     const unsubscribe = subscribeToTopUrls((urls) => {
       setTopUrls(urls)
       setLoading(false)
-    }, limit)
+    })
 
     return () => {
       unsubscribe()
     }
-  }, [limit])
+  }, [])
 
   return { topUrls, loading, error }
 }

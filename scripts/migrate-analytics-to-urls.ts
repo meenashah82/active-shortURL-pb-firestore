@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app"
-import { getFirestore, collection, getDocs, doc, updateDoc } from "firebase/firestore"
+import { getFirestore, collection, getDocs, doc, writeBatch } from "firebase/firestore"
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -14,44 +14,60 @@ const app = initializeApp(firebaseConfig)
 const db = getFirestore(app)
 
 async function migrateAnalyticsToUrls() {
-  try {
-    console.log("Starting migration of analytics data to URLs collection...")
+  console.log("Starting analytics migration...")
 
+  try {
     // Get all analytics documents
     const analyticsSnapshot = await getDocs(collection(db, "analytics"))
     console.log(`Found ${analyticsSnapshot.size} analytics documents`)
 
-    let migratedCount = 0
-    let errorCount = 0
+    const batch = writeBatch(db)
+    let batchCount = 0
 
     for (const analyticsDoc of analyticsSnapshot.docs) {
-      try {
-        const shortCode = analyticsDoc.id
-        const analyticsData = analyticsDoc.data()
+      const shortCode = analyticsDoc.id
+      const analyticsData = analyticsDoc.data()
 
-        // Update the corresponding URL document
-        const urlRef = doc(db, "urls", shortCode)
+      console.log(`Migrating analytics for ${shortCode}`)
 
-        await updateDoc(urlRef, {
-          totalClicks: analyticsData.totalClicks || 0,
-          lastClickAt: analyticsData.lastClickAt || null,
-          clickEvents: analyticsData.clickEvents || [],
-        })
+      // Update the corresponding URL document
+      const urlRef = doc(db, "urls", shortCode)
+      batch.update(urlRef, {
+        totalClicks: analyticsData.totalClicks || 0,
+        lastClickAt: analyticsData.lastClickAt || null,
+        clickEvents: analyticsData.clickEvents || [],
+      })
 
-        migratedCount++
-        console.log(`✓ Migrated analytics for ${shortCode}`)
-      } catch (error) {
-        errorCount++
-        console.error(`✗ Error migrating ${analyticsDoc.id}:`, error)
+      batchCount++
+
+      // Commit batch every 500 operations (Firestore limit)
+      if (batchCount >= 500) {
+        await batch.commit()
+        console.log(`Committed batch of ${batchCount} updates`)
+        batchCount = 0
       }
     }
 
-    console.log(`\nMigration completed:`)
-    console.log(`- Successfully migrated: ${migratedCount}`)
-    console.log(`- Errors: ${errorCount}`)
+    // Commit remaining operations
+    if (batchCount > 0) {
+      await batch.commit()
+      console.log(`Committed final batch of ${batchCount} updates`)
+    }
+
+    console.log("Analytics migration completed successfully!")
   } catch (error) {
-    console.error("Migration failed:", error)
+    console.error("Error during migration:", error)
+    throw error
   }
 }
 
+// Run the migration
 migrateAnalyticsToUrls()
+  .then(() => {
+    console.log("Migration script completed")
+    process.exit(0)
+  })
+  .catch((error) => {
+    console.error("Migration script failed:", error)
+    process.exit(1)
+  })

@@ -1,8 +1,8 @@
-import { db } from "./firebase"
 import {
   collection,
   doc,
   getDoc,
+  setDoc,
   updateDoc,
   increment,
   arrayUnion,
@@ -12,10 +12,12 @@ import {
   limit,
   onSnapshot,
   getDocs,
+  Timestamp,
 } from "firebase/firestore"
+import { db } from "./firebase"
 
 export interface ClickEvent {
-  timestamp: Date
+  timestamp: Timestamp
   userAgent?: string
   referer?: string
   ip?: string
@@ -24,14 +26,16 @@ export interface ClickEvent {
 export interface UnifiedUrlData {
   shortCode: string
   originalUrl: string
-  createdAt: Date
+  createdAt: Timestamp
   isActive: boolean
   totalClicks: number
-  lastClickAt: Date | null
+  lastClickAt: Timestamp | null
   clickEvents: ClickEvent[]
+  customerId?: string
+  userId?: string
 }
 
-export async function getUnifiedAnalytics(shortCode: string): Promise<UnifiedUrlData | null> {
+export async function getUnifiedUrlData(shortCode: string): Promise<UnifiedUrlData | null> {
   try {
     const urlDoc = await getDoc(doc(db, "urls", shortCode))
 
@@ -41,34 +45,33 @@ export async function getUnifiedAnalytics(shortCode: string): Promise<UnifiedUrl
 
     const data = urlDoc.data()
     return {
-      shortCode: data.shortCode,
+      shortCode,
       originalUrl: data.originalUrl,
-      createdAt: data.createdAt?.toDate() || new Date(),
+      createdAt: data.createdAt,
       isActive: data.isActive ?? true,
-      totalClicks: data.totalClicks || 0,
-      lastClickAt: data.lastClickAt?.toDate() || null,
-      clickEvents: (data.clickEvents || []).map((event: any) => ({
-        ...event,
-        timestamp: event.timestamp?.toDate() || new Date(),
-      })),
+      totalClicks: data.totalClicks ?? 0,
+      lastClickAt: data.lastClickAt ?? null,
+      clickEvents: data.clickEvents ?? [],
+      customerId: data.customerId,
+      userId: data.userId,
     }
   } catch (error) {
-    console.error("Error getting unified analytics:", error)
+    console.error("Error getting unified URL data:", error)
     return null
   }
 }
 
-export async function trackClickUnified(shortCode: string, clickData: Omit<ClickEvent, "timestamp">): Promise<void> {
+export async function trackClick(shortCode: string, clickData: Partial<ClickEvent> = {}): Promise<void> {
   try {
     const urlRef = doc(db, "urls", shortCode)
     const clickEvent: ClickEvent = {
+      timestamp: Timestamp.now(),
       ...clickData,
-      timestamp: new Date(),
     }
 
     await updateDoc(urlRef, {
       totalClicks: increment(1),
-      lastClickAt: new Date(),
+      lastClickAt: clickEvent.timestamp,
       clickEvents: arrayUnion(clickEvent),
     })
   } catch (error) {
@@ -77,29 +80,49 @@ export async function trackClickUnified(shortCode: string, clickData: Omit<Click
   }
 }
 
-export function subscribeToTopUrls(callback: (urls: UnifiedUrlData[]) => void, limitCount = 10): () => void {
-  const q = query(
-    collection(db, "urls"),
-    where("totalClicks", ">", 0),
-    orderBy("totalClicks", "desc"),
-    limit(limitCount),
-  )
+export async function createUnifiedUrl(data: {
+  shortCode: string
+  originalUrl: string
+  customerId?: string
+  userId?: string
+}): Promise<void> {
+  try {
+    const urlData: UnifiedUrlData = {
+      shortCode: data.shortCode,
+      originalUrl: data.originalUrl,
+      createdAt: Timestamp.now(),
+      isActive: true,
+      totalClicks: 0,
+      lastClickAt: null,
+      clickEvents: [],
+      customerId: data.customerId,
+      userId: data.userId,
+    }
+
+    await setDoc(doc(db, "urls", data.shortCode), urlData)
+  } catch (error) {
+    console.error("Error creating unified URL:", error)
+    throw error
+  }
+}
+
+export function subscribeToTopUrls(callback: (urls: UnifiedUrlData[]) => void): () => void {
+  const q = query(collection(db, "urls"), where("totalClicks", ">", 0), orderBy("totalClicks", "desc"), limit(10))
 
   return onSnapshot(q, (snapshot) => {
     const urls: UnifiedUrlData[] = []
     snapshot.forEach((doc) => {
       const data = doc.data()
       urls.push({
-        shortCode: data.shortCode,
+        shortCode: doc.id,
         originalUrl: data.originalUrl,
-        createdAt: data.createdAt?.toDate() || new Date(),
+        createdAt: data.createdAt,
         isActive: data.isActive ?? true,
-        totalClicks: data.totalClicks || 0,
-        lastClickAt: data.lastClickAt?.toDate() || null,
-        clickEvents: (data.clickEvents || []).map((event: any) => ({
-          ...event,
-          timestamp: event.timestamp?.toDate() || new Date(),
-        })),
+        totalClicks: data.totalClicks ?? 0,
+        lastClickAt: data.lastClickAt ?? null,
+        clickEvents: data.clickEvents ?? [],
+        customerId: data.customerId,
+        userId: data.userId,
       })
     })
     callback(urls)
@@ -109,22 +132,22 @@ export function subscribeToTopUrls(callback: (urls: UnifiedUrlData[]) => void, l
 export async function getAllUrls(): Promise<UnifiedUrlData[]> {
   try {
     const q = query(collection(db, "urls"), orderBy("createdAt", "desc"))
-    const snapshot = await getDocs(q)
 
+    const snapshot = await getDocs(q)
     const urls: UnifiedUrlData[] = []
+
     snapshot.forEach((doc) => {
       const data = doc.data()
       urls.push({
-        shortCode: data.shortCode,
+        shortCode: doc.id,
         originalUrl: data.originalUrl,
-        createdAt: data.createdAt?.toDate() || new Date(),
+        createdAt: data.createdAt,
         isActive: data.isActive ?? true,
-        totalClicks: data.totalClicks || 0,
-        lastClickAt: data.lastClickAt?.toDate() || null,
-        clickEvents: (data.clickEvents || []).map((event: any) => ({
-          ...event,
-          timestamp: event.timestamp?.toDate() || new Date(),
-        })),
+        totalClicks: data.totalClicks ?? 0,
+        lastClickAt: data.lastClickAt ?? null,
+        clickEvents: data.clickEvents ?? [],
+        customerId: data.customerId,
+        userId: data.userId,
       })
     })
 

@@ -1,200 +1,148 @@
 "use client"
 
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
 import { UrlShortenerForm } from "@/components/url-shortener-form"
 import { LinkHistory } from "@/components/link-history"
-import { LinkIcon, Zap, BarChart3, Shield, User, Building2, Loader2, AlertCircle, CheckCircle2 } from "lucide-react"
+import { BarChart3, Shield, User, LogOut } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/hooks/use-auth"
 
 export default function HomePage() {
-  const { user, loading, error, isAuthenticated } = useAuth()
-  const [refreshKey, setRefreshKey] = useState(0)
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
+  const { user, isLoading, isAuthenticated, login, logout } = useAuth()
 
   const handleUrlCreated = () => {
-    setRefreshKey((prev) => prev + 1)
+    // Trigger history refresh
+    setRefreshTrigger((prev) => prev + 1)
   }
 
-  if (loading) {
+  useEffect(() => {
+    // Tell dev.wodify.com that the app is loaded
+    const notifyParentLoaded = () => {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: "APP_LOADED" }, "https://dev.wodify.com")
+        console.log("Sent APP_LOADED message to parent")
+      }
+    }
+
+    // Listen for token from parent iframe
+    const handleMessage = async (event: MessageEvent) => {
+      // Verify origin for security
+      if (event.origin !== "https://dev.wodify.com") {
+        return
+      }
+
+      if (event.data && event.data.type === "TOKEN") {
+        console.log("Received token from parent:", event.data.token)
+
+        // Authenticate with the received token
+        const success = await login(event.data.token)
+        if (success) {
+          console.log("Successfully authenticated with Wodify token")
+        } else {
+          console.error("Failed to authenticate with Wodify token")
+        }
+      }
+    }
+
+    // Notify parent that app is loaded
+    notifyParentLoaded()
+
+    // Add message listener
+    window.addEventListener("message", handleMessage)
+
+    // Cleanup
+    return () => {
+      window.removeEventListener("message", handleMessage)
+    }
+  }, [login])
+
+  if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#FFFFFF" }}>
-        <div className="flex items-center gap-2">
-          <Loader2 className="h-6 w-6 animate-spin" style={{ color: "#833ADF" }} />
-          <span className="font-medium" style={{ color: "#4D475B" }}>
-            Loading authentication...
-          </span>
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#7C3AED] mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto p-8">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Authentication Required</h1>
+          <p className="text-gray-600 mb-6">
+            This app requires authentication from Wodify. Please ensure you're accessing this app through the Wodify
+            platform.
+          </p>
+          <div className="animate-pulse">
+            <div className="h-4 bg-gray-200 rounded w-3/4 mx-auto mb-2"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/2 mx-auto"></div>
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#FFFFFF" }}>
-      <div className="container mx-auto px-4 py-8">
+    <div className="min-h-screen bg-white">
+      {/* Purple header bar like wodify.com */}
+      <div className="bg-[#7C3AED] text-white py-3 px-4">
+        <div className="container mx-auto flex justify-between items-center">
+          <div className="text-center flex-1 text-sm font-medium">
+            URL SHORTENER | Transform your long URLs into short, memorable links | GET STARTED
+          </div>
+          <div className="flex items-center gap-4 text-sm">
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4" />
+              <span>Customer: {user?.customerId}</span>
+              <span>User: {user?.userId}</span>
+            </div>
+            <button onClick={logout} className="flex items-center gap-1 hover:bg-[#6D28D9] px-2 py-1 rounded">
+              <LogOut className="h-4 w-4" />
+              Logout
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="container mx-auto px-4 py-12">
         <div className="max-w-4xl mx-auto">
-          {/* Auth Status Header */}
-          <Card className="mb-8 shadow-sm" style={{ backgroundColor: "#FFFFFF", borderColor: "#D9D8FD" }}>
-            <CardContent className="py-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Shield className="h-5 w-5" style={{ color: isAuthenticated ? "#833ADF" : "#94909C" }} />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium" style={{ color: "#4D475B" }}>
-                        Authentication Status:
-                      </span>
-                      <Badge
-                        variant={isAuthenticated ? "default" : "secondary"}
-                        className={isAuthenticated ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}
-                      >
-                        {isAuthenticated ? (
-                          <div className="flex items-center gap-1">
-                            <CheckCircle2 className="h-3 w-3" />
-                            Authenticated
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1">
-                            <AlertCircle className="h-3 w-3" />
-                            Waiting for Wodify Token
-                          </div>
-                        )}
-                      </Badge>
-                    </div>
-                    {isAuthenticated && user && (
-                      <div className="flex items-center gap-4 mt-2 text-sm" style={{ color: "#94909C" }}>
-                        <div className="flex items-center gap-1">
-                          <Building2 className="h-4 w-4" />
-                          <span>Customer ID: {user.customerId}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <User className="h-4 w-4" />
-                          <span>User ID: {user.userId}</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {error && (
-            <Alert variant="destructive" className="mb-8 border-red-200 bg-red-50">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription className="text-red-800">Authentication Error: {error}</AlertDescription>
-            </Alert>
-          )}
-
-          {!isAuthenticated && (
-            <Alert className="mb-8 border-yellow-200 bg-yellow-50">
-              <AlertCircle className="h-4 w-4 text-yellow-600" />
-              <AlertDescription className="text-yellow-800">
-                Waiting for Wodify authentication token. This app requires authentication to function.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {/* Main Header */}
+          {/* Header */}
           <div className="text-center mb-12">
-            <h1 className="text-4xl font-bold mb-4" style={{ color: "#4D475B" }}>
-              URL Shortener
-            </h1>
-            <p className="text-xl mb-6" style={{ color: "#94909C" }}>
-              Transform long URLs into short, shareable links with real-time analytics
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">Make Short URL</h1>
+            <p className="text-lg text-gray-600 mb-8">
+              Transform your long URLs into short, memorable links that are easy to share
             </p>
-
-            <div className="flex justify-center gap-6 mb-8">
-              <div className="flex items-center gap-2">
-                <LinkIcon className="h-5 w-5" style={{ color: "#833ADF" }} />
-                <span className="text-sm font-medium" style={{ color: "#4D475B" }}>
-                  Short Links
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Zap className="h-5 w-5" style={{ color: "#833ADF" }} />
-                <span className="text-sm font-medium" style={{ color: "#4D475B" }}>
-                  Real-time Updates
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" style={{ color: "#833ADF" }} />
-                <span className="text-sm font-medium" style={{ color: "#4D475B" }}>
-                  Analytics
-                </span>
-              </div>
+            <div className="flex justify-center gap-4">
+              <Link href="/dashboard">
+                <Button
+                  variant="outline"
+                  className="border-gray-300 text-gray-700 hover:bg-gray-50 bg-white font-medium"
+                >
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  View Dashboard
+                </Button>
+              </Link>
+              <Link href="/admin">
+                <Button className="bg-[#EC4899] hover:bg-[#DB2777] text-white font-medium">
+                  <Shield className="h-4 w-4 mr-2" />
+                  Admin Panel
+                </Button>
+              </Link>
             </div>
           </div>
 
           {/* URL Shortener Form */}
-          <Card className="mb-8 shadow-lg" style={{ backgroundColor: "#FFFFFF", borderColor: "#D9D8FD" }}>
-            <CardHeader>
-              <CardTitle style={{ color: "#4D475B" }}>Create Short URL</CardTitle>
-              <CardDescription style={{ color: "#94909C" }}>
-                Enter a long URL to create a short, shareable link
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <UrlShortenerForm onUrlCreated={handleUrlCreated} disabled={!isAuthenticated} />
-            </CardContent>
-          </Card>
-
-          {/* Navigation */}
-          <div className="flex justify-center gap-4 mb-8">
-            <Link href="/dashboard">
-              <Button
-                variant="outline"
-                className="flex items-center gap-2 bg-transparent"
-                style={{
-                  backgroundColor: "#FFFFFF",
-                  borderColor: "#D9D8FD",
-                  color: "#833ADF",
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(131, 58, 223, 0.1)")}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#FFFFFF")}
-                disabled={!isAuthenticated}
-              >
-                <BarChart3 className="h-4 w-4" />
-                Dashboard
-              </Button>
-            </Link>
-            <Link href="/admin">
-              <Button
-                variant="outline"
-                className="flex items-center gap-2 bg-transparent"
-                style={{
-                  backgroundColor: "#FFFFFF",
-                  borderColor: "#D9D8FD",
-                  color: "#833ADF",
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(131, 58, 223, 0.1)")}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#FFFFFF")}
-                disabled={!isAuthenticated}
-              >
-                <Shield className="h-4 w-4" />
-                Admin
-              </Button>
-            </Link>
+          <div className="mb-12">
+            <UrlShortenerForm onUrlCreated={handleUrlCreated} />
           </div>
 
-          <Separator className="mb-8" style={{ backgroundColor: "#D9D8FD" }} />
-
           {/* Link History */}
-          <Card className="shadow-sm" style={{ backgroundColor: "#FFFFFF", borderColor: "#D9D8FD" }}>
-            <CardHeader>
-              <CardTitle style={{ color: "#4D475B" }}>Recent URLs</CardTitle>
-              <CardDescription style={{ color: "#94909C" }}>
-                Your recently created short URLs with click analytics
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <LinkHistory key={refreshKey} disabled={!isAuthenticated} />
-            </CardContent>
-          </Card>
+          <LinkHistory refreshTrigger={refreshTrigger} />
         </div>
       </div>
     </div>
