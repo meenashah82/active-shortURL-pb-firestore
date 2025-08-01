@@ -1,51 +1,34 @@
-import { db } from "@/lib/firebase"
-import { collection, getDocs, doc, writeBatch } from "firebase/firestore"
+import { initializeApp } from "firebase/app"
+import { getFirestore, collection, getDocs, deleteDoc } from "firebase/firestore"
+
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+}
+
+const app = initializeApp(firebaseConfig)
+const db = getFirestore(app)
 
 async function cleanupAnalyticsCollection() {
-  console.log("🧹 Starting analytics collection cleanup...")
-
   try {
+    console.log("Starting analytics collection cleanup...")
+
     const analyticsSnapshot = await getDocs(collection(db, "analytics"))
+    console.log(`Found ${analyticsSnapshot.size} analytics documents to delete`)
 
-    if (analyticsSnapshot.empty) {
-      console.log("ℹ️ Analytics collection is already empty")
-      return
+    for (const doc of analyticsSnapshot.docs) {
+      await deleteDoc(doc.ref)
+      console.log(`Deleted analytics document: ${doc.id}`)
     }
 
-    console.log(`📊 Found ${analyticsSnapshot.size} documents to delete`)
-
-    // Delete in batches of 500 (Firestore limit)
-    const batchSize = 500
-    const docs = analyticsSnapshot.docs
-    let deletedCount = 0
-
-    for (let i = 0; i < docs.length; i += batchSize) {
-      const batch = writeBatch(db)
-      const batchDocs = docs.slice(i, i + batchSize)
-
-      batchDocs.forEach((docSnapshot) => {
-        batch.delete(doc(db, "analytics", docSnapshot.id))
-      })
-
-      await batch.commit()
-      deletedCount += batchDocs.length
-      console.log(`🗑️ Deleted ${deletedCount}/${docs.length} documents`)
-    }
-
-    console.log("✅ Analytics collection cleanup completed successfully!")
+    console.log("Analytics collection cleanup completed!")
   } catch (error) {
-    console.error("❌ Cleanup failed:", error)
-    throw error
+    console.error("Cleanup failed:", error)
   }
 }
 
-// Run cleanup
 cleanupAnalyticsCollection()
-  .then(() => {
-    console.log("Cleanup script completed")
-    process.exit(0)
-  })
-  .catch((error) => {
-    console.error("Cleanup script failed:", error)
-    process.exit(1)
-  })

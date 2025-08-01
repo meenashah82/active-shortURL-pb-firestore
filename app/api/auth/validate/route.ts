@@ -1,42 +1,63 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { validateWodifyToken, createJWT } from "@/lib/auth"
+import jwt from "jsonwebtoken"
 
 export async function POST(request: NextRequest) {
   try {
     const { token } = await request.json()
 
+    console.log("📋 Validating token:", token ? "Token received" : "No token")
+
     if (!token) {
       return NextResponse.json({ error: "Token is required" }, { status: 400 })
     }
 
-    console.log("🔐 Validating Wodify token via API...")
-
     // Validate token with Wodify API
-    const validation = await validateWodifyToken(token)
+    console.log("🔍 Calling Wodify API for token validation...")
+    const wodifyResponse = await fetch("https://dev.wodify.com/api/v1/auth/validate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    })
 
-    if (!validation.success || !validation.CustomerId || !validation.UserId) {
-      console.error("❌ Wodify token validation failed:", validation.error)
-      return NextResponse.json({ error: validation.error || "Invalid token" }, { status: 401 })
+    console.log("📡 Wodify API response status:", wodifyResponse.status)
+
+    if (!wodifyResponse.ok) {
+      const errorText = await wodifyResponse.text()
+      console.error("❌ Wodify validation failed:", errorText)
+      return NextResponse.json({ error: "Invalid token" }, { status: 401 })
     }
 
-    // Create JWT for internal use
-    const jwt = createJWT(validation.CustomerId, validation.UserId)
+    const userData = await wodifyResponse.json()
+    console.log("✅ Wodify validation successful:", userData)
 
-    console.log("✅ Authentication successful:", {
-      customerId: validation.CustomerId,
-      userId: validation.UserId,
-    })
+    // Create JWT for our app
+    const jwtSecret = process.env.JWT_SECRET
+    if (!jwtSecret) {
+      console.error("❌ JWT_SECRET not configured")
+      return NextResponse.json({ error: "Server configuration error" }, { status: 500 })
+    }
+
+    const appJWT = jwt.sign(
+      {
+        userId: userData.id || userData.user_id,
+        email: userData.email,
+        wodifyToken: token,
+      },
+      jwtSecret,
+      { expiresIn: "24h" },
+    )
+
+    console.log("🎫 Created app JWT successfully")
 
     return NextResponse.json({
       success: true,
-      jwt,
-      user: {
-        customerId: validation.CustomerId,
-        userId: validation.UserId,
-      },
+      jwt: appJWT,
+      user: userData,
     })
   } catch (error) {
-    console.error("❌ Auth validation error:", error)
+    console.error("❌ Token validation error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

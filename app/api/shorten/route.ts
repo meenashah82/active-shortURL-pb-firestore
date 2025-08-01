@@ -1,48 +1,30 @@
-import { NextResponse } from "next/server"
-import { withAuth, type AuthenticatedRequest } from "@/lib/auth-middleware"
-import { db } from "@/lib/firebase"
-import { collection, addDoc, serverTimestamp } from "firebase/firestore"
+import { type NextRequest, NextResponse } from "next/server"
+import { withAuth } from "@/lib/auth-middleware"
+import { createShortUrl } from "@/lib/analytics-unified"
 
-async function handler(request: AuthenticatedRequest) {
+async function handler(request: NextRequest) {
   try {
-    const { url } = await request.json()
+    const { originalUrl } = await request.json()
 
-    if (!url) {
-      return NextResponse.json({ error: "URL is required" }, { status: 400 })
+    if (!originalUrl) {
+      return NextResponse.json({ error: "Original URL is required" }, { status: 400 })
     }
 
     // Validate URL format
     try {
-      new URL(url)
+      new URL(originalUrl)
     } catch {
       return NextResponse.json({ error: "Invalid URL format" }, { status: 400 })
     }
 
-    // Generate short code
-    const shortCode = Math.random().toString(36).substring(2, 8)
-
-    // Create URL document with embedded analytics
-    const urlData = {
-      originalUrl: url,
-      shortCode,
-      createdAt: serverTimestamp(),
-      isActive: true,
-      customerId: request.user.customerId,
-      userId: request.user.userId,
-      // Embedded analytics fields
-      totalClicks: 0,
-      lastClickAt: null,
-      clickEvents: [],
-    }
-
-    await addDoc(collection(db, "urls"), urlData)
-
-    const shortUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/${shortCode}`
+    const user = (request as any).user
+    const shortUrl = await createShortUrl(originalUrl, user.userId)
 
     return NextResponse.json({
-      shortUrl,
-      shortCode,
-      originalUrl: url,
+      success: true,
+      shortUrl: shortUrl.shortCode,
+      originalUrl: shortUrl.originalUrl,
+      fullShortUrl: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/${shortUrl.shortCode}`,
     })
   } catch (error) {
     console.error("Error creating short URL:", error)

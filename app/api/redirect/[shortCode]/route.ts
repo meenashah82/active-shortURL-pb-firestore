@@ -1,40 +1,33 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { db } from "@/lib/firebase"
-import { collection, query, where, getDocs, doc, updateDoc, arrayUnion, serverTimestamp } from "firebase/firestore"
+import { trackClick, getUrlByShortCode } from "@/lib/analytics-unified"
 
 export async function GET(request: NextRequest, { params }: { params: { shortCode: string } }) {
   try {
-    const { shortCode } = params
+    const shortCode = params.shortCode
 
-    // Find URL by shortCode
-    const urlsRef = collection(db, "urls")
-    const q = query(urlsRef, where("shortCode", "==", shortCode), where("isActive", "==", true))
-    const querySnapshot = await getDocs(q)
+    // Get URL data
+    const urlData = await getUrlByShortCode(shortCode)
 
-    if (querySnapshot.empty) {
+    if (!urlData || !urlData.isActive) {
       return NextResponse.redirect(new URL("/not-found", request.url))
     }
 
-    const urlDoc = querySnapshot.docs[0]
-    const urlData = urlDoc.data()
+    // Track the click
+    const userAgent = request.headers.get("user-agent") || ""
+    const referer = request.headers.get("referer") || ""
+    const ip = request.ip || request.headers.get("x-forwarded-for") || "unknown"
 
-    // Update analytics in the same document
-    const clickEvent = {
-      timestamp: serverTimestamp(),
-      userAgent: request.headers.get("user-agent") || "",
-      ip: request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "",
-      referer: request.headers.get("referer") || "",
-    }
-
-    await updateDoc(doc(db, "urls", urlDoc.id), {
-      totalClicks: (urlData.totalClicks || 0) + 1,
-      lastClickAt: serverTimestamp(),
-      clickEvents: arrayUnion(clickEvent),
+    await trackClick(shortCode, {
+      userAgent,
+      referer,
+      ip,
+      timestamp: new Date(),
     })
 
+    // Redirect to original URL
     return NextResponse.redirect(urlData.originalUrl)
   } catch (error) {
-    console.error("Error redirecting:", error)
+    console.error("Redirect error:", error)
     return NextResponse.redirect(new URL("/not-found", request.url))
   }
 }

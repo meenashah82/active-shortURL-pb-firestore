@@ -1,144 +1,121 @@
-import { db } from "@/lib/firebase"
-import { collection, query, where, orderBy, limit, onSnapshot, getDocs, type Timestamp } from "firebase/firestore"
-
-export interface UnifiedUrlData {
-  id: string
-  shortCode: string
-  originalUrl: string
-  createdAt: Timestamp
-  isActive: boolean
-  customerId: string
-  userId: string
-  totalClicks: number
-  lastClickAt: Timestamp | null
-  clickEvents: ClickEvent[]
-}
+import { db } from "./firebase"
+import {
+  collection,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  query,
+  where,
+  orderBy,
+  limit,
+  onSnapshot,
+  arrayUnion,
+  increment,
+} from "firebase/firestore"
 
 export interface ClickEvent {
-  timestamp: Timestamp
+  timestamp: Date
   userAgent: string
-  ip: string
   referer: string
+  ip: string
 }
 
-export interface AnalyticsData {
+export interface UnifiedUrlData {
   shortCode: string
   originalUrl: string
+  createdAt: Date
+  isActive: boolean
+  createdBy: string
   totalClicks: number
-  lastClickAt: Timestamp | null
+  lastClickAt: Date | null
   clickEvents: ClickEvent[]
-  createdAt: Timestamp
 }
 
-export async function getUrlAnalytics(shortCode: string, customerId: string): Promise<AnalyticsData | null> {
-  try {
-    const urlsRef = collection(db, "urls")
-    const q = query(urlsRef, where("shortCode", "==", shortCode), where("customerId", "==", customerId))
-    const querySnapshot = await getDocs(q)
+export async function createShortUrl(originalUrl: string, userId: string): Promise<UnifiedUrlData> {
+  const shortCode = generateShortCode()
+  const urlData: UnifiedUrlData = {
+    shortCode,
+    originalUrl,
+    createdAt: new Date(),
+    isActive: true,
+    createdBy: userId,
+    totalClicks: 0,
+    lastClickAt: null,
+    clickEvents: [],
+  }
 
-    if (querySnapshot.empty) {
-      return null
-    }
+  await setDoc(doc(db, "urls", shortCode), urlData)
+  return urlData
+}
 
-    const urlDoc = querySnapshot.docs[0]
-    const data = urlDoc.data() as UnifiedUrlData
+export async function getUrlByShortCode(shortCode: string): Promise<UnifiedUrlData | null> {
+  const docRef = doc(db, "urls", shortCode)
+  const docSnap = await getDoc(docRef)
 
-    return {
-      shortCode: data.shortCode,
-      originalUrl: data.originalUrl,
-      totalClicks: data.totalClicks || 0,
-      lastClickAt: data.lastClickAt,
-      clickEvents: data.clickEvents || [],
-      createdAt: data.createdAt,
-    }
-  } catch (error) {
-    console.error("Error fetching analytics:", error)
+  if (!docSnap.exists()) {
     return null
   }
+
+  const data = docSnap.data()
+  return {
+    ...data,
+    createdAt: data.createdAt.toDate(),
+    lastClickAt: data.lastClickAt ? data.lastClickAt.toDate() : null,
+    clickEvents: data.clickEvents || [],
+  } as UnifiedUrlData
 }
 
-export async function getUserUrls(customerId: string, limitCount = 10): Promise<UnifiedUrlData[]> {
-  try {
-    const urlsRef = collection(db, "urls")
-    const q = query(
-      urlsRef,
-      where("customerId", "==", customerId),
-      where("isActive", "==", true),
-      orderBy("createdAt", "desc"),
-      limit(limitCount),
-    )
+export async function trackClick(shortCode: string, clickData: ClickEvent): Promise<void> {
+  const docRef = doc(db, "urls", shortCode)
 
-    const querySnapshot = await getDocs(q)
-    return querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as UnifiedUrlData[]
-  } catch (error) {
-    console.error("Error fetching user URLs:", error)
-    return []
+  await updateDoc(docRef, {
+    totalClicks: increment(1),
+    lastClickAt: clickData.timestamp,
+    clickEvents: arrayUnion(clickData),
+  })
+}
+
+export async function getAnalytics(shortCode: string): Promise<any> {
+  const urlData = await getUrlByShortCode(shortCode)
+
+  if (!urlData) {
+    return null
+  }
+
+  return {
+    shortCode: urlData.shortCode,
+    originalUrl: urlData.originalUrl,
+    totalClicks: urlData.totalClicks,
+    lastClickAt: urlData.lastClickAt,
+    createdAt: urlData.createdAt,
+    clickEvents: urlData.clickEvents,
+    isActive: urlData.isActive,
   }
 }
 
-export function subscribeToUserUrls(
-  customerId: string,
-  callback: (urls: UnifiedUrlData[]) => void,
-  limitCount = 10,
-): () => void {
-  const urlsRef = collection(db, "urls")
-  const q = query(
-    urlsRef,
-    where("customerId", "==", customerId),
-    where("isActive", "==", true),
-    orderBy("createdAt", "desc"),
-    limit(limitCount),
-  )
+export function subscribeToTopUrls(callback: (urls: UnifiedUrlData[]) => void): () => void {
+  const q = query(collection(db, "urls"), where("totalClicks", ">", 0), orderBy("totalClicks", "desc"), limit(10))
 
-  return onSnapshot(q, (querySnapshot) => {
-    const urls = querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as UnifiedUrlData[]
+  return onSnapshot(q, (snapshot) => {
+    const urls = snapshot.docs.map((doc) => {
+      const data = doc.data()
+      return {
+        ...data,
+        createdAt: data.createdAt.toDate(),
+        lastClickAt: data.lastClickAt ? data.lastClickAt.toDate() : null,
+        clickEvents: data.clickEvents || [],
+      } as UnifiedUrlData
+    })
     callback(urls)
   })
 }
 
-export function subscribeToTopUrls(callback: (urls: UnifiedUrlData[]) => void, limitCount = 10): () => void {
-  const urlsRef = collection(db, "urls")
-  const q = query(
-    urlsRef,
-    where("isActive", "==", true),
-    where("totalClicks", ">", 0),
-    orderBy("totalClicks", "desc"),
-    limit(limitCount),
-  )
-
-  return onSnapshot(q, (querySnapshot) => {
-    const urls = querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as UnifiedUrlData[]
-    callback(urls)
-  })
-}
-
-export async function getTopUrls(limitCount = 10): Promise<UnifiedUrlData[]> {
-  try {
-    const urlsRef = collection(db, "urls")
-    const q = query(
-      urlsRef,
-      where("isActive", "==", true),
-      where("totalClicks", ">", 0),
-      orderBy("totalClicks", "desc"),
-      limit(limitCount),
-    )
-
-    const querySnapshot = await getDocs(q)
-    return querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as UnifiedUrlData[]
-  } catch (error) {
-    console.error("Error fetching top URLs:", error)
-    return []
+function generateShortCode(): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+  let result = ""
+  for (let i = 0; i < 6; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length))
   }
+  return result
 }

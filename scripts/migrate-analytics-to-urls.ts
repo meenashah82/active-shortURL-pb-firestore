@@ -1,67 +1,48 @@
-import { db } from "@/lib/firebase"
-import { collection, getDocs, doc, writeBatch } from "firebase/firestore"
+import { initializeApp } from "firebase/app"
+import { getFirestore, collection, getDocs, doc, updateDoc } from "firebase/firestore"
+
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+}
+
+const app = initializeApp(firebaseConfig)
+const db = getFirestore(app)
 
 async function migrateAnalyticsToUrls() {
-  console.log("🚀 Starting analytics migration...")
-
   try {
+    console.log("Starting analytics migration...")
+
     // Get all analytics documents
     const analyticsSnapshot = await getDocs(collection(db, "analytics"))
-    const urlsSnapshot = await getDocs(collection(db, "urls"))
+    console.log(`Found ${analyticsSnapshot.size} analytics documents`)
 
-    // Create maps for efficient lookup
-    const analyticsMap = new Map()
-    analyticsSnapshot.forEach((doc) => {
-      const data = doc.data()
-      analyticsMap.set(data.shortCode, data)
-    })
+    for (const analyticsDoc of analyticsSnapshot.docs) {
+      const shortCode = analyticsDoc.id
+      const analyticsData = analyticsDoc.data()
 
-    const urlsMap = new Map()
-    urlsSnapshot.forEach((doc) => {
-      const data = doc.data()
-      urlsMap.set(data.shortCode, { id: doc.id, ...data })
-    })
+      console.log(`Migrating analytics for ${shortCode}...`)
 
-    console.log(`📊 Found ${analyticsMap.size} analytics documents and ${urlsMap.size} URL documents`)
+      // Update the corresponding URL document
+      const urlDocRef = doc(db, "urls", shortCode)
 
-    // Batch update URLs with analytics data
-    const batch = writeBatch(db)
-    let updateCount = 0
+      await updateDoc(urlDocRef, {
+        totalClicks: analyticsData.totalClicks || 0,
+        lastClickAt: analyticsData.lastClickAt || null,
+        clickEvents: analyticsData.clickEvents || [],
+      })
 
-    for (const [shortCode, analyticsData] of analyticsMap) {
-      const urlData = urlsMap.get(shortCode)
-      if (urlData) {
-        const urlRef = doc(db, "urls", urlData.id)
-        batch.update(urlRef, {
-          totalClicks: analyticsData.totalClicks || 0,
-          lastClickAt: analyticsData.lastClickAt || null,
-          clickEvents: analyticsData.clickEvents || [],
-        })
-        updateCount++
-      }
+      console.log(`✅ Migrated ${shortCode}`)
     }
 
-    if (updateCount > 0) {
-      await batch.commit()
-      console.log(`✅ Successfully migrated ${updateCount} URLs with analytics data`)
-    } else {
-      console.log("ℹ️ No URLs found to migrate")
-    }
-
-    console.log("🎉 Migration completed successfully!")
+    console.log("Migration completed successfully!")
   } catch (error) {
-    console.error("❌ Migration failed:", error)
-    throw error
+    console.error("Migration failed:", error)
   }
 }
 
-// Run migration
 migrateAnalyticsToUrls()
-  .then(() => {
-    console.log("Migration script completed")
-    process.exit(0)
-  })
-  .catch((error) => {
-    console.error("Migration script failed:", error)
-    process.exit(1)
-  })
