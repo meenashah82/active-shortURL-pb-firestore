@@ -25,21 +25,33 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
     // Record the click with detailed header information
     const userAgent = request.headers.get("user-agent") || ""
     const referer = request.headers.get("referer") || ""
-    const ip = request.ip || request.headers.get("x-forwarded-for") || ""
+    const ip = request.ip || request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || ""
 
     console.log(`🔄 Recording click for shortCode: ${shortCode}`)
+    console.log(`📊 Headers available: ${Object.keys(headers).join(", ")}`)
+    console.log(`👤 User-Agent: ${userAgent}`)
+    console.log(`🔗 Referer: ${referer}`)
+    console.log(`🌐 IP: ${ip}`)
 
     try {
       // Record click - this will create a new document in urls/{shortCode}/clicks/{clickId}
       await recordClick(shortCode, userAgent, referer, ip, headers)
       console.log(`✅ Click recorded successfully for shortCode: ${shortCode}`)
     } catch (clickError) {
-      // Don't fail the redirect if click recording fails
+      // Don't fail the redirect if click recording fails, but log the error
       console.error(`⚠️ Click recording failed for shortCode: ${shortCode}`, clickError)
+      console.error(`⚠️ Click recording error details:`, {
+        message: clickError instanceof Error ? clickError.message : "Unknown error",
+        stack: clickError instanceof Error ? clickError.stack : undefined,
+      })
     }
 
     // Return redirect URL for client-side redirect
-    return NextResponse.json({ redirectUrl: urlData.originalUrl })
+    return NextResponse.json({
+      redirectUrl: urlData.originalUrl,
+      success: true,
+      shortCode: shortCode,
+    })
   } catch (error) {
     console.error(`❌ Error in redirect for shortCode: ${params.shortCode}`, error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
