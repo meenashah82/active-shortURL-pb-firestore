@@ -1,7 +1,6 @@
 import { initializeApp } from "firebase/app"
 import { getFirestore, collection, getDocs, doc, deleteDoc } from "firebase/firestore"
 
-// Firebase config - replace with your actual config
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -15,38 +14,33 @@ const app = initializeApp(firebaseConfig)
 const db = getFirestore(app)
 
 async function cleanupAnalyticsCollection() {
-  console.log("🧹 Starting cleanup of analytics collection...")
-
   try {
-    // Get all documents from analytics collection
+    console.log("Starting cleanup of analytics collection...")
+
+    // Get all analytics documents
     const analyticsSnapshot = await getDocs(collection(db, "analytics"))
-    console.log(`📊 Found ${analyticsSnapshot.size} analytics documents to delete`)
+    console.log(`Found ${analyticsSnapshot.size} analytics documents to delete`)
 
     let deletedCount = 0
+    let errorCount = 0
 
     for (const analyticsDoc of analyticsSnapshot.docs) {
-      const shortCode = analyticsDoc.id
-      console.log(`🗑️  Deleting analytics document: ${shortCode}`)
-
-      await deleteDoc(doc(db, "analytics", shortCode))
-      deletedCount++
+      try {
+        await deleteDoc(doc(db, "analytics", analyticsDoc.id))
+        deletedCount++
+        console.log(`✓ Deleted analytics document: ${analyticsDoc.id}`)
+      } catch (error) {
+        errorCount++
+        console.error(`✗ Error deleting ${analyticsDoc.id}:`, error)
+      }
     }
 
-    console.log(`🎉 Cleanup completed!`)
-    console.log(`🗑️  Deleted: ${deletedCount} documents`)
+    console.log(`\nCleanup completed:`)
+    console.log(`- Successfully deleted: ${deletedCount}`)
+    console.log(`- Errors: ${errorCount}`)
   } catch (error) {
-    console.error("❌ Cleanup failed:", error)
-    process.exit(1)
+    console.error("Cleanup failed:", error)
   }
 }
 
-// Run the cleanup
 cleanupAnalyticsCollection()
-  .then(() => {
-    console.log("✅ Cleanup script completed successfully")
-    process.exit(0)
-  })
-  .catch((error) => {
-    console.error("❌ Cleanup script failed:", error)
-    process.exit(1)
-  })

@@ -1,132 +1,108 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect } from "react"
 
-export interface AuthUser {
-  customerId: string
-  userId: string
-  token: string
+interface AuthState {
+  isAuthenticated: boolean
+  isLoading: boolean
+  token: string | null
+  user: any | null
 }
 
 export function useAuth() {
-  const [user, setUser] = useState<AuthUser | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [authState, setAuthState] = useState<AuthState>({
+    isAuthenticated: false,
+    isLoading: true,
+    token: null,
+    user: null,
+  })
 
-  // Load auth state from localStorage on mount
-  useEffect(() => {
+  const login = async (token: string): Promise<boolean> => {
     try {
-      const savedAuth = localStorage.getItem("auth")
-      if (savedAuth) {
-        const authData = JSON.parse(savedAuth)
-        setUser(authData)
-        console.log("✅ Loaded auth from localStorage:", { customerId: authData.customerId, userId: authData.userId })
-      }
-    } catch (error) {
-      console.error("Error loading auth from localStorage:", error)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  // Listen for Wodify token from parent window
-  useEffect(() => {
-    const handleMessage = async (event: MessageEvent) => {
-      // Verify origin for security
-      if (event.origin !== window.location.origin && !event.origin.includes("wodify.com")) {
-        console.warn("Ignoring message from unknown origin:", event.origin)
-        return
-      }
-
-      if (event.data?.type === "WODIFY_TOKEN" && event.data?.token) {
-        console.log("🔐 Received Wodify token from parent")
-        await login(event.data.token)
-      }
-    }
-
-    window.addEventListener("message", handleMessage)
-
-    // Send ready message to parent
-    if (window.parent !== window) {
-      window.parent.postMessage({ type: "APP_LOADED" }, "*")
-    }
-
-    return () => {
-      window.removeEventListener("message", handleMessage)
-    }
-  }, [])
-
-  const login = useCallback(async (wodifyToken: string) => {
-    try {
-      setLoading(true)
-      setError(null)
-
-      console.log("🔐 Validating Wodify token...")
+      console.log("Attempting to validate token...")
 
       const response = await fetch("/api/auth/validate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ token: wodifyToken }),
+        body: JSON.stringify({ token }),
       })
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Authentication failed")
+      if (response.ok) {
+        const data = await response.json()
+        console.log("Token validation successful:", data)
+
+        // Store JWT token
+        localStorage.setItem("jwt_token", data.jwt)
+
+        setAuthState({
+          isAuthenticated: true,
+          isLoading: false,
+          token: data.jwt,
+          user: data.user,
+        })
+
+        return true
+      } else {
+        console.error("Token validation failed:", response.status)
+        setAuthState((prev) => ({ ...prev, isLoading: false }))
+        return false
       }
-
-      const { jwt, user: userData } = await response.json()
-
-      const authUser: AuthUser = {
-        customerId: userData.customerId,
-        userId: userData.userId,
-        token: jwt,
-      }
-
-      setUser(authUser)
-      localStorage.setItem("auth", JSON.stringify(authUser))
-
-      console.log("✅ Authentication successful:", {
-        customerId: userData.customerId,
-        userId: userData.userId,
-      })
-
-      return true
     } catch (error) {
-      console.error("❌ Login error:", error)
-      setError(error instanceof Error ? error.message : "Login failed")
+      console.error("Login error:", error)
+      setAuthState((prev) => ({ ...prev, isLoading: false }))
       return false
-    } finally {
-      setLoading(false)
+    }
+  }
+
+  const logout = () => {
+    localStorage.removeItem("jwt_token")
+    setAuthState({
+      isAuthenticated: false,
+      isLoading: false,
+      token: null,
+      user: null,
+    })
+  }
+
+  useEffect(() => {
+    // Check for existing JWT token
+    const existingToken = localStorage.getItem("jwt_token")
+    if (existingToken) {
+      setAuthState({
+        isAuthenticated: true,
+        isLoading: false,
+        token: existingToken,
+        user: null, // You might want to decode the JWT to get user info
+      })
+    } else {
+      setAuthState((prev) => ({ ...prev, isLoading: false }))
+    }
+
+    // Listen for token from parent window
+    const handleMessage = async (event: MessageEvent) => {
+      if (event.data && event.data.type === "WODIFY_TOKEN") {
+        console.log("Received token from parent window")
+        const success = await login(event.data.token)
+        if (success) {
+          console.log("Authentication successful")
+        } else {
+          console.log("Authentication failed")
+        }
+      }
+    }
+
+    window.addEventListener("message", handleMessage)
+
+    return () => {
+      window.removeEventListener("message", handleMessage)
     }
   }, [])
-
-  const logout = useCallback(() => {
-    setUser(null)
-    setError(null)
-    localStorage.removeItem("auth")
-    console.log("👋 User logged out")
-  }, [])
-
-  const getAuthHeaders = useCallback(() => {
-    if (!user?.token) {
-      return {}
-    }
-
-    return {
-      Authorization: `Bearer ${user.token}`,
-      "Content-Type": "application/json",
-    }
-  }, [user])
 
   return {
-    user,
-    loading,
-    error,
+    ...authState,
     login,
     logout,
-    getAuthHeaders,
-    isAuthenticated: !!user,
   }
 }

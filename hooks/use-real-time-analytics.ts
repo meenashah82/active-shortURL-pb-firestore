@@ -1,38 +1,26 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { subscribeToUrlAnalytics, type UnifiedUrlData } from "@/lib/analytics-unified"
+import { subscribeToTopUrls, type UnifiedUrlData } from "@/lib/analytics-unified"
 
-export function useRealTimeAnalytics(shortCode: string) {
-  const [data, setData] = useState<UnifiedUrlData | null>(null)
+export function useRealTimeAnalytics(limit = 10) {
+  const [topUrls, setTopUrls] = useState<UnifiedUrlData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!shortCode) {
-      setLoading(false)
-      return
-    }
-
     setLoading(true)
     setError(null)
 
-    const unsubscribe = subscribeToUrlAnalytics(shortCode, (urlData) => {
-      setData(urlData)
+    const unsubscribe = subscribeToTopUrls((urls) => {
+      setTopUrls(urls)
       setLoading(false)
-    })
+    }, limit)
 
     return () => {
       unsubscribe()
     }
-  }, [shortCode])
+  }, [limit])
 
-  return {
-    data,
-    loading,
-    error,
-    totalClicks: data?.totalClicks || 0,
-    lastClickAt: data?.lastClickAt,
-    clickEvents: data?.clickEvents || [],
-  }
+  return { topUrls, loading, error }
 }
