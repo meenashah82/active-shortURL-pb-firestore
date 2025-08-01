@@ -41,12 +41,12 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
         `✅ REDIRECT API: AFTER calling recordClick() - Click recorded successfully for shortCode: ${shortCode}`,
       )
     } catch (clickError) {
-      console.error(`❌ REDIRECT API: CRITICAL - Click recording failed for shortCode: ${shortCode}`, clickError)
-      console.error(`❌ REDIRECT API: Error details:`, {
-        name: clickError instanceof Error ? clickError.name : "Unknown",
-        message: clickError instanceof Error ? clickError.message : String(clickError),
-        stack: clickError instanceof Error ? clickError.stack : undefined,
-      })
+      console.error(`❌ REDIRECT API: CRITICAL - Click recording failed for shortCode: ${shortCode}`)
+      console.error(`❌ REDIRECT API: Error name: ${clickError instanceof Error ? clickError.name : "Unknown"}`)
+      console.error(
+        `❌ REDIRECT API: Error message: ${clickError instanceof Error ? clickError.message : String(clickError)}`,
+      )
+      console.error(`❌ REDIRECT API: Error stack:`, clickError instanceof Error ? clickError.stack : undefined)
       // Still continue with redirect but log the failure
     }
 
@@ -58,7 +58,10 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
       shortCode: shortCode,
     })
   } catch (error) {
-    console.error(`❌ REDIRECT API: Error in redirect API for shortCode: ${params.shortCode}`, error)
+    console.error(`❌ REDIRECT API: Error in redirect API for shortCode: ${params.shortCode}`)
+    console.error(`❌ REDIRECT API: Error name: ${error instanceof Error ? error.name : "Unknown"}`)
+    console.error(`❌ REDIRECT API: Error message: ${error instanceof Error ? error.message : String(error)}`)
+    console.error(`❌ REDIRECT API: Error stack:`, error instanceof Error ? error.stack : undefined)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

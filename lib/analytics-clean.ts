@@ -345,8 +345,10 @@ export async function recordClick(
   try {
     // Validate Firebase connection
     if (!db) {
+      console.error(`❌ Firebase database not initialized`)
       throw new Error("Firebase database not initialized")
     }
+    console.log(`✅ Firebase database is initialized`)
 
     const urlRef = doc(db, "urls", shortCode)
     const clicksRef = collection(db, "urls", shortCode, "clicks")
@@ -359,6 +361,7 @@ export async function recordClick(
     console.log(`🔍 Checking if URL document exists for shortCode: ${shortCode}`)
     const urlDoc = await getDoc(urlRef)
     if (!urlDoc.exists()) {
+      console.error(`❌ URL document not found for shortCode: ${shortCode}`)
       throw new Error(`URL document not found for shortCode: ${shortCode}`)
     }
     console.log(`✅ URL document exists for shortCode: ${shortCode}`)
@@ -375,9 +378,11 @@ export async function recordClick(
         })
         console.log(`✅ Transaction: Updated click count for shortCode: ${shortCode}`)
       } else {
+        console.error(`❌ URL document not found in transaction for shortCode: ${shortCode}`)
         throw new Error(`URL document not found in transaction for shortCode: ${shortCode}`)
       }
     })
+    console.log(`✅ Transaction completed successfully for shortCode: ${shortCode}`)
 
     // Create comprehensive click document with all requested header fields
     const clickData: Omit<IndividualClickData, "id"> = {
@@ -422,6 +427,8 @@ export async function recordClick(
     })
 
     const clickDocRef = doc(clicksRef, clickId)
+    console.log(`🔄 BEFORE: setDoc() call for document reference`)
+
     await setDoc(clickDocRef, clickData)
 
     console.log(`✅ AFTER: Successfully created click document at path: urls/${shortCode}/clicks/${clickId}`)
@@ -435,12 +442,10 @@ export async function recordClick(
         .join(", ")}`,
     )
   } catch (error) {
-    console.error(`❌ FAILED: Error recording click for shortCode: ${shortCode}`, error)
-    console.error(`❌ Error details:`, {
-      name: error instanceof Error ? error.name : "Unknown",
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-    })
+    console.error(`❌ FAILED: Error recording click for shortCode: ${shortCode}`)
+    console.error(`❌ Error name: ${error instanceof Error ? error.name : "Unknown"}`)
+    console.error(`❌ Error message: ${error instanceof Error ? error.message : String(error)}`)
+    console.error(`❌ Error stack:`, error instanceof Error ? error.stack : undefined)
     throw error
   }
 }
