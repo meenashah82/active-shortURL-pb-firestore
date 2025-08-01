@@ -2,12 +2,14 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getUrlData, recordClick } from "@/lib/analytics-clean"
 
 export async function GET(request: NextRequest, { params }: { params: { shortCode: string } }) {
+  console.log(`🚀 REDIRECT API: Starting GET request for shortCode: ${params.shortCode}`)
+
   try {
     const { shortCode } = params
-    console.log(`hi, this is nick`)
     console.log(`🔍 REDIRECT API: Processing redirect request for shortCode: ${shortCode}`)
 
     // Get URL data using the clean analytics system
+    console.log(`🔍 REDIRECT API: Calling getUrlData for shortCode: ${shortCode}`)
     const urlData = await getUrlData(shortCode)
 
     if (!urlData) {
@@ -23,7 +25,7 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
       headers[key] = value
     })
 
-    console.log(`extracted header values ...`)
+    console.log(`📊 REDIRECT API: Extracted ${Object.keys(headers).length} headers`)
 
     // Record the click with detailed header information
     const userAgent = request.headers.get("user-agent") || ""
@@ -37,8 +39,9 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
     console.log(`🌐 REDIRECT API: IP: ${ip}`)
 
     // Record click - this MUST happen before returning the redirect URL
+    console.log(`🔄 REDIRECT API: BEFORE calling recordClick() for shortCode: ${shortCode}`)
+
     try {
-      console.log(`🔄 REDIRECT API: BEFORE calling recordClick() for shortCode: ${shortCode}`)
       await recordClick(shortCode, userAgent, referer, ip, headers)
       console.log(
         `✅ REDIRECT API: AFTER calling recordClick() - Click recorded successfully for shortCode: ${shortCode}`,
@@ -50,10 +53,11 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
         `❌ REDIRECT API: Error message: ${clickError instanceof Error ? clickError.message : String(clickError)}`,
       )
       console.error(`❌ REDIRECT API: Error stack:`, clickError instanceof Error ? clickError.stack : undefined)
-      // Still continue with redirect but log the failure
+      // Don't throw - continue with redirect even if click recording fails
     }
 
     console.log(`✅ REDIRECT API: Returning redirect URL for shortCode: ${shortCode}`)
+
     // Return redirect URL for client-side redirect
     return NextResponse.json({
       redirectUrl: urlData.originalUrl,
