@@ -5,7 +5,6 @@ import { useState, useEffect, useCallback } from "react"
 interface User {
   customerId: string
   userId: string
-  token: string
 }
 
 interface AuthState {
@@ -13,6 +12,7 @@ interface AuthState {
   loading: boolean
   error: string | null
   isAuthenticated: boolean
+  token: string | null
 }
 
 export function useAuth() {
@@ -21,23 +21,25 @@ export function useAuth() {
     loading: true,
     error: null,
     isAuthenticated: false,
+    token: null,
   })
 
-  const login = useCallback(async (token: string): Promise<boolean> => {
+  const login = useCallback(async (wodifyToken: string): Promise<boolean> => {
     try {
-      console.log("Attempting to validate token:", token.substring(0, 20) + "...")
+      console.log("🔐 Attempting to validate token...")
+      setAuthState((prev) => ({ ...prev, loading: true, error: null }))
 
       const response = await fetch("/api/auth/validate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ token }),
+        body: JSON.stringify({ token: wodifyToken }),
       })
 
       if (!response.ok) {
         const errorData = await response.json()
-        console.error("Token validation failed:", errorData)
+        console.error("❌ Token validation failed:", errorData)
         setAuthState((prev) => ({
           ...prev,
           loading: false,
@@ -48,27 +50,29 @@ export function useAuth() {
       }
 
       const data = await response.json()
-      console.log("Token validation successful:", data)
+      console.log("✅ Token validation successful:", data)
 
       const user: User = {
-        customerId: data.customerId,
-        userId: data.userId,
-        token: data.jwt,
+        customerId: data.user.customerId,
+        userId: data.user.userId,
       }
+
+      // Store auth data
+      localStorage.setItem("auth_token", data.jwt)
+      localStorage.setItem("user_data", JSON.stringify(user))
 
       setAuthState({
         user,
         loading: false,
         error: null,
         isAuthenticated: true,
+        token: data.jwt,
       })
 
-      // Store JWT for future requests
-      localStorage.setItem("auth_token", data.jwt)
-      console.log("Authentication successful, user logged in")
+      console.log("✅ Authentication state updated - user is now authenticated")
       return true
     } catch (error) {
-      console.error("Login error:", error)
+      console.error("❌ Login error:", error)
       setAuthState((prev) => ({
         ...prev,
         loading: false,
@@ -81,65 +85,92 @@ export function useAuth() {
 
   const logout = useCallback(() => {
     localStorage.removeItem("auth_token")
+    localStorage.removeItem("user_data")
     setAuthState({
       user: null,
       loading: false,
       error: null,
       isAuthenticated: false,
+      token: null,
     })
-    console.log("User logged out")
+    console.log("👋 User logged out")
   }, [])
 
   const getAuthHeaders = useCallback(() => {
-    const token = authState.user?.token || localStorage.getItem("auth_token")
+    const token = authState.token || localStorage.getItem("auth_token")
     return {
       "Content-Type": "application/json",
       ...(token && { Authorization: `Bearer ${token}` }),
     }
-  }, [authState.user?.token])
+  }, [authState.token])
 
-  // Check for existing token on mount
+  // Check for existing auth on mount and listen for messages
   useEffect(() => {
+    // Check for existing token
     const existingToken = localStorage.getItem("auth_token")
-    if (existingToken) {
-      // Verify the existing token is still valid
-      fetch("/api/auth/validate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ jwt: existingToken }),
-      })
-        .then((response) => response.json())
-        .then((data) => {
-          if (data.customerId && data.userId) {
-            const user: User = {
-              customerId: data.customerId,
-              userId: data.userId,
-              token: existingToken,
-            }
-            setAuthState({
-              user,
-              loading: false,
-              error: null,
-              isAuthenticated: true,
-            })
-            console.log("Restored authentication from stored token")
-          } else {
-            setAuthState((prev) => ({ ...prev, loading: false }))
-          }
+    const existingUser = localStorage.getItem("user_data")
+
+    if (existingToken && existingUser) {
+      try {
+        const user = JSON.parse(existingUser)
+        setAuthState({
+          user,
+          loading: false,
+          error: null,
+          isAuthenticated: true,
+          token: existingToken,
         })
-        .catch(() => {
-          localStorage.removeItem("auth_token")
-          setAuthState((prev) => ({ ...prev, loading: false }))
-        })
+        console.log("✅ Restored authentication from localStorage")
+      } catch (error) {
+        console.error("Error parsing stored user data:", error)
+        localStorage.removeItem("auth_token")
+        localStorage.removeItem("user_data")
+        setAuthState((prev) => ({ ...prev, loading: false }))
+      }
     } else {
       setAuthState((prev) => ({ ...prev, loading: false }))
     }
-  }, [])
+
+    // Listen for Wodify token from parent window
+    const handleMessage = async (event: MessageEvent) => {
+      console.log("📨 Received message:", event.data)
+
+      if (event.data?.type === "WODIFY_TOKEN" && event.data?.token) {
+        console.log("🔐 Received Wodify token from parent")
+        const success = await login(event.data.token)
+        if (success) {
+          console.log("✅ Authentication completed successfully")
+        } else {
+          console.log("❌ Authentication failed")
+        }
+      }
+    }
+
+    window.addEventListener("message", handleMessage)
+
+    // Send ready message to parent
+    if (window.parent !== window) {
+      console.log("📤 Sending APP_LOADED message to parent")
+      window.parent.postMessage({ type: "APP_LOADED" }, "*")
+    }
+
+    return () => {
+      window.removeEventListener("message", handleMessage)
+    }
+  }, [login])
+
+  console.log("🔍 Current auth state:", {
+    isAuthenticated: authState.isAuthenticated,
+    loading: authState.loading,
+    hasUser: !!authState.user,
+    hasToken: !!authState.token,
+  })
 
   return {
-    ...authState,
+    user: authState.user,
+    loading: authState.loading,
+    error: authState.error,
+    isAuthenticated: authState.isAuthenticated,
     login,
     logout,
     getAuthHeaders,

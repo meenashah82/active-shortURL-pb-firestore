@@ -22,7 +22,9 @@ export function UrlShortenerForm({ onUrlCreated, disabled }: UrlShortenerFormPro
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const { toast } = useToast()
-  const { getAuthHeaders, isAuthenticated } = useAuth()
+  const { getAuthHeaders, isAuthenticated, loading: authLoading } = useAuth()
+
+  console.log("🔍 UrlShortenerForm - Auth state:", { isAuthenticated, authLoading })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -104,13 +106,13 @@ export function UrlShortenerForm({ onUrlCreated, disabled }: UrlShortenerFormPro
             placeholder="Enter your long URL here..."
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            disabled={loading || disabled}
+            disabled={loading || disabled || !isAuthenticated}
             className="flex-1"
             style={{ borderColor: "#D9D8FD" }}
           />
           <Button
             type="submit"
-            disabled={loading || disabled || !isAuthenticated}
+            disabled={loading || disabled || !isAuthenticated || authLoading}
             style={{ backgroundColor: "#833ADF", color: "#FFFFFF", border: "none" }}
             className="hover:opacity-90"
           >
@@ -133,11 +135,11 @@ export function UrlShortenerForm({ onUrlCreated, disabled }: UrlShortenerFormPro
         </Alert>
       )}
 
-      {!isAuthenticated && (
+      {(authLoading || !isAuthenticated) && (
         <Alert className="border-yellow-200 bg-yellow-50">
           <AlertCircle className="h-4 w-4 text-yellow-600" />
           <AlertDescription className="text-yellow-800">
-            Please wait for authentication to create short URLs
+            {authLoading ? "Authenticating..." : "Please wait for authentication to create short URLs"}
           </AlertDescription>
         </Alert>
       )}
