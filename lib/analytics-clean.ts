@@ -85,6 +85,13 @@ export interface IndividualClickData {
   _placeholder?: boolean
 }
 
+// Generate unique click ID
+function generateClickId(): string {
+  const timestamp = Date.now().toString(36)
+  const randomPart = Math.random().toString(36).substring(2, 8)
+  return `click_${timestamp}_${randomPart}`
+}
+
 // Create short URL - using new unified structure and create clicks subcollection
 export async function createShortUrl(shortCode: string, originalUrl: string, metadata?: any): Promise<void> {
   try {
@@ -309,7 +316,7 @@ export function subscribeToClickHistory(
   )
 }
 
-// Record click - update unified structure and create detailed click document
+// Record click - update unified structure and create detailed click document with unique ID
 export async function recordClick(
   shortCode: string,
   userAgent: string,
@@ -322,6 +329,10 @@ export async function recordClick(
 
     const urlRef = doc(db, "urls", shortCode)
     const clicksRef = collection(db, "urls", shortCode, "clicks")
+
+    // Generate unique click ID
+    const clickId = generateClickId()
+    console.log(`🆔 Generated click ID: ${clickId}`)
 
     // First, update the main URL document with click count
     await runTransaction(db, async (transaction) => {
@@ -340,7 +351,7 @@ export async function recordClick(
       }
     })
 
-    // Then, create the detailed click document in the subcollection
+    // Then, create the detailed click document in the subcollection with unique ID
     const clickData: Omit<IndividualClickData, "id"> = {
       timestamp: serverTimestamp(),
       shortCode,
@@ -370,10 +381,12 @@ export async function recordClick(
       "X-Forwarded-For": ip || headers?.["x-forwarded-for"] || headers?.["X-Forwarded-For"],
     }
 
-    const clickDocRef = await addDoc(clicksRef, clickData)
+    // Create document with specific ID instead of auto-generated ID
+    const clickDocRef = doc(clicksRef, clickId)
+    await setDoc(clickDocRef, clickData)
 
     console.log(`✅ Click recorded successfully for shortCode: ${shortCode}`)
-    console.log(`✅ Created click document with ID: ${clickDocRef.id}`)
+    console.log(`✅ Created click document with unique ID: ${clickId}`)
   } catch (error) {
     console.error(`❌ Error recording click for shortCode: ${shortCode}`, error)
     throw error
