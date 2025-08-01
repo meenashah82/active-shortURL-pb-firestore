@@ -27,23 +27,24 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
     const referer = request.headers.get("referer") || ""
     const ip = request.ip || request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || ""
 
-    console.log(`🔄 Recording click for shortCode: ${shortCode}`)
-    console.log(`📊 Headers available: ${Object.keys(headers).join(", ")}`)
+    console.log(`🔄 About to record click for shortCode: ${shortCode}`)
+    console.log(`📊 Available headers: ${Object.keys(headers).join(", ")}`)
     console.log(`👤 User-Agent: ${userAgent}`)
     console.log(`🔗 Referer: ${referer}`)
     console.log(`🌐 IP: ${ip}`)
 
+    // Record click - this MUST happen before returning the redirect URL
     try {
-      // Record click - this will create a new document in urls/{shortCode}/clicks/{clickId}
       await recordClick(shortCode, userAgent, referer, ip, headers)
       console.log(`✅ Click recorded successfully for shortCode: ${shortCode}`)
     } catch (clickError) {
-      // Don't fail the redirect if click recording fails, but log the error
-      console.error(`⚠️ Click recording failed for shortCode: ${shortCode}`, clickError)
-      console.error(`⚠️ Click recording error details:`, {
-        message: clickError instanceof Error ? clickError.message : "Unknown error",
+      console.error(`❌ CRITICAL: Click recording failed for shortCode: ${shortCode}`, clickError)
+      console.error(`❌ Error details:`, {
+        name: clickError instanceof Error ? clickError.name : "Unknown",
+        message: clickError instanceof Error ? clickError.message : String(clickError),
         stack: clickError instanceof Error ? clickError.stack : undefined,
       })
+      // Still continue with redirect but log the failure
     }
 
     // Return redirect URL for client-side redirect
@@ -53,7 +54,7 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
       shortCode: shortCode,
     })
   } catch (error) {
-    console.error(`❌ Error in redirect for shortCode: ${params.shortCode}`, error)
+    console.error(`❌ Error in redirect API for shortCode: ${params.shortCode}`, error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

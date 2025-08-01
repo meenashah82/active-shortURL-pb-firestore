@@ -340,8 +340,13 @@ export async function recordClick(
   ip: string,
   headers?: Record<string, string>,
 ): Promise<void> {
+  console.log(`🔄 STARTING recordClick for shortCode: ${shortCode}`)
+
   try {
-    console.log(`🔄 Recording click for shortCode: ${shortCode}`)
+    // Validate Firebase connection
+    if (!db) {
+      throw new Error("Firebase database not initialized")
+    }
 
     const urlRef = doc(db, "urls", shortCode)
     const clicksRef = collection(db, "urls", shortCode, "clicks")
@@ -350,20 +355,27 @@ export async function recordClick(
     const clickId = generateClickId()
     console.log(`🆔 Generated click ID: ${clickId}`)
 
-    // First, update the main URL document with click count
-    await runTransaction(db, async (transaction) => {
-      const urlDoc = await transaction.get(urlRef)
+    // Verify URL document exists before proceeding
+    console.log(`🔍 Checking if URL document exists for shortCode: ${shortCode}`)
+    const urlDoc = await getDoc(urlRef)
+    if (!urlDoc.exists()) {
+      throw new Error(`URL document not found for shortCode: ${shortCode}`)
+    }
+    console.log(`✅ URL document exists for shortCode: ${shortCode}`)
 
-      if (urlDoc.exists()) {
+    // First, update the main URL document with click count using transaction
+    console.log(`🔄 Starting transaction to update click count for shortCode: ${shortCode}`)
+    await runTransaction(db, async (transaction) => {
+      const urlDocInTransaction = await transaction.get(urlRef)
+
+      if (urlDocInTransaction.exists()) {
         transaction.update(urlRef, {
           totalClicks: increment(1),
           lastClickAt: serverTimestamp(),
         })
-        console.log(`✅ Updated click count for shortCode: ${shortCode}`)
+        console.log(`✅ Transaction: Updated click count for shortCode: ${shortCode}`)
       } else {
-        console.log(`⚠️ URL document does not exist for shortCode: ${shortCode}`)
-        // Don't create a new document here - this should not happen during normal redirect flow
-        throw new Error(`URL document not found for shortCode: ${shortCode}`)
+        throw new Error(`URL document not found in transaction for shortCode: ${shortCode}`)
       }
     })
 
@@ -399,18 +411,24 @@ export async function recordClick(
     }
 
     // Create document with specific ID instead of auto-generated ID
+    console.log(`🔄 Creating click document with ID: ${clickId}`)
     const clickDocRef = doc(clicksRef, clickId)
     await setDoc(clickDocRef, clickData)
 
-    console.log(`✅ Click recorded successfully for shortCode: ${shortCode}`)
-    console.log(`✅ Created click document with unique ID: ${clickId}`)
+    console.log(`✅ SUCCESS: Click recorded for shortCode: ${shortCode}`)
+    console.log(`✅ SUCCESS: Created click document with unique ID: ${clickId}`)
     console.log(
-      `📊 Click data includes: ${Object.keys(clickData)
+      `📊 Click data fields populated: ${Object.keys(clickData)
         .filter((key) => clickData[key as keyof typeof clickData])
         .join(", ")}`,
     )
   } catch (error) {
-    console.error(`❌ Error recording click for shortCode: ${shortCode}`, error)
+    console.error(`❌ FAILED: Error recording click for shortCode: ${shortCode}`, error)
+    console.error(`❌ Error details:`, {
+      name: error instanceof Error ? error.name : "Unknown",
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    })
     throw error
   }
 }
