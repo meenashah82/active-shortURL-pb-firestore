@@ -345,7 +345,7 @@ export function subscribeToClickHistory(
   )
 }
 
-// Record click - SIMPLIFIED VERSION to ensure document creation works
+// Record click - Creates individual click document in subcollection AND increments totalClicks
 export async function recordClick(
   shortCode: string,
   userAgent: string,
@@ -353,119 +353,80 @@ export async function recordClick(
   ip: string,
   headers?: Record<string, string>,
 ): Promise<void> {
-  console.log(`🔄 recordClick: STARTING SIMPLIFIED VERSION for shortCode: ${shortCode}`)
+  console.log(`🔄 recordClick: Starting for shortCode: ${shortCode}`)
 
   try {
     // Validate Firebase connection
     if (!db) {
-      console.error(`❌ recordClick: Firebase database not initialized`)
       throw new Error("Firebase database not initialized")
     }
-    console.log(`✅ recordClick: Firebase database is initialized`)
 
-    // Generate unique click ID first
-    const clickId = generateClickId()
-    console.log(`🆔 recordClick: Generated click ID: ${clickId}`)
-
-    // Create references
     const urlRef = doc(db, "urls", shortCode)
-    const clicksRef = collection(db, "urls", shortCode, "clicks")
-    const clickDocRef = doc(clicksRef, clickId)
+    const clicksCollectionRef = collection(db, "urls", shortCode, "clicks")
 
-    console.log(`✅ recordClick: Created Firestore references`)
-    console.log(`📍 recordClick: URL ref path: urls/${shortCode}`)
-    console.log(`📍 recordClick: Click doc ref path: urls/${shortCode}/clicks/${clickId}`)
+    // First, increment the totalClicks counter in the main URL document
+    console.log(`🔄 recordClick: Incrementing totalClicks for ${shortCode}`)
+    await runTransaction(db, async (transaction) => {
+      const urlDoc = await transaction.get(urlRef)
+      if (urlDoc.exists()) {
+        transaction.update(urlRef, {
+          totalClicks: increment(1),
+          lastClickAt: serverTimestamp(),
+        })
+        console.log(`✅ recordClick: totalClicks incremented for ${shortCode}`)
+      } else {
+        throw new Error(`URL document not found for shortCode: ${shortCode}`)
+      }
+    })
 
-    // Step 1: Update the main URL document with click count
-    console.log(`🔄 recordClick: STEP 1 - Updating main URL document`)
-    try {
-      await runTransaction(db, async (transaction) => {
-        const urlDoc = await transaction.get(urlRef)
-        if (urlDoc.exists()) {
-          transaction.update(urlRef, {
-            totalClicks: increment(1),
-            lastClickAt: serverTimestamp(),
-          })
-          console.log(`✅ recordClick: Transaction - Updated totalClicks for ${shortCode}`)
-        } else {
-          console.error(`❌ recordClick: URL document not found in transaction for ${shortCode}`)
-          throw new Error(`URL document not found for shortCode: ${shortCode}`)
-        }
-      })
-      console.log(`✅ recordClick: STEP 1 COMPLETE - Main document updated`)
-    } catch (transactionError) {
-      console.error(`❌ recordClick: Transaction failed:`, transactionError)
-      throw transactionError
-    }
+    // Second, create a new document in the clicks subcollection
+    console.log(`🔄 recordClick: Creating individual click document for ${shortCode}`)
 
-    // Step 2: Create the click document with minimal data first
-    console.log(`🔄 recordClick: STEP 2 - Creating click document`)
     const clickData = {
       timestamp: serverTimestamp(),
       shortCode: shortCode,
-      "User-Agent": userAgent,
-      Referer: referer,
-      "X-Forwarded-For": ip,
-      Host: getHeaderValue(headers, "Host"),
-      Accept: getHeaderValue(headers, "Accept"),
-      "Accept-Language": getHeaderValue(headers, "Accept-Language"),
-      "Accept-Encoding": getHeaderValue(headers, "Accept-Encoding"),
-      "Accept-Charset": getHeaderValue(headers, "Accept-Charset"),
-      "Content-Type": getHeaderValue(headers, "Content-Type"),
-      "Content-Length": getHeaderValue(headers, "Content-Length"),
-      Authorization: getHeaderValue(headers, "Authorization"),
-      Cookie: getHeaderValue(headers, "Cookie"),
-      Origin: getHeaderValue(headers, "Origin"),
-      Connection: getHeaderValue(headers, "Connection"),
-      "Upgrade-Insecure-Requests": getHeaderValue(headers, "Upgrade-Insecure-Requests"),
-      "Cache-Control": getHeaderValue(headers, "Cache-Control"),
-      Pragma: getHeaderValue(headers, "Pragma"),
-      "If-Modified-Since": getHeaderValue(headers, "If-Modified-Since"),
-      "If-None-Match": getHeaderValue(headers, "If-None-Match"),
-      Range: getHeaderValue(headers, "Range"),
-      TE: getHeaderValue(headers, "TE"),
-      "Transfer-Encoding": getHeaderValue(headers, "Transfer-Encoding"),
-      Expect: getHeaderValue(headers, "Expect"),
-      "X-Requested-With": getHeaderValue(headers, "X-Requested-With"),
+      "User-Agent": userAgent || "",
+      Referer: referer || "",
+      "X-Forwarded-For": ip || "",
+      Host: getHeaderValue(headers, "Host") || "",
+      Accept: getHeaderValue(headers, "Accept") || "",
+      "Accept-Language": getHeaderValue(headers, "Accept-Language") || "",
+      "Accept-Encoding": getHeaderValue(headers, "Accept-Encoding") || "",
+      "Accept-Charset": getHeaderValue(headers, "Accept-Charset") || "",
+      "Content-Type": getHeaderValue(headers, "Content-Type") || "",
+      "Content-Length": getHeaderValue(headers, "Content-Length") || "",
+      Authorization: getHeaderValue(headers, "Authorization") || "",
+      Cookie: getHeaderValue(headers, "Cookie") || "",
+      Origin: getHeaderValue(headers, "Origin") || "",
+      Connection: getHeaderValue(headers, "Connection") || "",
+      "Upgrade-Insecure-Requests": getHeaderValue(headers, "Upgrade-Insecure-Requests") || "",
+      "Cache-Control": getHeaderValue(headers, "Cache-Control") || "",
+      Pragma: getHeaderValue(headers, "Pragma") || "",
+      "If-Modified-Since": getHeaderValue(headers, "If-Modified-Since") || "",
+      "If-None-Match": getHeaderValue(headers, "If-None-Match") || "",
+      Range: getHeaderValue(headers, "Range") || "",
+      TE: getHeaderValue(headers, "TE") || "",
+      "Transfer-Encoding": getHeaderValue(headers, "Transfer-Encoding") || "",
+      Expect: getHeaderValue(headers, "Expect") || "",
+      "X-Requested-With": getHeaderValue(headers, "X-Requested-With") || "",
     }
 
-    console.log(`🔄 recordClick: About to write click document to: urls/${shortCode}/clicks/${clickId}`)
-    console.log(`🔄 recordClick: Click data keys: ${Object.keys(clickData).join(", ")}`)
+    // Use addDoc to let Firestore generate the document ID automatically
+    const clickDocRef = await addDoc(clicksCollectionRef, clickData)
+    console.log(`✅ recordClick: Individual click document created with ID: ${clickDocRef.id}`)
 
-    try {
-      await setDoc(clickDocRef, clickData)
-      console.log(`✅ recordClick: STEP 2 COMPLETE - Click document created successfully`)
-    } catch (setDocError) {
-      console.error(`❌ recordClick: setDoc failed:`, setDocError)
-      throw setDocError
+    // Verify the document was created
+    const verifyDoc = await getDoc(clickDocRef)
+    if (verifyDoc.exists()) {
+      console.log(`✅ recordClick: Verification successful - Click document exists in Firestore`)
+      console.log(`📊 recordClick: Document path: urls/${shortCode}/clicks/${clickDocRef.id}`)
+    } else {
+      console.error(`❌ recordClick: Verification failed - Document not found after creation`)
     }
 
-    // Step 3: Verify the document was created
-    console.log(`🔄 recordClick: STEP 3 - Verifying document creation`)
-    try {
-      const verifyDoc = await getDoc(clickDocRef)
-      if (verifyDoc.exists()) {
-        console.log(`✅ recordClick: VERIFICATION SUCCESS - Document exists in Firestore`)
-        const verifyData = verifyDoc.data()
-        console.log(`✅ recordClick: Verified document contains ${Object.keys(verifyData).length} fields`)
-      } else {
-        console.error(`❌ recordClick: VERIFICATION FAILED - Document does not exist after creation`)
-        throw new Error("Document verification failed - document not found after creation")
-      }
-    } catch (verifyError) {
-      console.error(`❌ recordClick: Verification failed:`, verifyError)
-      throw verifyError
-    }
-
-    console.log(`✅ recordClick: SUCCESS - All steps completed for shortCode: ${shortCode}`)
-    console.log(`✅ recordClick: Click document created at: urls/${shortCode}/clicks/${clickId}`)
+    console.log(`✅ recordClick: Complete success for shortCode: ${shortCode}`)
   } catch (error) {
-    console.error(`❌ recordClick: FAILED - Error in recordClick for shortCode: ${shortCode}`)
-    console.error(`❌ recordClick: Error type: ${error instanceof Error ? error.constructor.name : typeof error}`)
-    console.error(`❌ recordClick: Error message: ${error instanceof Error ? error.message : String(error)}`)
-    if (error instanceof Error && error.stack) {
-      console.error(`❌ recordClick: Error stack:`, error.stack)
-    }
+    console.error(`❌ recordClick: Error for shortCode: ${shortCode}`, error)
     throw error
   }
 }
