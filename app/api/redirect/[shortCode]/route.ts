@@ -16,12 +16,18 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
 
     console.log(`✅ Found URL: ${urlData.originalUrl}`)
 
-    // Record the click
+    // Extract all headers for detailed click tracking
+    const headers: Record<string, string> = {}
+    request.headers.forEach((value, key) => {
+      headers[key] = value
+    })
+
+    // Record the click with detailed header information
     const userAgent = request.headers.get("user-agent") || ""
     const referer = request.headers.get("referer") || ""
     const ip = request.ip || request.headers.get("x-forwarded-for") || ""
 
-    await recordClick(shortCode, userAgent, referer, ip)
+    await recordClick(shortCode, userAgent, referer, ip, headers)
 
     // Return redirect URL for client-side redirect
     return NextResponse.json({ redirectUrl: urlData.originalUrl })

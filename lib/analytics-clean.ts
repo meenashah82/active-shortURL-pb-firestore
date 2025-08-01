@@ -13,6 +13,7 @@ import {
   runTransaction,
   getDocs,
   increment,
+  addDoc,
 } from "firebase/firestore"
 import { db } from "./firebase"
 
@@ -52,42 +53,35 @@ export interface ClicksData {
   isActive: boolean
 }
 
-// Individual click document structure for shortcode_clicks subcollection
+// Individual click document structure for clicks subcollection
 export interface IndividualClickData {
   id: string
   timestamp: any
   shortCode: string
-  userAgent?: string
-  referer?: string
-  ip?: string
-  sessionId?: string
-  clickSource?: "direct" | "analytics_page" | "test"
-  method?: string
-  url?: string
-  httpVersion?: string
-  host?: string
-  contentType?: string
-  accept?: string
-  authorization?: string
-  cookie?: string
-  contentLength?: string
-  connection?: string
-  body?: string
-  queryParameters?: Record<string, string>
-  pathParameters?: Record<string, string>
-  headers?: Record<string, string>
-  geolocation?: {
-    country?: string
-    region?: string
-    city?: string
-    timezone?: string
-  }
-  device?: {
-    type?: string
-    browser?: string
-    os?: string
-    isMobile?: boolean
-  }
+  Host?: string
+  "User-Agent"?: string
+  Accept?: string
+  "Accept-Language"?: string
+  "Accept-Encoding"?: string
+  "Accept-Charset"?: string
+  "Content-Type"?: string
+  "Content-Length"?: string
+  Authorization?: string
+  Cookie?: string
+  Referer?: string
+  Origin?: string
+  Connection?: string
+  "Upgrade-Insecure-Requests"?: string
+  "Cache-Control"?: string
+  Pragma?: string
+  "If-Modified-Since"?: string
+  "If-None-Match"?: string
+  Range?: string
+  TE?: string
+  "Transfer-Encoding"?: string
+  Expect?: string
+  "X-Requested-With"?: string
+  "X-Forwarded-For"?: string
 }
 
 // Create short URL - using new unified structure
@@ -224,13 +218,13 @@ export async function getAnalyticsData(shortCode: string): Promise<AnalyticsData
   }
 }
 
-// Get click history from shortcode_clicks subcollection (kept for detailed analytics)
+// Get click history from clicks subcollection
 export async function getClickHistory(shortCode: string, limitCount = 50): Promise<IndividualClickData[]> {
   try {
     console.log(`📊 Fetching click history for: ${shortCode}`)
 
-    const shortcodeClicksRef = collection(db, "clicks", shortCode, "shortcode_clicks")
-    const clickHistoryQuery = query(shortcodeClicksRef, orderBy("timestamp", "desc"), limit(limitCount))
+    const clicksRef = collection(db, "urls", shortCode, "clicks")
+    const clickHistoryQuery = query(clicksRef, orderBy("timestamp", "desc"), limit(limitCount))
 
     const querySnapshot = await getDocs(clickHistoryQuery)
     const clickHistory: IndividualClickData[] = []
@@ -259,8 +253,8 @@ export function subscribeToClickHistory(
 ): () => void {
   console.log(`🔄 Subscribing to click history: ${shortCode}`)
 
-  const shortcodeClicksRef = collection(db, "clicks", shortCode, "shortcode_clicks")
-  const clickHistoryQuery = query(shortcodeClicksRef, orderBy("timestamp", "desc"), limit(limitCount))
+  const clicksRef = collection(db, "urls", shortCode, "clicks")
+  const clickHistoryQuery = query(clicksRef, orderBy("timestamp", "desc"), limit(limitCount))
 
   return onSnapshot(
     clickHistoryQuery,
@@ -286,19 +280,68 @@ export function subscribeToClickHistory(
   )
 }
 
-// Record click - update unified structure
-export async function recordClick(shortCode: string, userAgent: string, referer: string, ip: string): Promise<void> {
+// Record click - update unified structure and create detailed click document
+export async function recordClick(
+  shortCode: string,
+  userAgent: string,
+  referer: string,
+  ip: string,
+  headers?: Record<string, string>,
+): Promise<void> {
   try {
     const urlRef = doc(db, "urls", shortCode)
+    const clicksRef = collection(db, "urls", shortCode, "clicks")
 
     await runTransaction(db, async (transaction) => {
       const urlDoc = await transaction.get(urlRef)
 
       if (urlDoc.exists()) {
+        // Update the main URL document with click count and last click time
         transaction.update(urlRef, {
           totalClicks: increment(1),
           lastClickAt: serverTimestamp(),
         })
+
+        // Create detailed click document in subcollection
+        const clickData: Omit<IndividualClickData, "id"> = {
+          timestamp: serverTimestamp(),
+          shortCode,
+          Host: headers?.["host"] || headers?.["Host"],
+          "User-Agent": userAgent || headers?.["user-agent"] || headers?.["User-Agent"],
+          Accept: headers?.["accept"] || headers?.["Accept"],
+          "Accept-Language": headers?.["accept-language"] || headers?.["Accept-Language"],
+          "Accept-Encoding": headers?.["accept-encoding"] || headers?.["Accept-Encoding"],
+          "Accept-Charset": headers?.["accept-charset"] || headers?.["Accept-Charset"],
+          "Content-Type": headers?.["content-type"] || headers?.["Content-Type"],
+          "Content-Length": headers?.["content-length"] || headers?.["Content-Length"],
+          Authorization: headers?.["authorization"] || headers?.["Authorization"],
+          Cookie: headers?.["cookie"] || headers?.["Cookie"],
+          Referer: referer || headers?.["referer"] || headers?.["Referer"],
+          Origin: headers?.["origin"] || headers?.["Origin"],
+          Connection: headers?.["connection"] || headers?.["Connection"],
+          "Upgrade-Insecure-Requests": headers?.["upgrade-insecure-requests"] || headers?.["Upgrade-Insecure-Requests"],
+          "Cache-Control": headers?.["cache-control"] || headers?.["Cache-Control"],
+          Pragma: headers?.["pragma"] || headers?.["Pragma"],
+          "If-Modified-Since": headers?.["if-modified-since"] || headers?.["If-Modified-Since"],
+          "If-None-Match": headers?.["if-none-match"] || headers?.["If-None-Match"],
+          Range: headers?.["range"] || headers?.["Range"],
+          TE: headers?.["te"] || headers?.["TE"],
+          "Transfer-Encoding": headers?.["transfer-encoding"] || headers?.["Transfer-Encoding"],
+          Expect: headers?.["expect"] || headers?.["Expect"],
+          "X-Requested-With": headers?.["x-requested-with"] || headers?.["X-Requested-With"],
+          "X-Forwarded-For": ip || headers?.["x-forwarded-for"] || headers?.["X-Forwarded-For"],
+        }
+
+        // Add the click document to the subcollection (outside transaction since addDoc doesn't work in transactions)
+        // We'll do this after the transaction
+        setTimeout(async () => {
+          try {
+            await addDoc(clicksRef, clickData)
+            console.log(`✅ Detailed click document created for: ${shortCode}`)
+          } catch (error) {
+            console.error("❌ Error creating detailed click document:", error)
+          }
+        }, 0)
       } else {
         // Create URL document if it doesn't exist (shouldn't happen normally)
         transaction.set(urlRef, {
