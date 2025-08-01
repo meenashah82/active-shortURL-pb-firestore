@@ -9,17 +9,16 @@ export async function GET(request: NextRequest, { params }: { params: { shortCod
       return NextResponse.json({ error: "Short code is required" }, { status: 400 })
     }
 
-    // Get URL data with embedded analytics
     const urlData = await getUrlWithAnalytics(shortCode)
 
     if (!urlData || !urlData.isActive) {
       return NextResponse.json({ error: "URL not found or inactive" }, { status: 404 })
     }
 
-    // Track the click with unified structure
+    // Track the click with unified analytics
     const userAgent = request.headers.get("user-agent") || ""
     const referer = request.headers.get("referer") || ""
-    const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || ""
+    const ip = request.ip || request.headers.get("x-forwarded-for") || "unknown"
 
     await trackClickUnified(shortCode, {
       userAgent,
