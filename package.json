@@ -1,31 +1,9 @@
 {
   "name": "url-shortener-firestore",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "private": true,
-  "description": "A modern URL shortener built with Next.js and Firebase Firestore",
-  "keywords": [
-    "url-shortener",
-    "nextjs",
-    "firebase",
-    "firestore",
-    "typescript",
-    "tailwindcss",
-    "analytics"
-  ],
-  "homepage": "https://github.com/yourusername/url-shortener-firestore#readme",
-  "bugs": {
-    "url": "https://github.com/yourusername/url-shortener-firestore/issues"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/yourusername/url-shortener-firestore.git"
-  },
-  "license": "MIT",
-  "author": "Your Name",
   "scripts": {
     "build": "next build",
-    "check-admins": "tsx scripts/check-admin-users.ts",
-    "create-admin": "tsx scripts/create-first-admin.ts",
     "dev": "next dev",
     "lint": "next lint",
     "start": "next start",
@@ -73,11 +51,11 @@
     "input-otp": "latest",
     "jsonwebtoken": "latest",
     "lucide-react": "^0.454.0",
-    "next": "15.2.4",
+    "next": "14.2.16",
     "next-themes": "latest",
-    "react": "^19",
+    "react": "^18",
     "react-day-picker": "latest",
-    "react-dom": "^19",
+    "react-dom": "^18",
     "react-hook-form": "latest",
     "react-resizable-panels": "latest",
     "recharts": "latest",
@@ -91,14 +69,13 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.5",
     "@types/node": "^22",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "autoprefixer": "^10.4.17",
-    "eslint": "^8.56.0",
-    "eslint-config-next": "15.1.0",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "autoprefixer": "^10.0.1",
+    "eslint": "^8",
+    "eslint-config-next": "14.1.0",
     "postcss": "^8.5",
     "tailwindcss": "^3.4.17",
-    "tsx": "^4.7.1",
     "typescript": "^5"
   }
 }

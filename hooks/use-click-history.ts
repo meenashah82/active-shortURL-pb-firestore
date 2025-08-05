@@ -4,51 +4,54 @@ import { useState, useEffect } from "react"
 import { collection, query, orderBy, limit, onSnapshot } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
-export interface ClickEvent {
+interface ClickEvent {
   id: string
-  timestamp: any
+  shortCode: string
+  timestamp: Date
+  referrer: string
   userAgent: string
-  referer: string
   ip: string
   country?: string
   city?: string
 }
 
-export function useClickHistory(shortCode: string, limitCount = 50) {
+export function useClickHistory(limitCount = 50) {
   const [clicks, setClicks] = useState<ClickEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!shortCode) {
-      setLoading(false)
-      return
-    }
-
-    const clicksRef = collection(db, "analytics", shortCode, "clicks")
-    const q = query(clicksRef, orderBy("timestamp", "desc"), limit(limitCount))
+    const clicksQuery = query(collection(db, "clicks"), orderBy("timestamp", "desc"), limit(limitCount))
 
     const unsubscribe = onSnapshot(
-      q,
+      clicksQuery,
       (snapshot) => {
-        const clickData = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as ClickEvent[]
-
+        const clickData: ClickEvent[] = []
+        snapshot.forEach((doc) => {
+          const data = doc.data()
+          clickData.push({
+            id: doc.id,
+            shortCode: data.shortCode,
+            timestamp: data.timestamp.toDate(),
+            referrer: data.referrer || "Direct",
+            userAgent: data.userAgent || "Unknown",
+            ip: data.ip || "Unknown",
+            country: data.country,
+            city: data.city,
+          })
+        })
         setClicks(clickData)
         setLoading(false)
-        setError(null)
       },
-      (err) => {
-        console.error("Error fetching click history:", err)
-        setError(err.message)
+      (error) => {
+        console.error("Error fetching click history:", error)
+        setError("Failed to load click history")
         setLoading(false)
       },
     )
 
     return () => unsubscribe()
-  }, [shortCode, limitCount])
+  }, [limitCount])
 
   return { clicks, loading, error }
 }

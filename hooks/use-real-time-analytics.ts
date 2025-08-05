@@ -4,14 +4,22 @@ import { useState, useEffect } from "react"
 import { doc, onSnapshot } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
-export interface AnalyticsData {
+interface AnalyticsData {
   totalClicks: number
-  createdAt: any
-  lastClickAt: any
+  clicksToday: number
+  clicksThisWeek: number
+  clicksThisMonth: number
+  recentClicks: Array<{
+    id: string
+    timestamp: Date
+    referrer: string
+    userAgent: string
+    ip: string
+  }>
 }
 
 export function useRealTimeAnalytics(shortCode: string) {
-  const [data, setData] = useState<AnalyticsData | null>(null)
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -21,22 +29,52 @@ export function useRealTimeAnalytics(shortCode: string) {
       return
     }
 
-    const analyticsRef = doc(db, "analytics", shortCode)
+    const urlDocRef = doc(db, "urls", shortCode)
 
     const unsubscribe = onSnapshot(
-      analyticsRef,
+      urlDocRef,
       (doc) => {
         if (doc.exists()) {
-          setData(doc.data() as AnalyticsData)
+          const data = doc.data()
+          const now = new Date()
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+          const thisWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+          const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+
+          // Calculate time-based metrics
+          const clicks = data.clicks || []
+          const clicksToday = clicks.filter((click: any) => new Date(click.timestamp.toDate()) >= today).length
+
+          const clicksThisWeek = clicks.filter((click: any) => new Date(click.timestamp.toDate()) >= thisWeek).length
+
+          const clicksThisMonth = clicks.filter((click: any) => new Date(click.timestamp.toDate()) >= thisMonth).length
+
+          const recentClicks = clicks
+            .slice(-10)
+            .map((click: any) => ({
+              id: click.id || Math.random().toString(),
+              timestamp: click.timestamp.toDate(),
+              referrer: click.referrer || "Direct",
+              userAgent: click.userAgent || "Unknown",
+              ip: click.ip || "Unknown",
+            }))
+            .reverse()
+
+          setAnalytics({
+            totalClicks: data.totalClicks || 0,
+            clicksToday,
+            clicksThisWeek,
+            clicksThisMonth,
+            recentClicks,
+          })
         } else {
-          setData(null)
+          setError("URL not found")
         }
         setLoading(false)
-        setError(null)
       },
-      (err) => {
-        console.error("Error fetching analytics:", err)
-        setError(err.message)
+      (error) => {
+        console.error("Error fetching real-time analytics:", error)
+        setError("Failed to load analytics")
         setLoading(false)
       },
     )
@@ -44,5 +82,5 @@ export function useRealTimeAnalytics(shortCode: string) {
     return () => unsubscribe()
   }, [shortCode])
 
-  return { data, loading, error }
+  return { analytics, loading, error }
 }
