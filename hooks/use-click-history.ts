@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { subscribeToClickHistory, type IndividualClickData } from "@/lib/analytics-clean"
 
-export function useClickHistory(shortCode: string, limitCount = 50) {
+export function useClickHistory(shortCode: string, limit = 50) {
   const [clickHistory, setClickHistory] = useState<IndividualClickData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -14,25 +14,25 @@ export function useClickHistory(shortCode: string, limitCount = 50) {
       return
     }
 
-    console.log(`🔄 Setting up click history subscription for: ${shortCode}`)
+    console.log(`🔄 useClickHistory: Setting up subscription for: ${shortCode}`)
     setLoading(true)
     setError(null)
 
     const unsubscribe = subscribeToClickHistory(
       shortCode,
       (history) => {
-        console.log(`📊 Click history received: ${history.length} records`)
+        console.log(`📊 useClickHistory: Received ${history.length} click records`)
         setClickHistory(history)
         setLoading(false)
       },
-      limitCount,
+      limit,
     )
 
     return () => {
-      console.log(`🧹 Cleaning up click history subscription for: ${shortCode}`)
+      console.log(`🧹 useClickHistory: Cleaning up subscription for: ${shortCode}`)
       unsubscribe()
     }
-  }, [shortCode, limitCount])
+  }, [shortCode, limit])
 
   return {
     clickHistory,

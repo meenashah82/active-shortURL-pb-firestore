@@ -1,5 +1,22 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    serverComponentsExternalPackages: ['firebase-admin']
+  },
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+      }
+    }
+    return config
+  },
+  env: {
+    CUSTOM_KEY: 'my-value',
+  },
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -9,7 +26,6 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  serverExternalPackages: ['firebase-admin']
 }
 
 export default nextConfig
