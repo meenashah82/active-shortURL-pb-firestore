@@ -1,10 +1,21 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { subscribeToClickHistory, type IndividualClickData } from "@/lib/analytics-clean"
+import { collection, query, orderBy, limit, onSnapshot } from "firebase/firestore"
+import { db } from "@/lib/firebase"
 
-export function useClickHistory(shortCode: string, limit = 50) {
-  const [clickHistory, setClickHistory] = useState<IndividualClickData[]>([])
+export interface ClickEvent {
+  id: string
+  timestamp: any
+  userAgent: string
+  referer: string
+  ip: string
+  country?: string
+  city?: string
+}
+
+export function useClickHistory(shortCode: string, limitCount = 50) {
+  const [clicks, setClicks] = useState<ClickEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -14,29 +25,30 @@ export function useClickHistory(shortCode: string, limit = 50) {
       return
     }
 
-    console.log(`🔄 useClickHistory: Setting up subscription for: ${shortCode}`)
-    setLoading(true)
-    setError(null)
+    const clicksRef = collection(db, "analytics", shortCode, "clicks")
+    const q = query(clicksRef, orderBy("timestamp", "desc"), limit(limitCount))
 
-    const unsubscribe = subscribeToClickHistory(
-      shortCode,
-      (history) => {
-        console.log(`📊 useClickHistory: Received ${history.length} click records`)
-        setClickHistory(history)
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const clickData = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as ClickEvent[]
+
+        setClicks(clickData)
+        setLoading(false)
+        setError(null)
+      },
+      (err) => {
+        console.error("Error fetching click history:", err)
+        setError(err.message)
         setLoading(false)
       },
-      limit,
     )
 
-    return () => {
-      console.log(`🧹 useClickHistory: Cleaning up subscription for: ${shortCode}`)
-      unsubscribe()
-    }
-  }, [shortCode, limit])
+    return () => unsubscribe()
+  }, [shortCode, limitCount])
 
-  return {
-    clickHistory,
-    loading,
-    error,
-  }
+  return { clicks, loading, error }
 }

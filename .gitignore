@@ -1,5 +1,5 @@
 # Dependencies
-/node_modules
+node_modules/
 /.pnp
 .pnp.js
 
@@ -15,7 +15,8 @@
 
 # Misc
 .DS_Store
-*.pem
+*.tsbuildinfo
+next-env.d.ts
 
 # Debug
 npm-debug.log*
@@ -31,10 +32,17 @@ yarn-error.log*
 
 # TypeScript
 *.tsbuildinfo
-next-env.d.ts
 
 # Firebase
 .firebase/
 firebase-debug.log
 firestore-debug.log
-ui-debug.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
