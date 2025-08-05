@@ -1,57 +1,42 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { collection, query, orderBy, limit, onSnapshot } from "firebase/firestore"
-import { db } from "@/lib/firebase"
+import { subscribeToClickHistory, type IndividualClickData } from "@/lib/analytics-clean"
 
-interface ClickEvent {
-  id: string
-  shortCode: string
-  timestamp: Date
-  referrer: string
-  userAgent: string
-  ip: string
-  country?: string
-  city?: string
-}
-
-export function useClickHistory(limitCount = 50) {
-  const [clicks, setClicks] = useState<ClickEvent[]>([])
+export function useClickHistory(shortCode: string, limit = 50) {
+  const [clickHistory, setClickHistory] = useState<IndividualClickData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const clicksQuery = query(collection(db, "clicks"), orderBy("timestamp", "desc"), limit(limitCount))
+    if (!shortCode) {
+      setLoading(false)
+      return
+    }
 
-    const unsubscribe = onSnapshot(
-      clicksQuery,
-      (snapshot) => {
-        const clickData: ClickEvent[] = []
-        snapshot.forEach((doc) => {
-          const data = doc.data()
-          clickData.push({
-            id: doc.id,
-            shortCode: data.shortCode,
-            timestamp: data.timestamp.toDate(),
-            referrer: data.referrer || "Direct",
-            userAgent: data.userAgent || "Unknown",
-            ip: data.ip || "Unknown",
-            country: data.country,
-            city: data.city,
-          })
-        })
-        setClicks(clickData)
+    console.log(`🔄 useClickHistory: Setting up subscription for: ${shortCode}`)
+    setLoading(true)
+    setError(null)
+
+    const unsubscribe = subscribeToClickHistory(
+      shortCode,
+      (history) => {
+        console.log(`📊 useClickHistory: Received ${history.length} click records`)
+        setClickHistory(history)
         setLoading(false)
       },
-      (error) => {
-        console.error("Error fetching click history:", error)
-        setError("Failed to load click history")
-        setLoading(false)
-      },
+      limit,
     )
 
-    return () => unsubscribe()
-  }, [limitCount])
+    return () => {
+      console.log(`🧹 useClickHistory: Cleaning up subscription for: ${shortCode}`)
+      unsubscribe()
+    }
+  }, [shortCode, limit])
 
-  return { clicks, loading, error }
+  return {
+    clickHistory,
+    loading,
+    error,
+  }
 }
