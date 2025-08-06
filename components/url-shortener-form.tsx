@@ -4,8 +4,9 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Copy, ExternalLink, Loader2 } from 'lucide-react'
+import { Copy, ExternalLink, Loader2, Settings } from 'lucide-react'
 import { useToast } from "@/hooks/use-toast"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
 interface UrlShortenerFormProps {
   onUrlCreated?: () => void
@@ -13,9 +14,35 @@ interface UrlShortenerFormProps {
 
 export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
   const [url, setUrl] = useState("")
+  const [customShortCode, setCustomShortCode] = useState("")
   const [shortUrl, setShortUrl] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [showAdvanced, setShowAdvanced] = useState(false)
   const { toast } = useToast()
+
+  const validateShortCode = (code: string): string | null => {
+    if (!code) return null
+    
+    if (code.length < 3) {
+      return "Custom code must be at least 3 characters long"
+    }
+    
+    if (code.length > 20) {
+      return "Custom code must be no more than 20 characters long"
+    }
+    
+    if (!/^[a-zA-Z0-9-_]+$/.test(code)) {
+      return "Custom code can only contain letters, numbers, hyphens, and underscores"
+    }
+    
+    // Reserved words
+    const reserved = ['api', 'admin', 'dashboard', 'analytics', 'www', 'app', 'mail', 'ftp', 'localhost', 'test', 'dev']
+    if (reserved.includes(code.toLowerCase())) {
+      return "This custom code is reserved and cannot be used"
+    }
+    
+    return null
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -41,15 +68,33 @@ export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
       return
     }
 
+    // Validate custom short code if provided
+    if (customShortCode) {
+      const validationError = validateShortCode(customShortCode)
+      if (validationError) {
+        toast({
+          title: "Invalid Custom Code",
+          description: validationError,
+          variant: "destructive",
+        })
+        return
+      }
+    }
+
     setIsLoading(true)
 
     try {
+      const requestBody: { url: string; customShortCode?: string } = { url }
+      if (customShortCode) {
+        requestBody.customShortCode = customShortCode
+      }
+
       const response = await fetch("/api/shorten", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify(requestBody),
       })
 
       if (!response.ok) {
@@ -69,17 +114,21 @@ export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
         shortUrl: data.shortUrl,
         createdAt: new Date().toISOString(),
         totalClicks: 0,
+        isCustom: !!customShortCode,
       }
       storedUrls.unshift(newUrl)
       localStorage.setItem("shortened-urls", JSON.stringify(storedUrls.slice(0, 50))) // Keep last 50
 
       toast({
         title: "Success!",
-        description: "URL shortened successfully.",
+        description: customShortCode 
+          ? `URL shortened with custom code: ${customShortCode}`
+          : "URL shortened successfully.",
       })
 
-      // Clear the input
+      // Clear the inputs
       setUrl("")
+      setCustomShortCode("")
 
       // Notify parent component
       onUrlCreated?.()
@@ -198,6 +247,39 @@ export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
               )}
             </Button>
           </div>
+
+          <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
+            <CollapsibleTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-gray-600 hover:text-gray-900 p-0 h-auto font-normal"
+              >
+                <Settings className="mr-2 h-4 w-4" />
+                {showAdvanced ? "Hide" : "Show"} advanced options
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-3 pt-3">
+              <div className="space-y-2">
+                <label htmlFor="customShortCode" className="text-sm font-medium text-gray-700">
+                  Custom short code (optional)
+                </label>
+                <Input
+                  id="customShortCode"
+                  type="text"
+                  placeholder="my-custom-link"
+                  value={customShortCode}
+                  onChange={(e) => setCustomShortCode(e.target.value)}
+                  className="border-gray-300 focus:border-purple-500 focus:ring-purple-500"
+                  disabled={isLoading}
+                />
+                <p className="text-xs text-gray-500">
+                  3-20 characters, letters, numbers, hyphens, and underscores only
+                </p>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
         </form>
 
         {shortUrl && (
