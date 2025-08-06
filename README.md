@@ -1,49 +1,30 @@
-# URL Shortener Powered by Firestore
+# URLShortenerPoweredByFireStore
 
-A modern URL shortener built with Next.js 15, Firebase Firestore, and real-time analytics.
+*Automatically synced with your [v0.dev](https://v0.dev) deployments*
 
-## Features
+[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/wodify-projects/v0-url-shortener-powered-by-firestore)
+[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/D1lwgbTyy8L)
 
-- **URL Shortening**: Create short URLs with custom or auto-generated codes
-- **Real-time Analytics**: Live click tracking with WebSocket updates
-- **Admin Dashboard**: User management and analytics overview
-- **Click History**: Detailed tracking of each click with headers and metadata
-- **Responsive Design**: Works on desktop and mobile devices
+## Overview
 
-## Tech Stack
+This repository will stay in sync with your deployed chats on [v0.dev](https://v0.dev).
+Any changes you make to your deployed app will be automatically pushed to this repository from [v0.dev](https://v0.dev).
 
-- **Frontend**: Next.js 15, React, TypeScript, Tailwind CSS
-- **Backend**: Next.js API Routes, Firebase Firestore
-- **UI Components**: shadcn/ui
-- **Authentication**: JWT-based admin authentication
-- **Real-time**: Firestore WebSocket subscriptions
+## Deployment
 
-## Getting Started
+Your project is live at:
 
-1. Clone the repository
-2. Install dependencies: `npm install`
-3. Set up Firebase configuration in environment variables
-4. Run the development server: `npm run dev`
-5. Open [http://localhost:3000](http://localhost:3000)
+**[https://vercel.com/wodify-projects/v0-url-shortener-powered-by-firestore](https://vercel.com/wodify-projects/v0-url-shortener-powered-by-firestore)**
 
-## Environment Variables
+## Build your app
 
-\`\`\`env
-NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_auth_domain
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_storage_bucket
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
-JWT_SECRET=your_jwt_secret
-\`\`\`
+Continue building your app on:
 
-## Database Structure
+**[https://v0.dev/chat/projects/D1lwgbTyy8L](https://v0.dev/chat/projects/D1lwgbTyy8L)**
 
-- `urls/{shortCode}` - Main URL documents with click counts
-- `urls/{shortCode}/clicks/{clickId}` - Individual click records
-- `admin_users/{userId}` - Admin user accounts
+## How It Works
 
-## License
-
-MIT License
+1. Create and modify your project using [v0.dev](https://v0.dev)
+2. Deploy your chats from the v0 interface
+3. Changes are automatically pushed to this repository
+4. Vercel deploys the latest version from this repository
