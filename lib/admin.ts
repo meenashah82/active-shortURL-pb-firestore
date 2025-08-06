@@ -188,28 +188,29 @@ export async function getAdminStats(): Promise<{
   }
 }
 
-// Remove all data from the new database structure
+// Remove all data from unified structure
 export async function removeAllClicksData(): Promise<{
   success: boolean
   deletedCounts: {
     urls: number
-    clickSubcollections: number
-    totalClickDocuments: number
-    legacyAnalytics: number
-    legacyClicks: number
+    analytics: number
+    clicks: number
+    subcollections: number
   }
   error?: string
 }> {
   try {
-    console.log("🧹 Starting removal of all data from the database...")
+    console.log("🧹 Starting removal of all data from unified structure...")
 
     const deletedCounts = {
       urls: 0,
-      clickSubcollections: 0,
-      totalClickDocuments: 0,
-      legacyAnalytics: 0,
-      legacyClicks: 0,
+      analytics: 0, // Not applicable in unified structure
+      clicks: 0, // Legacy clicks collection if it exists
+      subcollections: 0,
     }
+
+    // Get all documents from urls collection
+    const urlsSnapshot = await getDocs(collection(db, "urls"))
 
     // Process in batches to avoid Firestore limits
     const BATCH_SIZE = 500
@@ -225,37 +226,8 @@ export async function removeAllClicksData(): Promise<{
       }
     }
 
-    // Step 1: Get all URLs and delete their clicks subcollections first
-    console.log("🔄 Step 1: Deleting clicks subcollections...")
-    const urlsSnapshot = await getDocs(collection(db, "urls"))
-    
-    for (const urlDoc of urlsSnapshot.docs) {
-      const shortCode = urlDoc.id
-      
-      try {
-        // Get all click documents in the subcollection
-        const clicksRef = collection(db, "urls", shortCode, "clicks")
-        const clicksSnapshot = await getDocs(clicksRef)
-        
-        if (clicksSnapshot.docs.length > 0) {
-          console.log(`🔄 Deleting ${clicksSnapshot.docs.length} click documents for ${shortCode}`)
-          deletedCounts.clickSubcollections++
-          
-          // Delete all click documents in this subcollection
-          for (const clickDoc of clicksSnapshot.docs) {
-            batch.delete(clickDoc.ref)
-            operationCount++
-            deletedCounts.totalClickDocuments++
-            await commitBatchIfNeeded()
-          }
-        }
-      } catch (subcollectionError) {
-        console.warn(`⚠️ Could not delete clicks subcollection for ${shortCode}:`, subcollectionError)
-      }
-    }
-
-    // Step 2: Delete all URL documents
-    console.log(`🔄 Step 2: Deleting ${urlsSnapshot.docs.length} URL documents...`)
+    // Delete all URLs documents
+    console.log(`🔄 Deleting ${urlsSnapshot.docs.length} URL documents...`)
     for (const urlDoc of urlsSnapshot.docs) {
       batch.delete(urlDoc.ref)
       operationCount++
@@ -263,54 +235,49 @@ export async function removeAllClicksData(): Promise<{
       await commitBatchIfNeeded()
     }
 
-    // Step 3: Clean up any legacy collections if they exist
-    console.log("🔄 Step 3: Cleaning up legacy collections...")
-    
+    // Try to clean up legacy collections if they exist
     try {
       const analyticsSnapshot = await getDocs(collection(db, "analytics"))
-      if (analyticsSnapshot.docs.length > 0) {
-        console.log(`🔄 Deleting ${analyticsSnapshot.docs.length} legacy analytics documents...`)
-        for (const analyticsDoc of analyticsSnapshot.docs) {
-          batch.delete(analyticsDoc.ref)
-          operationCount++
-          deletedCounts.legacyAnalytics++
-          await commitBatchIfNeeded()
-        }
+      console.log(`🔄 Deleting ${analyticsSnapshot.docs.length} legacy analytics documents...`)
+      for (const analyticsDoc of analyticsSnapshot.docs) {
+        batch.delete(analyticsDoc.ref)
+        operationCount++
+        deletedCounts.analytics++
+        await commitBatchIfNeeded()
       }
     } catch (error) {
-      console.log("ℹ️ No legacy analytics collection found")
+      console.log("No legacy analytics collection found")
     }
 
     try {
       const clicksSnapshot = await getDocs(collection(db, "clicks"))
-      if (clicksSnapshot.docs.length > 0) {
-        console.log(`🔄 Deleting ${clicksSnapshot.docs.length} legacy clicks documents...`)
-        for (const clickDoc of clicksSnapshot.docs) {
-          const shortCode = clickDoc.id
+      console.log(`🔄 Deleting ${clicksSnapshot.docs.length} legacy clicks documents...`)
+      for (const clickDoc of clicksSnapshot.docs) {
+        const shortCode = clickDoc.id
 
-          // Delete legacy subcollection documents first
-          try {
-            const subcollectionRef = collection(db, "clicks", shortCode, "shortcode_clicks")
-            const subcollectionSnapshot = await getDocs(subcollectionRef)
+        // Delete subcollection documents first
+        try {
+          const subcollectionRef = collection(db, "clicks", shortCode, "shortcode_clicks")
+          const subcollectionSnapshot = await getDocs(subcollectionRef)
 
-            for (const subDoc of subcollectionSnapshot.docs) {
-              batch.delete(subDoc.ref)
-              operationCount++
-              await commitBatchIfNeeded()
-            }
-          } catch (subcollectionError) {
-            console.warn(`⚠️ Could not delete legacy subcollection for ${shortCode}:`, subcollectionError)
+          for (const subDoc of subcollectionSnapshot.docs) {
+            batch.delete(subDoc.ref)
+            operationCount++
+            deletedCounts.subcollections++
+            await commitBatchIfNeeded()
           }
-
-          // Delete main legacy clicks document
-          batch.delete(clickDoc.ref)
-          operationCount++
-          deletedCounts.legacyClicks++
-          await commitBatchIfNeeded()
+        } catch (subcollectionError) {
+          console.warn(`⚠️ Could not delete subcollection for ${shortCode}:`, subcollectionError)
         }
+
+        // Delete main clicks document
+        batch.delete(clickDoc.ref)
+        operationCount++
+        deletedCounts.clicks++
+        await commitBatchIfNeeded()
       }
     } catch (error) {
-      console.log("ℹ️ No legacy clicks collection found")
+      console.log("No legacy clicks collection found")
     }
 
     // Commit any remaining operations
@@ -320,11 +287,10 @@ export async function removeAllClicksData(): Promise<{
 
     console.log("✅ All data removed successfully!")
     console.log(`📊 Deletion summary:`)
-    console.log(`   - URL Documents: ${deletedCounts.urls}`)
-    console.log(`   - URLs with Click Subcollections: ${deletedCounts.clickSubcollections}`)
-    console.log(`   - Total Click Documents: ${deletedCounts.totalClickDocuments}`)
-    console.log(`   - Legacy Analytics: ${deletedCounts.legacyAnalytics}`)
-    console.log(`   - Legacy Clicks: ${deletedCounts.legacyClicks}`)
+    console.log(`   - URLs: ${deletedCounts.urls}`)
+    console.log(`   - Legacy Analytics: ${deletedCounts.analytics}`)
+    console.log(`   - Legacy Clicks: ${deletedCounts.clicks}`)
+    console.log(`   - Subcollections: ${deletedCounts.subcollections}`)
 
     return {
       success: true,
@@ -336,10 +302,9 @@ export async function removeAllClicksData(): Promise<{
       success: false,
       deletedCounts: {
         urls: 0,
-        clickSubcollections: 0,
-        totalClickDocuments: 0,
-        legacyAnalytics: 0,
-        legacyClicks: 0,
+        analytics: 0,
+        clicks: 0,
+        subcollections: 0,
       },
       error: error instanceof Error ? error.message : "Unknown error occurred",
     }

@@ -112,11 +112,10 @@ export function AdminDashboard() {
       if (result.success) {
         setDeleteResult(
           `Successfully deleted all data:\n` +
-            `• URL Documents: ${result.deletedCounts.urls}\n` +
-            `• URLs with Click Subcollections: ${result.deletedCounts.clickSubcollections}\n` +
-            `• Total Click Documents: ${result.deletedCounts.totalClickDocuments}\n` +
-            `• Legacy Analytics: ${result.deletedCounts.legacyAnalytics}\n` +
-            `• Legacy Clicks: ${result.deletedCounts.legacyClicks}`,
+            `• URLs: ${result.deletedCounts.urls}\n` +
+            `• Legacy Analytics: ${result.deletedCounts.analytics}\n` +
+            `• Legacy Clicks: ${result.deletedCounts.clicks}\n` +
+            `• Subcollections: ${result.deletedCounts.subcollections}`,
         )
         // Refresh the URLs list
         setUrls([])
@@ -228,9 +227,9 @@ export function AdminDashboard() {
                   <p className="font-semibold">This will permanently delete ALL data from:</p>
                   <ul className="list-disc list-inside space-y-1 text-sm">
                     <li>All shortened URLs</li>
-                    <li>All click tracking subcollections</li>
-                    <li>All individual click records</li>
-                    <li>Any legacy analytics data</li>
+                    <li>All analytics data</li>
+                    <li>All click tracking data</li>
+                    <li>All subcollection data</li>
                   </ul>
                   <p className="text-red-600 font-semibold mt-4">
                     This action cannot be undone. Are you absolutely sure?
