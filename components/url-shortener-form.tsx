@@ -4,9 +4,8 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Copy, ExternalLink, Loader2, Settings } from 'lucide-react'
+import { Copy, ExternalLink, Loader2 } from 'lucide-react'
 import { useToast } from "@/hooks/use-toast"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
 interface UrlShortenerFormProps {
   onUrlCreated?: () => void
@@ -17,7 +16,6 @@ export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
   const [customShortCode, setCustomShortCode] = useState("")
   const [shortUrl, setShortUrl] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [showAdvanced, setShowAdvanced] = useState(false)
   const { toast } = useToast()
 
   const validateShortCode = (code: string): string | null => {
@@ -248,38 +246,23 @@ export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
             </Button>
           </div>
 
-          <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
-            <CollapsibleTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="text-gray-600 hover:text-gray-900 p-0 h-auto font-normal"
-              >
-                <Settings className="mr-2 h-4 w-4" />
-                {showAdvanced ? "Hide" : "Show"} advanced options
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-3 pt-3">
-              <div className="space-y-2">
-                <label htmlFor="customShortCode" className="text-sm font-medium text-gray-700">
-                  Custom short code (optional)
-                </label>
-                <Input
-                  id="customShortCode"
-                  type="text"
-                  placeholder="my-custom-link"
-                  value={customShortCode}
-                  onChange={(e) => setCustomShortCode(e.target.value)}
-                  className="border-gray-300 focus:border-purple-500 focus:ring-purple-500"
-                  disabled={isLoading}
-                />
-                <p className="text-xs text-gray-500">
-                  3-20 characters, letters, numbers, hyphens, and underscores only
-                </p>
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
+          <div className="space-y-2">
+            <label htmlFor="customShortCode" className="text-sm font-medium text-gray-700">
+              Custom short code (optional)
+            </label>
+            <Input
+              id="customShortCode"
+              type="text"
+              placeholder="my-custom-link"
+              value={customShortCode}
+              onChange={(e) => setCustomShortCode(e.target.value)}
+              className="border-gray-300 focus:border-purple-500 focus:ring-purple-500"
+              disabled={isLoading}
+            />
+            <p className="text-xs text-gray-500">
+              3-20 characters, letters, numbers, hyphens, and underscores only
+            </p>
+          </div>
         </form>
 
         {shortUrl && (

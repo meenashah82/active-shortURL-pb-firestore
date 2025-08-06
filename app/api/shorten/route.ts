@@ -1,5 +1,6 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { createShortUrl, getUrlData } from "@/lib/analytics-clean"
+import { NextRequest, NextResponse } from "next/server"
+import { db } from "@/lib/firebase"
+import { collection, doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore"
 
 function generateShortCode(): string {
   const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -11,6 +12,8 @@ function generateShortCode(): string {
 }
 
 function validateCustomShortCode(code: string): string | null {
+  if (!code) return null
+  
   if (code.length < 3) {
     return "Custom code must be at least 3 characters long"
   }
@@ -49,46 +52,53 @@ export async function POST(request: NextRequest) {
 
     let shortCode: string
 
+    // Handle custom short code
     if (customShortCode) {
-      // Validate custom short code format
       const validationError = validateCustomShortCode(customShortCode)
       if (validationError) {
         return NextResponse.json({ error: validationError }, { status: 400 })
       }
 
-      // Check if custom short code is already taken
-      const existingUrl = await getUrlData(customShortCode)
-      if (existingUrl) {
-        return NextResponse.json({ 
-          error: "This custom code is already taken. Please choose a different one." 
-        }, { status: 409 })
+      // Check if custom code already exists
+      const customDocRef = doc(db, "urls", customShortCode)
+      const customDocSnap = await getDoc(customDocRef)
+      
+      if (customDocSnap.exists()) {
+        return NextResponse.json({ error: "This custom code is already taken" }, { status: 409 })
       }
 
       shortCode = customShortCode
-      console.log(`🔗 Creating short URL with custom code: ${shortCode} -> ${url}`)
     } else {
-      // Generate random short code and ensure it's unique
+      // Generate random short code
       let attempts = 0
       const maxAttempts = 10
 
       do {
         shortCode = generateShortCode()
-        const existingUrl = await getUrlData(shortCode)
-        if (!existingUrl) break
+        const docRef = doc(db, "urls", shortCode)
+        const docSnap = await getDoc(docRef)
+        
+        if (!docSnap.exists()) {
+          break
+        }
         
         attempts++
-        if (attempts >= maxAttempts) {
-          return NextResponse.json({ 
-            error: "Unable to generate unique short code. Please try again." 
-          }, { status: 500 })
-        }
       } while (attempts < maxAttempts)
 
-      console.log(`🔗 Creating short URL with generated code: ${shortCode} -> ${url}`)
+      if (attempts >= maxAttempts) {
+        return NextResponse.json({ error: "Unable to generate unique short code" }, { status: 500 })
+      }
     }
 
-    // Create the short URL using the clean analytics system
-    await createShortUrl(shortCode, url)
+    // Create the document
+    const docRef = doc(db, "urls", shortCode)
+    await setDoc(docRef, {
+      originalUrl: url,
+      shortCode,
+      createdAt: serverTimestamp(),
+      totalClicks: 0,
+      isCustom: !!customShortCode,
+    })
 
     const shortUrl = `${request.nextUrl.origin}/${shortCode}`
 
@@ -96,10 +106,9 @@ export async function POST(request: NextRequest) {
       shortUrl,
       shortCode,
       originalUrl: url,
-      isCustom: !!customShortCode,
     })
   } catch (error) {
-    console.error("❌ Error creating short URL:", error)
-    return NextResponse.json({ error: "Failed to create short URL" }, { status: 500 })
+    console.error("Error creating short URL:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
