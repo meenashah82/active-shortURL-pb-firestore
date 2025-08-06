@@ -1,157 +1,107 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/firebase'
-import { collection, doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { NextRequest, NextResponse } from "next/server"
+import { createShortUrl, getUrlData } from "@/lib/analytics-clean"
 
-// Generate a random short code
-function generateShortCode(length: number = 6): string {
-  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-  let result = ''
-  for (let i = 0; i < length; i++) {
+function generateShortCode(): string {
+  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+  let result = ""
+  for (let i = 0; i < 6; i++) {
     result += chars.charAt(Math.floor(Math.random() * chars.length))
   }
   return result
 }
 
-// Validate custom short code
+function validateUrl(url: string): boolean {
+  try {
+    new URL(url)
+    return true
+  } catch {
+    return false
+  }
+}
+
 function validateCustomShortCode(code: string): string | null {
-  if (!code) return null
-  
+  // Length check
   if (code.length < 3 || code.length > 20) {
-    return "Custom code must be 3-20 characters long"
+    return "Custom code must be between 3-20 characters"
   }
   
-  if (!/^[a-zA-Z0-9-_]+$/.test(code)) {
+  // Character check
+  if (!/^[a-zA-Z0-9_-]+$/.test(code)) {
     return "Custom code can only contain letters, numbers, hyphens, and underscores"
   }
   
-  const reserved = ['api', 'admin', 'dashboard', 'analytics', 'www', 'app', 'mail', 'ftp', 'localhost', 'test', 'dev', 'auth', 'login', 'register', 'about', 'contact', 'help', 'terms', 'privacy']
-  if (reserved.includes(code.toLowerCase())) {
-    return "This custom code is reserved and cannot be used"
+  // Reserved words check
+  const reservedWords = ['api', 'admin', 'dashboard', 'analytics', 'auth', 'login', 'register', 'app', 'www']
+  if (reservedWords.includes(code.toLowerCase())) {
+    return "This code is reserved and cannot be used"
   }
   
   return null
 }
 
-// Check if short code exists
-async function shortCodeExists(shortCode: string): Promise<boolean> {
-  try {
-    const docRef = doc(db, 'urls', shortCode)
-    const docSnap = await getDoc(docRef)
-    return docSnap.exists()
-  } catch (error) {
-    console.error('Error checking short code existence:', error)
-    return true // Assume it exists to be safe
-  }
-}
-
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { url, customShortCode } = body
+    const { url, customShortCode } = await request.json()
 
-    // Validate URL
-    if (!url || typeof url !== 'string') {
-      return NextResponse.json(
-        { error: 'URL is required and must be a string' },
-        { status: 400 }
-      )
+    if (!url) {
+      return NextResponse.json({ error: "URL is required" }, { status: 400 })
     }
 
-    // Validate URL format
-    try {
-      const urlObj = new URL(url)
-      if (!['http:', 'https:'].includes(urlObj.protocol)) {
-        return NextResponse.json(
-          { error: 'URL must use HTTP or HTTPS protocol' },
-          { status: 400 }
-        )
-      }
-    } catch {
-      return NextResponse.json(
-        { error: 'Invalid URL format' },
-        { status: 400 }
-      )
+    if (!validateUrl(url)) {
+      return NextResponse.json({ error: "Invalid URL format" }, { status: 400 })
     }
 
-    let shortCode: string
+    let shortCode = ""
+    let isCustom = false
 
     // Handle custom short code
-    if (customShortCode) {
-      const validationError = validateCustomShortCode(customShortCode)
+    if (customShortCode && customShortCode.trim()) {
+      const trimmedCode = customShortCode.trim()
+      
+      // Validate custom short code
+      const validationError = validateCustomShortCode(trimmedCode)
       if (validationError) {
-        return NextResponse.json(
-          { error: validationError },
-          { status: 400 }
-        )
+        return NextResponse.json({ error: validationError }, { status: 400 })
       }
 
       // Check if custom code already exists
-      if (await shortCodeExists(customShortCode)) {
-        return NextResponse.json(
-          { error: 'This custom code is already taken. Please choose a different one.' },
-          { status: 409 }
-        )
+      const existingUrl = await getUrlData(trimmedCode)
+      if (existingUrl) {
+        return NextResponse.json({ error: "This custom code is already taken" }, { status: 409 })
       }
 
-      shortCode = customShortCode
+      shortCode = trimmedCode
+      isCustom = true
     } else {
-      // Generate random short code
+      // Generate unique short code
       let attempts = 0
       const maxAttempts = 10
 
       do {
         shortCode = generateShortCode()
+        const existingUrl = await getUrlData(shortCode)
+        if (!existingUrl) break
         attempts++
-        
-        if (attempts >= maxAttempts) {
-          // Try with longer code
-          shortCode = generateShortCode(8)
-          break
-        }
-      } while (await shortCodeExists(shortCode))
+      } while (attempts < maxAttempts)
 
-      // Final check for longer code
-      if (await shortCodeExists(shortCode)) {
-        return NextResponse.json(
-          { error: 'Unable to generate unique short code. Please try again.' },
-          { status: 500 }
-        )
+      if (attempts >= maxAttempts) {
+        return NextResponse.json({ error: "Unable to generate unique short code" }, { status: 500 })
       }
     }
 
-    // Create URL document
-    const urlData = {
-      originalUrl: url,
-      shortCode,
-      createdAt: serverTimestamp(),
-      totalClicks: 0,
-      isCustom: !!customShortCode,
-      lastClickedAt: null,
-    }
+    // Create the short URL
+    await createShortUrl(shortCode, url)
 
-    // Save to Firestore
-    const docRef = doc(db, 'urls', shortCode)
-    await setDoc(docRef, urlData)
-
-    // Get the base URL for the response
-    const baseUrl = request.headers.get('host')
-    const protocol = request.headers.get('x-forwarded-proto') || 'https'
-    const shortUrl = `${protocol}://${baseUrl}/${shortCode}`
-
-    console.log(`Created short URL: ${shortCode} -> ${url}`)
+    console.log(`✅ Short URL created: ${shortCode} -> ${url} (custom: ${isCustom})`)
 
     return NextResponse.json({
       shortCode,
-      shortUrl,
       originalUrl: url,
-      isCustom: !!customShortCode,
+      shortUrl: `${request.nextUrl.origin}/${shortCode}`,
+      isCustom
     })
-
   } catch (error) {
-    console.error('Error creating short URL:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    console.error("Error in shorten API:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

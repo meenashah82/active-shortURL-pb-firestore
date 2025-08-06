@@ -3,293 +3,205 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Copy, ExternalLink, Loader2 } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
+import { Link2, Copy, ExternalLink, AlertCircle } from 'lucide-react'
 import { useToast } from "@/hooks/use-toast"
 
-interface UrlShortenerFormProps {
-  onUrlCreated?: () => void
-}
-
-export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
+export function UrlShortenerForm() {
   const [url, setUrl] = useState("")
   const [customShortCode, setCustomShortCode] = useState("")
-  const [shortUrl, setShortUrl] = useState("")
+  const [shortenedUrl, setShortenedUrl] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
   const { toast } = useToast()
 
-  const validateShortCode = (code: string): string | null => {
-    if (!code) return null
+  const validateUrl = (url: string) => {
+    try {
+      const urlObj = new URL(url.startsWith("http") ? url : `https://${url}`)
+      return urlObj.protocol === "http:" || urlObj.protocol === "https:"
+    } catch {
+      return false
+    }
+  }
+
+  const validateCustomShortCode = (code: string) => {
+    if (!code) return true // Optional field
     
-    if (code.length < 3) {
-      return "Custom code must be at least 3 characters long"
+    // Length check
+    if (code.length < 3 || code.length > 20) {
+      return "Custom code must be between 3-20 characters"
     }
     
-    if (code.length > 20) {
-      return "Custom code must be no more than 20 characters long"
-    }
-    
-    if (!/^[a-zA-Z0-9-_]+$/.test(code)) {
+    // Character check
+    if (!/^[a-zA-Z0-9_-]+$/.test(code)) {
       return "Custom code can only contain letters, numbers, hyphens, and underscores"
     }
     
-    // Reserved words
-    const reserved = ['api', 'admin', 'dashboard', 'analytics', 'www', 'app', 'mail', 'ftp', 'localhost', 'test', 'dev']
-    if (reserved.includes(code.toLowerCase())) {
-      return "This custom code is reserved and cannot be used"
+    // Reserved words check
+    const reservedWords = ['api', 'admin', 'dashboard', 'analytics', 'auth', 'login', 'register', 'app', 'www']
+    if (reservedWords.includes(code.toLowerCase())) {
+      return "This code is reserved and cannot be used"
     }
     
-    return null
+    return true
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError("")
 
-    if (!url) {
-      toast({
-        title: "Error",
-        description: "Please enter a URL to shorten.",
-        variant: "destructive",
-      })
+    if (!url.trim()) {
+      setError("Please enter a URL")
       return
     }
 
-    // Basic URL validation
-    try {
-      new URL(url)
-    } catch {
-      toast({
-        title: "Error",
-        description: "Please enter a valid URL (including http:// or https://).",
-        variant: "destructive",
-      })
+    if (!validateUrl(url)) {
+      setError("Please enter a valid URL")
       return
     }
 
-    // Validate custom short code if provided
-    if (customShortCode) {
-      const validationError = validateShortCode(customShortCode)
-      if (validationError) {
-        toast({
-          title: "Invalid Custom Code",
-          description: validationError,
-          variant: "destructive",
-        })
-        return
-      }
+    const customValidation = validateCustomShortCode(customShortCode)
+    if (customValidation !== true) {
+      setError(customValidation as string)
+      return
     }
 
     setIsLoading(true)
 
     try {
-      const requestBody: { url: string; customShortCode?: string } = { url }
-      if (customShortCode) {
-        requestBody.customShortCode = customShortCode
-      }
-
       const response = await fetch("/api/shorten", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({ 
+          url: url.startsWith("http") ? url : `https://${url}`,
+          customShortCode: customShortCode.trim() || undefined
+        }),
       })
 
+      const data = await response.json()
+
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to shorten URL")
+        throw new Error(data.error || "Failed to shorten URL")
       }
 
-      const data = await response.json()
-      setShortUrl(data.shortUrl)
+      const fullShortenedUrl = `${window.location.origin}/${data.shortCode}`
+      setShortenedUrl(fullShortenedUrl)
 
       // Store in localStorage for history
-      const storedUrls = JSON.parse(localStorage.getItem("shortened-urls") || "[]")
-      const newUrl = {
-        id: data.shortCode,
-        originalUrl: url,
+      const historyItem = {
+        originalUrl: url.startsWith("http") ? url : `https://${url}`,
         shortCode: data.shortCode,
-        shortUrl: data.shortUrl,
+        shortUrl: fullShortenedUrl,
         createdAt: new Date().toISOString(),
-        totalClicks: 0,
-        isCustom: !!customShortCode,
+        isCustom: !!customShortCode.trim()
       }
-      storedUrls.unshift(newUrl)
-      localStorage.setItem("shortened-urls", JSON.stringify(storedUrls.slice(0, 50))) // Keep last 50
+
+      const existingHistory = JSON.parse(localStorage.getItem("urlHistory") || "[]")
+      const updatedHistory = [historyItem, ...existingHistory.slice(0, 9)]
+      localStorage.setItem("urlHistory", JSON.stringify(updatedHistory))
 
       toast({
         title: "Success!",
-        description: customShortCode 
-          ? `URL shortened with custom code: ${customShortCode}`
-          : "URL shortened successfully.",
+        description: customShortCode.trim() 
+          ? `Custom short URL created: ${data.shortCode}`
+          : `Short URL created: ${data.shortCode}`,
       })
 
-      // Clear the inputs
+      // Reset form
       setUrl("")
       setCustomShortCode("")
-
-      // Notify parent component
-      onUrlCreated?.()
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error shortening URL:", error)
-      toast({
-        title: "Error",
-        description: error.message || "Failed to shorten URL. Please try again.",
-        variant: "destructive",
-      })
+      setError(error instanceof Error ? error.message : "Failed to shorten URL")
     } finally {
       setIsLoading(false)
     }
   }
 
-  const copyToClipboard = async (text: string) => {
+  const copyToClipboard = async () => {
     try {
-      // Create a temporary textarea element
-      const textArea = document.createElement("textarea")
-      textArea.value = text
-
-      // Make it invisible but still selectable
-      textArea.style.position = "absolute"
-      textArea.style.left = "-9999px"
-      textArea.style.top = "-9999px"
-      textArea.style.opacity = "0"
-      textArea.style.pointerEvents = "none"
-      textArea.setAttribute("readonly", "")
-      textArea.setAttribute("contenteditable", "true")
-
-      // Add to DOM
-      document.body.appendChild(textArea)
-
-      // Select and copy
-      textArea.select()
-      textArea.setSelectionRange(0, 99999) // For mobile devices
-
-      // Try to copy using execCommand
-      const successful = document.execCommand("copy")
-
-      // Remove from DOM
-      document.body.removeChild(textArea)
-
-      if (successful) {
-        toast({
-          title: "Copied!",
-          description: "URL copied to clipboard.",
-        })
-      } else {
-        throw new Error("Copy command failed")
-      }
+      await navigator.clipboard.writeText(shortenedUrl)
+      toast({
+        title: "Copied!",
+        description: "Short URL copied to clipboard",
+      })
     } catch (error) {
-      console.error("Copy failed:", error)
-
-      // Final fallback - show the URL in a prompt for manual copying
-      const userAgent = navigator.userAgent.toLowerCase()
-      const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/.test(userAgent)
-
-      if (isMobile) {
-        // On mobile, try to select the text in a temporary input
-        const input = document.createElement("input")
-        input.value = text
-        input.style.position = "absolute"
-        input.style.left = "-9999px"
-        document.body.appendChild(input)
-        input.select()
-        input.setSelectionRange(0, 99999)
-
-        toast({
-          title: "Copy manually",
-          description: "Please manually copy the selected text.",
-          duration: 5000,
-        })
-
-        setTimeout(() => {
-          document.body.removeChild(input)
-        }, 5000)
-      } else {
-        // On desktop, show in a prompt
-        prompt("Copy this URL manually:", text)
-      }
+      console.error("Failed to copy:", error)
+      toast({
+        title: "Copy failed",
+        description: "Please copy the URL manually",
+        variant: "destructive",
+      })
     }
   }
 
   return (
-    <Card className="w-full border-gray-200 shadow-sm">
+    <Card className="w-full max-w-2xl mx-auto">
       <CardHeader>
-        <CardTitle className="text-gray-900">Shorten URL</CardTitle>
-        <CardDescription className="text-gray-600">
-          Enter a long URL to create a short, shareable link
-        </CardDescription>
+        <CardTitle className="flex items-center gap-2">
+          <Link2 className="h-5 w-5" />
+          URL Shortener
+        </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex gap-2">
+          <div className="space-y-2">
+            <Label htmlFor="url">Enter URL to shorten</Label>
             <Input
-              type="url"
-              placeholder="https://example.com/very/long/url"
+              id="url"
+              type="text"
+              placeholder="https://example.com or example.com"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              className="flex-1 border-gray-300 focus:border-purple-500 focus:ring-purple-500"
               disabled={isLoading}
             />
-            <Button
-              type="submit"
-              disabled={isLoading || !url}
-              className="bg-purple-600 hover:bg-purple-700 text-white px-6"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Shortening...
-                </>
-              ) : (
-                "Shorten"
-              )}
-            </Button>
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="customShortCode" className="text-sm font-medium text-gray-700">
-              Custom short code (optional)
-            </label>
+            <Label htmlFor="customShortCode">Custom short code (optional)</Label>
             <Input
               id="customShortCode"
               type="text"
-              placeholder="my-custom-link"
+              placeholder="my-custom-code"
               value={customShortCode}
               onChange={(e) => setCustomShortCode(e.target.value)}
-              className="border-gray-300 focus:border-purple-500 focus:ring-purple-500"
               disabled={isLoading}
             />
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted-foreground">
               3-20 characters, letters, numbers, hyphens, and underscores only
             </p>
           </div>
+
+          {error && (
+            <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 p-3 rounded-md">
+              <AlertCircle className="h-4 w-4" />
+              {error}
+            </div>
+          )}
+
+          <Button type="submit" disabled={isLoading} className="w-full">
+            {isLoading ? "Shortening..." : "Shorten URL"}
+          </Button>
         </form>
 
-        {shortUrl && (
-          <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-green-800 mb-1">Your shortened URL:</p>
-                <p className="text-green-700 font-mono text-sm truncate">{shortUrl}</p>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => copyToClipboard(shortUrl)}
-                  className="border-green-300 text-green-700 hover:bg-green-100"
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => window.open(shortUrl, "_blank")}
-                  className="border-green-300 text-green-700 hover:bg-green-100"
-                >
+        {shortenedUrl && (
+          <div className="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
+            <h3 className="font-medium text-green-800 mb-2">Your shortened URL:</h3>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 p-2 bg-white rounded border text-sm break-all">
+                {shortenedUrl}
+              </code>
+              <Button size="sm" variant="outline" onClick={copyToClipboard}>
+                <Copy className="h-4 w-4" />
+              </Button>
+              <Button size="sm" variant="outline" asChild>
+                <a href={shortenedUrl} target="_blank" rel="noopener noreferrer">
                   <ExternalLink className="h-4 w-4" />
-                </Button>
-              </div>
+                </a>
+              </Button>
             </div>
           </div>
         )}
