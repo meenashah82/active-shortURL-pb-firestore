@@ -11,7 +11,7 @@ export function useClickHistory(shortCode: string, limitCount: number = 100) {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!shortCode) {
+    if (!shortCode || !db) {
       setLoading(false)
       return
     }

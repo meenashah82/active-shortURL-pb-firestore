@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getUrlData, recordClick } from '@/lib/analytics-clean'
+import { doc, getDoc, collection, addDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
 
 export async function GET(
   request: NextRequest,
@@ -9,11 +10,25 @@ export async function GET(
     const { shortCode } = await params
     console.log(`🔗 Redirect request for: ${shortCode}`)
 
+    if (!db) {
+      console.error('❌ Database not available')
+      return NextResponse.json({ error: 'Database not available' }, { status: 500 })
+    }
+
     // Get URL data
-    const urlData = await getUrlData(shortCode)
+    const urlRef = doc(db, 'urls', shortCode)
+    const urlDoc = await getDoc(urlRef)
     
-    if (!urlData) {
+    if (!urlDoc.exists()) {
       console.log(`❌ URL not found: ${shortCode}`)
+      return NextResponse.redirect(new URL('/not-found', request.url))
+    }
+
+    const urlData = urlDoc.data()
+    
+    // Check if URL is active
+    if (!urlData.isActive) {
+      console.log(`❌ URL inactive: ${shortCode}`)
       return NextResponse.redirect(new URL('/not-found', request.url))
     }
 
@@ -40,13 +55,7 @@ export async function GET(
     // Get the first IP if there are multiple (x-forwarded-for can be a comma-separated list)
     const clientIP = ip.split(',')[0].trim()
 
-    // Convert headers to record for additional data
-    const headers: Record<string, string> = {}
-    request.headers.forEach((value, key) => {
-      headers[key] = value
-    })
-
-    // Add additional useful headers
+    // Get additional useful headers
     const country = request.headers.get('cf-ipcountry') || 
                    request.headers.get('cloudfront-viewer-country') || 
                    'Unknown'
@@ -55,19 +64,36 @@ export async function GET(
 
     console.log(`🖱️ Recording click for ${shortCode}:`, {
       ip: clientIP,
-      userAgent: userAgent.substring(0, 100), // Log first 100 chars
+      userAgent: userAgent.substring(0, 100),
       referer,
       country
     })
 
-    // Record the click with enhanced data
+    // Create comprehensive click document
+    const clickEvent = {
+      timestamp: serverTimestamp(),
+      shortCode: shortCode,
+      userAgent: userAgent || 'Unknown Browser',
+      referer: referer || 'Direct',
+      ip: clientIP || 'Unknown IP',
+      country: country || 'Unknown',
+      acceptLanguage: acceptLanguage || 'Unknown',
+      "User-Agent": userAgent || 'Unknown Browser',
+      "X-Forwarded-For": clientIP || 'Unknown IP',
+      "client-ip": clientIP || 'Unknown IP',
+    }
+
     try {
-      await recordClick(shortCode, userAgent, referer, clientIP, {
-        ...headers,
-        'client-ip': clientIP,
-        'country': country,
-        'accept-language': acceptLanguage
+      // Add click to subcollection
+      const clicksRef = collection(db, 'urls', shortCode, 'clicks')
+      await addDoc(clicksRef, clickEvent)
+
+      // Update URL document with incremented click count
+      await updateDoc(urlRef, {
+        totalClicks: increment(1),
+        lastClickAt: serverTimestamp(),
       })
+
       console.log(`✅ Click recorded successfully for: ${shortCode}`)
     } catch (clickError) {
       console.error(`❌ Error recording click for ${shortCode}:`, clickError)
@@ -85,6 +111,6 @@ export async function GET(
 
   } catch (error) {
     console.error('❌ Error in redirect handler:', error)
-    return NextResponse.redirect(new URL('/not-found', request.url))
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

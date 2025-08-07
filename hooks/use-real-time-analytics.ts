@@ -15,13 +15,13 @@ export function useRealTimeAnalytics(shortCode: string) {
   const [isNewClick, setIsNewClick] = useState(false)
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
   
-  const previousClickCount = useRef(-1) // Start with -1 to avoid false positives on initial load
+  const previousClickCount = useRef(-1)
   const newClickTimeout = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
-    if (!shortCode) {
+    if (!shortCode || !db) {
       setLoading(false)
-      setError("No short code provided")
+      setError("No short code provided or database unavailable")
       return
     }
 
@@ -56,7 +56,6 @@ export function useRealTimeAnalytics(shortCode: string) {
           setError(null)
 
           // Handle click count updates with animation
-          // Only trigger animation if this is a real increase and we have a previous count
           if (previousClickCount.current >= 0 && newClickCount > previousClickCount.current) {
             console.log(`🎉 useRealTimeAnalytics: New click detected! ${previousClickCount.current} -> ${newClickCount}`)
             setIsNewClick(true)
