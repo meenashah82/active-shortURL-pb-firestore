@@ -1,144 +1,185 @@
-import {
-  doc,
-  getDoc,
-  setDoc,
+import { getFirestore } from "./firebase"
+import { 
+  collection, 
+  doc, 
+  getDoc, 
+  setDoc, 
+  updateDoc, 
+  increment, 
   serverTimestamp,
-  collection,
   query,
-  where,
   orderBy,
   limit,
-  onSnapshot,
-  Timestamp,
+  getDocs,
+  where
 } from "firebase/firestore"
-import { db } from "./firebase"
+
+export interface UrlData {
+  shortCode: string
+  originalUrl: string
+  createdAt: any
+  totalClicks: number
+  isActive: boolean
+}
 
 export interface ClickEvent {
   timestamp: any
   userAgent?: string
   referer?: string
   ip?: string
-  country?: string
-  city?: string
-  id?: string
-  clickSource?: "direct" | "analytics_page" | "test"
-  sessionId?: string
-}
-
-export interface UrlData {
-  originalUrl: string
-  shortCode: string
-  createdAt: any
-  clicks?: number // Optional for backward compatibility
-  isActive: boolean
-  expiresAt: any
-  lastClickAt?: any
-}
-
-export interface AnalyticsData {
-  shortCode: string
-  totalClicks: number
-  createdAt: any
-  lastClickAt?: any
-  clickEvents: ClickEvent[]
 }
 
 // Create a new short URL
 export async function createShortUrl(shortCode: string, originalUrl: string): Promise<void> {
+  const db = getFirestore()
+  
+  console.log(`📝 Creating short URL: ${shortCode} -> ${originalUrl}`)
+  
   try {
-    console.log(`Creating short URL: ${shortCode} -> ${originalUrl}`)
+    // Check if short code already exists
+    const urlDoc = await getDoc(doc(db, "urls", shortCode))
+    if (urlDoc.exists()) {
+      throw new Error(`Short code ${shortCode} already exists`)
+    }
 
-    const urlRef = doc(db, "urls", shortCode)
-    const analyticsRef = doc(db, "analytics", shortCode)
-
-    const expiresAt = new Date()
-    expiresAt.setDate(expiresAt.getDate() + 30) // 30 days from now
-
+    // Create the URL document
     const urlData: UrlData = {
+      shortCode,
       originalUrl,
-      shortCode,
       createdAt: serverTimestamp(),
-      isActive: true,
-      expiresAt: Timestamp.fromDate(expiresAt),
-    }
-
-    const analyticsData: AnalyticsData = {
-      shortCode,
       totalClicks: 0,
-      createdAt: serverTimestamp(),
-      clickEvents: [],
+      isActive: true
     }
 
-    await Promise.all([setDoc(urlRef, urlData), setDoc(analyticsRef, analyticsData)])
-    console.log(`Short URL created successfully: ${shortCode}`)
+    await setDoc(doc(db, "urls", shortCode), urlData)
+    console.log(`✅ Short URL created successfully: ${shortCode}`)
   } catch (error) {
-    console.error("Error creating short URL:", error)
+    console.error(`❌ Error creating short URL:`, error)
     throw error
   }
 }
 
 // Get URL data
 export async function getUrlData(shortCode: string): Promise<UrlData | null> {
+  const db = getFirestore()
+  
   try {
-    const urlRef = doc(db, "urls", shortCode)
-    const urlSnap = await getDoc(urlRef)
-
-    if (!urlSnap.exists()) {
-      console.log(`URL document not found: ${shortCode}`)
+    const urlDoc = await getDoc(doc(db, "urls", shortCode))
+    
+    if (!urlDoc.exists()) {
       return null
     }
 
-    const data = urlSnap.data() as UrlData
-
-    // Check if URL has expired
-    if ((data.expiresAt && data.expiresAt.toDate() < new Date()) || !data.isActive) {
-      console.log(`URL expired or inactive: ${shortCode}`)
-      return null
-    }
-
-    return data
+    return urlDoc.data() as UrlData
   } catch (error) {
-    console.error("Error getting URL data:", error)
+    console.error(`❌ Error getting URL data for ${shortCode}:`, error)
     return null
   }
 }
 
-// Get analytics data
-export async function getAnalyticsData(shortCode: string): Promise<AnalyticsData | null> {
+// Track a click
+export async function trackClick(shortCode: string, clickData: Partial<ClickEvent> = {}): Promise<void> {
+  const db = getFirestore()
+  
   try {
-    const analyticsRef = doc(db, "analytics", shortCode)
-    const analyticsSnap = await getDoc(analyticsRef)
+    // Update total clicks count
+    await updateDoc(doc(db, "urls", shortCode), {
+      totalClicks: increment(1)
+    })
 
-    if (!analyticsSnap.exists()) {
-      console.log(`Analytics document not found: ${shortCode}`)
+    // Add click event to subcollection
+    const clickEvent: ClickEvent = {
+      timestamp: serverTimestamp(),
+      ...clickData
+    }
+
+    await setDoc(doc(db, "urls", shortCode, "clicks", Date.now().toString()), clickEvent)
+    
+    console.log(`📊 Click tracked for ${shortCode}`)
+  } catch (error) {
+    console.error(`❌ Error tracking click for ${shortCode}:`, error)
+    throw error
+  }
+}
+
+// Get recent URLs
+export async function getRecentUrls(limitCount: number = 10): Promise<UrlData[]> {
+  const db = getFirestore()
+  
+  try {
+    const q = query(
+      collection(db, "urls"),
+      orderBy("createdAt", "desc"),
+      limit(limitCount)
+    )
+    
+    const snapshot = await getDocs(q)
+    const urls: UrlData[] = []
+    
+    snapshot.forEach((doc) => {
+      urls.push(doc.data() as UrlData)
+    })
+    
+    return urls
+  } catch (error) {
+    console.error("❌ Error getting recent URLs:", error)
+    return []
+  }
+}
+
+// Get analytics for a specific URL
+export async function getUrlAnalytics(shortCode: string) {
+  const db = getFirestore()
+  
+  try {
+    // Get URL data
+    const urlData = await getUrlData(shortCode)
+    if (!urlData) {
       return null
     }
 
-    return analyticsSnap.data() as AnalyticsData
+    // Get click events
+    const clicksQuery = query(
+      collection(db, "urls", shortCode, "clicks"),
+      orderBy("timestamp", "desc"),
+      limit(100)
+    )
+    
+    const clicksSnapshot = await getDocs(clicksQuery)
+    const clicks: ClickEvent[] = []
+    
+    clicksSnapshot.forEach((doc) => {
+      clicks.push(doc.data() as ClickEvent)
+    })
+
+    return {
+      ...urlData,
+      clicks
+    }
   } catch (error) {
-    console.error("Error getting analytics data:", error)
+    console.error(`❌ Error getting analytics for ${shortCode}:`, error)
     return null
   }
 }
 
 // Enhanced real-time listener for analytics data
-export function subscribeToAnalytics(shortCode: string, callback: (data: AnalyticsData | null) => void): () => void {
-  const analyticsRef = doc(db, "analytics", shortCode)
+export function subscribeToAnalytics(shortCode: string, callback: (data: UrlData | null) => void): () => void {
+  const db = getFirestore()
+  const urlRef = doc(db, "urls", shortCode)
 
   console.log(`🔄 Starting real-time analytics subscription for: ${shortCode}`)
 
   return onSnapshot(
-    analyticsRef,
+    urlRef,
     {
       includeMetadataChanges: true,
     },
     async (doc) => {
       if (doc.exists()) {
-        const data = doc.data() as AnalyticsData
+        const data = doc.data() as UrlData
         console.log("📡 Analytics update received:", {
           shortCode,
           totalClicks: data.totalClicks,
-          clickEventsCount: data.clickEvents?.length || 0,
         })
         callback(data)
       } else {
@@ -158,10 +199,11 @@ export function subscribeToRecentClicks(
   callback: (clicks: Array<ClickEvent & { shortCode: string }>) => void,
   limitCount = 50,
 ): () => void {
+  const db = getFirestore()
   const analyticsQuery = query(
-    collection(db, "analytics"),
+    collection(db, "urls"),
     where("totalClicks", ">", 0),
-    orderBy("totalClicks", "desc"),
+    orderBy("createdAt", "desc"),
     limit(limitCount),
   )
 
@@ -170,19 +212,22 @@ export function subscribeToRecentClicks(
     {
       includeMetadataChanges: true,
     },
-    (snapshot) => {
+    async (snapshot) => {
       const recentClicks: Array<ClickEvent & { shortCode: string }> = []
 
-      snapshot.forEach((doc) => {
-        const data = doc.data() as AnalyticsData
-        if (data.clickEvents && data.clickEvents.length > 0) {
-          const recentUrlClicks = data.clickEvents.slice(-5).map((click) => ({
-            ...click,
-            shortCode: data.shortCode,
-          }))
-          recentClicks.push(...recentUrlClicks)
-        }
-      })
+      for (const doc of snapshot.docs) {
+        const urlData = doc.data() as UrlData
+        const clicksQuery = query(
+          collection(db, "urls", urlData.shortCode, "clicks"),
+          orderBy("timestamp", "desc"),
+          limit(5)
+        )
+        const clicksSnapshot = await getDocs(clicksQuery)
+        clicksSnapshot.forEach((clickDoc) => {
+          const clickData = clickDoc.data() as ClickEvent
+          recentClicks.push({ ...clickData, shortCode: urlData.shortCode })
+        })
+      }
 
       recentClicks.sort((a, b) => {
         const aTime = a.timestamp?.seconds || 0
@@ -204,10 +249,11 @@ export function subscribeToTopUrls(
   callback: (urls: Array<{ shortCode: string; clicks: number; originalUrl: string }>) => void,
   limitCount = 10,
 ): () => void {
+  const db = getFirestore()
   const urlsQuery = query(
     collection(db, "urls"),
     where("isActive", "==", true),
-    orderBy("createdAt", "desc"),
+    orderBy("totalClicks", "desc"),
     limit(limitCount),
   )
 
@@ -221,21 +267,12 @@ export function subscribeToTopUrls(
 
       for (const doc of snapshot.docs) {
         const urlData = doc.data() as UrlData
-
-        // Get click count from analytics
-        const analyticsRef = doc(db, "analytics", urlData.shortCode)
-        const analyticsSnap = await getDoc(analyticsRef)
-        const clicks = analyticsSnap.exists() ? (analyticsSnap.data() as AnalyticsData).totalClicks || 0 : 0
-
         urls.push({
           shortCode: urlData.shortCode,
-          clicks,
+          clicks: urlData.totalClicks,
           originalUrl: urlData.originalUrl,
         })
       }
-
-      // Sort by clicks descending
-      urls.sort((a, b) => b.clicks - a.clicks)
 
       callback(urls.slice(0, limitCount))
     },

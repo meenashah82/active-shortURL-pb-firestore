@@ -1,350 +1,236 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { db } from "@/lib/firebase"
-import { collection, getDocs, doc, getDoc, query, orderBy, limit, where } from "firebase/firestore"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Separator } from "@/components/ui/separator"
+import { getFirebase } from "@/lib/firebase"
+import { collection, getDocs, doc, getDoc } from "firebase/firestore"
+import { Database, CheckCircle, XCircle, AlertCircle, RefreshCw } from 'lucide-react'
 
-export default function DebugFirestore() {
-  const [urlsData, setUrlsData] = useState<any[]>([])
-  const [analyticsData, setAnalyticsData] = useState<any[]>([])
-  const [specificDoc, setSpecificDoc] = useState<any>(null)
-  const [shortCode, setShortCode] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error'>('checking')
-  const [error, setError] = useState<string>("")
+interface CollectionInfo {
+  name: string
+  count: number
+  sampleDocs: any[]
+}
 
-  // Test database connection
-  const testConnection = async () => {
+export default function DebugFirestorePage() {
+  const [isLoading, setIsLoading] = useState(false)
+  const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'connected' | 'error'>('unknown')
+  const [collections, setCollections] = useState<CollectionInfo[]>([])
+  const [error, setError] = useState<string | null>(null)
+
+  const checkConnection = async () => {
+    setIsLoading(true)
+    setError(null)
+    
     try {
-      console.log("🔍 Testing database connection...")
-      setConnectionStatus('checking')
-      setError("")
+      console.log("🔍 Testing Firestore connection...")
+      const { db } = getFirebase()
       
-      // Try to read a simple document
-      const testRef = doc(db, 'test', 'connection')
-      await getDoc(testRef)
+      if (!db) {
+        throw new Error("Failed to initialize Firestore")
+      }
+
+      // Test connection by trying to read a document
+      const testDoc = await getDoc(doc(db, "test", "connection"))
+      console.log("✅ Firestore connection successful")
       
-      console.log("✅ Database connection successful")
       setConnectionStatus('connected')
-    } catch (err) {
-      console.error("❌ Database connection failed:", err)
+      
+      // Get collection information
+      await loadCollections()
+      
+    } catch (error) {
+      console.error("❌ Firestore connection failed:", error)
       setConnectionStatus('error')
-      setError(err instanceof Error ? err.message : String(err))
-    }
-  }
-
-  // Load all URLs - SAFE READ ONLY
-  const loadAllUrls = async () => {
-    setLoading(true)
-    try {
-      console.log("📄 Loading URLs collection...")
-      const urlsRef = collection(db, "urls")
-      const urlsQuery = query(urlsRef, orderBy("createdAt", "desc"), limit(20))
-      const snapshot = await getDocs(urlsQuery)
-
-      const urls = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate?.()?.toISOString() || "Unknown",
-      }))
-
-      setUrlsData(urls)
-      console.log("📄 URLs loaded:", urls.length, "documents")
-    } catch (error) {
-      console.error("❌ Error loading URLs:", error)
-      setUrlsData([])
+      setError(error instanceof Error ? error.message : String(error))
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
-  // Load all analytics - SAFE READ ONLY
-  const loadAllAnalytics = async () => {
-    setLoading(true)
+  const loadCollections = async () => {
     try {
-      console.log("📊 Loading analytics collection...")
-      const analyticsRef = collection(db, "analytics")
-      const analyticsQuery = query(analyticsRef, orderBy("createdAt", "desc"), limit(20))
-      const snapshot = await getDocs(analyticsQuery)
+      const { db } = getFirebase()
+      const collectionsToCheck = ['urls', 'admins', 'analytics']
+      const collectionInfo: CollectionInfo[] = []
 
-      const analytics = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate?.()?.toISOString() || "Unknown",
-        clickEventsCount: doc.data().clickEvents?.length || 0,
-      }))
-
-      setAnalyticsData(analytics)
-      console.log("📊 Analytics loaded:", analytics.length, "documents")
-    } catch (error) {
-      console.error("❌ Error loading analytics:", error)
-      setAnalyticsData([])
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Load specific document - SAFE READ ONLY
-  const loadSpecificDoc = async () => {
-    if (!shortCode) return
-
-    setLoading(true)
-    try {
-      console.log(`🔍 Loading specific document for: ${shortCode}`)
-      const urlRef = doc(db, "urls", shortCode)
-      const analyticsRef = doc(db, "analytics", shortCode)
-
-      const [urlSnap, analyticsSnap] = await Promise.all([getDoc(urlRef), getDoc(analyticsRef)])
-
-      const result = {
-        shortCode,
-        urlExists: urlSnap.exists(),
-        analyticsExists: analyticsSnap.exists(),
-        urlData: urlSnap.exists()
-          ? {
-              ...urlSnap.data(),
-              createdAt: urlSnap.data()?.createdAt?.toDate?.()?.toISOString(),
+      for (const collectionName of collectionsToCheck) {
+        try {
+          const snapshot = await getDocs(collection(db, collectionName))
+          const docs: any[] = []
+          
+          snapshot.forEach((doc, index) => {
+            if (index < 3) { // Only get first 3 docs as samples
+              docs.push({
+                id: doc.id,
+                data: doc.data()
+              })
             }
-          : null,
-        analyticsData: analyticsSnap.exists()
-          ? {
-              ...analyticsSnap.data(),
-              createdAt: analyticsSnap.data()?.createdAt?.toDate?.()?.toISOString(),
-              clickEventsCount: analyticsSnap.data()?.clickEvents?.length || 0,
-            }
-          : null,
+          })
+
+          collectionInfo.push({
+            name: collectionName,
+            count: snapshot.size,
+            sampleDocs: docs
+          })
+        } catch (error) {
+          console.error(`Error loading collection ${collectionName}:`, error)
+          collectionInfo.push({
+            name: collectionName,
+            count: 0,
+            sampleDocs: []
+          })
+        }
       }
 
-      setSpecificDoc(result)
-      console.log("🔍 Specific document loaded:", result)
+      setCollections(collectionInfo)
     } catch (error) {
-      console.error("❌ Error loading specific document:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Test URL creation
-  const testUrlCreation = async () => {
-    try {
-      console.log("🧪 Testing URL creation...")
-      const response = await fetch('/api/shorten', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ url: 'https://example.com/test' }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        console.log("✅ URL creation test successful:", data)
-        alert(`Success! Created: ${data.shortCode}`)
-        // Refresh data
-        loadAllUrls()
-        loadAllAnalytics()
-      } else {
-        const errorText = await response.text()
-        console.error("❌ URL creation test failed:", errorText)
-        alert(`Failed: ${response.status} - ${errorText}`)
-      }
-    } catch (error) {
-      console.error("❌ URL creation test error:", error)
-      alert(`Error: ${error instanceof Error ? error.message : String(error)}`)
+      console.error("Error loading collections:", error)
     }
   }
 
   useEffect(() => {
-    testConnection()
-    loadAllUrls()
-    loadAllAnalytics()
+    checkConnection()
   }, [])
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-4">🔍 Database Status & Recovery</h1>
-        <p className="text-gray-600">Safe database inspection and recovery tools</p>
-      </div>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Firestore Database Debug</h1>
+          <p className="text-gray-600">Check your database connection and inspect collections</p>
+        </div>
 
-      {/* Connection Status */}
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            🔌 Database Connection
-            <Badge variant={connectionStatus === 'connected' ? 'default' : connectionStatus === 'error' ? 'destructive' : 'secondary'}>
-              {connectionStatus === 'connected' ? 'Connected' : connectionStatus === 'error' ? 'Error' : 'Checking...'}
-            </Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
-              <strong>Error:</strong> {error}
-            </div>
-          )}
-          
-          <div className="flex gap-2">
-            <Button onClick={testConnection} variant="outline">
-              Test Connection
-            </Button>
-            <Button onClick={testUrlCreation} variant="outline">
-              Test URL Creation
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Specific Document Lookup */}
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>🎯 Inspect Specific Short Code</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-2 mb-4">
-            <Input
-              placeholder="Enter short code (e.g., abc123)"
-              value={shortCode}
-              onChange={(e) => setShortCode(e.target.value)}
-            />
-            <Button onClick={loadSpecificDoc} disabled={loading || !shortCode}>
-              Inspect
-            </Button>
-          </div>
-
-          {specificDoc && (
-            <div className="bg-gray-100 p-4 rounded-lg">
-              <pre className="text-sm overflow-auto">{JSON.stringify(specificDoc, null, 2)}</pre>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <div className="grid md:grid-cols-2 gap-6">
-        {/* URLs Collection */}
-        <Card>
+        {/* Connection Status */}
+        <Card className="mb-6">
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              📄 URLs Collection ({urlsData.length})
-              <Button size="sm" onClick={loadAllUrls} disabled={loading}>
-                Refresh
-              </Button>
+            <CardTitle className="flex items-center gap-2">
+              <Database className="h-5 w-5" />
+              Connection Status
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {urlsData.length === 0 ? (
-              <p className="text-gray-500">No URLs found</p>
-            ) : (
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-                {urlsData.map((url, index) => (
-                  <div key={url.id} className="p-3 bg-gray-50 rounded border">
-                    <div className="font-mono text-sm text-blue-600 mb-1">/{url.shortCode || url.id}</div>
-                    <div className="text-xs text-gray-600 space-y-1">
-                      <div>
-                        <strong>URL:</strong> {url.originalUrl || "N/A"}
-                      </div>
-                      <div>
-                        <strong>Active:</strong> {url.isActive ? "✅" : "❌"}
-                      </div>
-                      <div>
-                        <strong>Created:</strong> {url.createdAt}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {connectionStatus === 'connected' && (
+                  <>
+                    <CheckCircle className="h-5 w-5 text-green-500" />
+                    <span className="text-green-700">Connected to Firestore</span>
+                  </>
+                )}
+                {connectionStatus === 'error' && (
+                  <>
+                    <XCircle className="h-5 w-5 text-red-500" />
+                    <span className="text-red-700">Connection Failed</span>
+                  </>
+                )}
+                {connectionStatus === 'unknown' && (
+                  <>
+                    <AlertCircle className="h-5 w-5 text-yellow-500" />
+                    <span className="text-yellow-700">Checking Connection...</span>
+                  </>
+                )}
               </div>
+              <Button 
+                onClick={checkConnection} 
+                disabled={isLoading}
+                variant="outline"
+                size="sm"
+              >
+                {isLoading ? (
+                  <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                )}
+                Refresh
+              </Button>
+            </div>
+            
+            {error && (
+              <Alert variant="destructive" className="mt-4">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
             )}
           </CardContent>
         </Card>
 
-        {/* Analytics Collection */}
-        <Card>
+        {/* Collections Info */}
+        {collections.length > 0 && (
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold text-gray-900">Collections Overview</h2>
+            
+            {collections.map((collection) => (
+              <Card key={collection.name}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">{collection.name}</CardTitle>
+                    <Badge variant={collection.count > 0 ? "default" : "secondary"}>
+                      {collection.count} documents
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {collection.count > 0 ? (
+                    <div className="space-y-4">
+                      <p className="text-sm text-gray-600">
+                        Sample documents (showing first 3):
+                      </p>
+                      {collection.sampleDocs.map((doc, index) => (
+                        <div key={index} className="bg-gray-50 p-3 rounded-md">
+                          <div className="text-sm font-medium text-gray-900 mb-2">
+                            Document ID: {doc.id}
+                          </div>
+                          <pre className="text-xs text-gray-600 overflow-x-auto">
+                            {JSON.stringify(doc.data, null, 2)}
+                          </pre>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-sm">No documents found in this collection</p>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* Environment Variables Check */}
+        <Card className="mt-6">
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              📊 Analytics Collection ({analyticsData.length})
-              <Button size="sm" onClick={loadAllAnalytics} disabled={loading}>
-                Refresh
-              </Button>
-            </CardTitle>
+            <CardTitle>Environment Variables</CardTitle>
+            <CardDescription>Check if Firebase configuration is properly set</CardDescription>
           </CardHeader>
           <CardContent>
-            {analyticsData.length === 0 ? (
-              <p className="text-gray-500">No analytics found</p>
-            ) : (
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-                {analyticsData.map((analytics, index) => (
-                  <div key={analytics.id} className="p-3 bg-gray-50 rounded border">
-                    <div className="font-mono text-sm text-green-600 mb-1">/{analytics.shortCode || analytics.id}</div>
-                    <div className="text-xs text-gray-600 space-y-1">
-                      <div>
-                        <strong>Total Clicks:</strong> {analytics.totalClicks || 0}
-                      </div>
-                      <div>
-                        <strong>Click Events:</strong> {analytics.clickEventsCount}
-                      </div>
-                      <div>
-                        <strong>Created:</strong> {analytics.createdAt}
-                      </div>
-                    </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[
+                'NEXT_PUBLIC_FIREBASE_API_KEY',
+                'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN',
+                'NEXT_PUBLIC_FIREBASE_PROJECT_ID',
+                'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET',
+                'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID',
+                'NEXT_PUBLIC_FIREBASE_APP_ID'
+              ].map((envVar) => {
+                const value = process.env[envVar]
+                return (
+                  <div key={envVar} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                    <span className="text-sm font-medium">{envVar}</span>
+                    {value ? (
+                      <Badge variant="default">Set</Badge>
+                    ) : (
+                      <Badge variant="destructive">Missing</Badge>
+                    )}
                   </div>
-                ))}
-              </div>
-            )}
+                )
+              })}
+            </div>
           </CardContent>
         </Card>
       </div>
-
-      {/* Data Export */}
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>📋 Data Export & Recovery</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-2 mb-4">
-            <Button
-              onClick={() => {
-                const data = { urls: urlsData, analytics: analyticsData }
-                navigator.clipboard.writeText(JSON.stringify(data, null, 2))
-                alert("Data copied to clipboard!")
-              }}
-              variant="outline"
-            >
-              Copy All Data
-            </Button>
-            <Button
-              onClick={() => {
-                const data = { 
-                  timestamp: new Date().toISOString(),
-                  urls: urlsData, 
-                  analytics: analyticsData 
-                }
-                const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
-                const url = URL.createObjectURL(blob)
-                const a = document.createElement("a")
-                a.href = url
-                a.download = `firestore-backup-${new Date().toISOString().split('T')[0]}.json`
-                a.click()
-              }}
-              variant="outline"
-            >
-              Download Backup
-            </Button>
-          </div>
-
-          <div className="text-xs text-gray-500">
-            <p><strong>Database Status:</strong></p>
-            <ul className="ml-4 space-y-1">
-              <li>• <code>urls/</code> - {urlsData.length} documents</li>
-              <li>• <code>analytics/</code> - {analyticsData.length} documents</li>
-              <li>• Connection: {connectionStatus}</li>
-            </ul>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }
