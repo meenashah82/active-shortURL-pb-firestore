@@ -2,26 +2,30 @@ import {
   doc,
   getDoc,
   setDoc,
+  updateDoc,
   serverTimestamp,
   collection,
+  addDoc,
   query,
   where,
   orderBy,
   limit,
   onSnapshot,
   Timestamp,
-  runTransaction,
-  getDocs,
   increment,
-  addDoc,
+  getDocs,
+  deleteDoc,
+  writeBatch,
 } from "firebase/firestore"
-import { getFirebase } from "./firebase"
+import { db } from "./firebase"
 
 export interface ClickEvent {
   timestamp: any
   userAgent?: string
   referer?: string
   ip?: string
+  country?: string
+  city?: string
   id?: string
   clickSource?: "direct" | "analytics_page" | "test"
   sessionId?: string
@@ -33,9 +37,8 @@ export interface UrlData {
   shortCode: string
   createdAt: any
   isActive: boolean
-  expiresAt: any
+  expiresAt?: any
   lastClickAt?: any
-  totalClicks: number
 }
 
 // Analytics data interface for backward compatibility
@@ -44,6 +47,7 @@ export interface AnalyticsData {
   totalClicks: number
   createdAt: any
   lastClickAt?: any
+  clickEvents: ClickEvent[]
 }
 
 // Clicks collection data structure (kept for backward compatibility)
@@ -111,163 +115,83 @@ function getHeaderValue(headers: Record<string, string> | undefined, headerName:
 }
 
 // Create short URL - using new unified structure and create clicks subcollection
-export async function createShortUrl(shortCode: string, originalUrl: string, metadata?: any): Promise<void> {
-  console.log(`🔄 createShortUrl: Starting for ${shortCode} -> ${originalUrl}`)
-
+export async function createShortUrl(shortCode: string, originalUrl: string): Promise<void> {
   try {
-    // Get Firebase instance
-    const { db } = getFirebase()
-    if (!db) {
-      const error = new Error("Firebase database not initialized")
-      console.error("❌ createShortUrl: Firebase database not initialized")
-      throw error
-    }
-    console.log("✅ createShortUrl: Firebase database is available")
+    console.log(`🔗 Creating short URL: ${shortCode} -> ${originalUrl}`)
 
-    // Test basic Firestore operations
-    try {
-      console.log("🔄 createShortUrl: Testing Firestore connection...")
-      const testRef = doc(db, "test", "connection")
-      console.log("✅ createShortUrl: Firestore document reference created successfully")
-    } catch (firestoreError) {
-      console.error("❌ createShortUrl: Firestore connection test failed:", firestoreError)
-      throw new Error(`Firestore connection failed: ${firestoreError instanceof Error ? firestoreError.message : String(firestoreError)}`)
-    }
-
+    // Check if URL already exists first
     const urlRef = doc(db, "urls", shortCode)
-    const clicksRef = collection(db, "urls", shortCode, "clicks")
-    console.log(`📄 createShortUrl: Created document references for ${shortCode}`)
+    const urlSnap = await getDoc(urlRef)
+    
+    if (urlSnap.exists()) {
+      console.log(`⚠️ URL already exists: ${shortCode}`)
+      throw new Error(`Short code ${shortCode} already exists`)
+    }
 
+    const analyticsRef = doc(db, "analytics", shortCode)
+    const analyticsSnap = await getDoc(analyticsRef)
+    
+    if (analyticsSnap.exists()) {
+      console.log(`⚠️ Analytics already exists: ${shortCode}`)
+      throw new Error(`Analytics for ${shortCode} already exists`)
+    }
+
+    // Create new documents only if they don't exist
     const expiresAt = new Date()
-    expiresAt.setDate(expiresAt.getDate() + 30)
+    expiresAt.setDate(expiresAt.getDate() + 30) // 30 days from now
 
-    // Unified URL document with all data
     const urlData: UrlData = {
       originalUrl,
       shortCode,
       createdAt: serverTimestamp(),
       isActive: true,
       expiresAt: Timestamp.fromDate(expiresAt),
-      totalClicks: 0,
-      lastClickAt: null,
     }
 
-    console.log(`📝 createShortUrl: Prepared URL data:`, {
-      originalUrl: urlData.originalUrl,
-      shortCode: urlData.shortCode,
-      isActive: urlData.isActive,
-      totalClicks: urlData.totalClicks,
-      expiresAt: expiresAt.toISOString(),
-    })
-
-    // Create the main URL document
-    console.log(`🔄 createShortUrl: Creating main URL document for ${shortCode}`)
-    try {
-      await setDoc(urlRef, urlData)
-      console.log(`✅ createShortUrl: Main URL document created for ${shortCode}`)
-    } catch (setDocError) {
-      console.error(`❌ createShortUrl: Failed to create main URL document for ${shortCode}:`, setDocError)
-      throw new Error(`Failed to create URL document: ${setDocError instanceof Error ? setDocError.message : String(setDocError)}`)
-    }
-
-    // Create the clicks subcollection by adding an initial placeholder document
-    // This ensures the subcollection exists immediately when the shortcode is created
-    const placeholderClickData = {
-      _placeholder: true,
-      createdAt: serverTimestamp(),
-      shortCode: shortCode,
-      note: "This is a placeholder document to initialize the clicks subcollection",
-    }
-
-    console.log(`🔄 createShortUrl: Creating placeholder document in clicks subcollection for ${shortCode}`)
-    try {
-      const placeholderDocRef = await addDoc(clicksRef, placeholderClickData)
-      console.log(`✅ createShortUrl: Placeholder document created with ID: ${placeholderDocRef.id}`)
-    } catch (addDocError) {
-      console.error(`❌ createShortUrl: Failed to create placeholder document for ${shortCode}:`, addDocError)
-      // Don't throw here - the main URL document was created successfully
-      console.log(`⚠️ createShortUrl: Continuing despite placeholder creation failure`)
-    }
-
-    console.log(`🎉 createShortUrl: SUCCESS - URL created with unified structure: ${shortCode}`)
-  } catch (error) {
-    console.error(`❌ createShortUrl: FAILED for ${shortCode}:`, error)
-    console.error(`❌ createShortUrl: Error type:`, typeof error)
-    console.error(`❌ createShortUrl: Error name:`, error instanceof Error ? error.name : "Unknown")
-    console.error(`❌ createShortUrl: Error message:`, error instanceof Error ? error.message : String(error))
-    console.error(`❌ createShortUrl: Error stack:`, error instanceof Error ? error.stack : undefined)
-    
-    // Re-throw with more context
-    if (error instanceof Error) {
-      throw new Error(`createShortUrl failed: ${error.message}`)
-    } else {
-      throw new Error(`createShortUrl failed: ${String(error)}`)
-    }
-  }
-}
-
-// Get clicks data (for backward compatibility)
-export async function getClicksData(shortCode: string): Promise<ClicksData | null> {
-  try {
-    const urlData = await getUrlData(shortCode)
-    if (!urlData) return null
-
-    return {
+    const analyticsData: AnalyticsData = {
       shortCode,
-      createdAt: urlData.createdAt,
-      isActive: urlData.isActive,
+      totalClicks: 0,
+      createdAt: serverTimestamp(),
+      clickEvents: [],
     }
+
+    // Use setDoc to create new documents
+    await Promise.all([
+      setDoc(urlRef, urlData),
+      setDoc(analyticsRef, analyticsData)
+    ])
+    
+    console.log(`✅ Short URL created successfully: ${shortCode}`)
   } catch (error) {
-    console.error("Error getting clicks data:", error)
-    return null
+    console.error("❌ Error creating short URL:", error)
+    throw error
   }
 }
 
 // Get URL data from unified structure
 export async function getUrlData(shortCode: string): Promise<UrlData | null> {
-  console.log(`🔍 getUrlData: Starting for shortCode: ${shortCode}`)
-
   try {
-    // Get Firebase instance
-    const { db } = getFirebase()
-    if (!db) {
-      console.error("❌ getUrlData: Firebase database not initialized")
-      return null
-    }
-
+    console.log(`📖 Getting URL data for: ${shortCode}`)
     const urlRef = doc(db, "urls", shortCode)
-    console.log(`🔍 getUrlData: Created document reference for: urls/${shortCode}`)
-
     const urlSnap = await getDoc(urlRef)
-    console.log(`🔍 getUrlData: Retrieved document snapshot, exists: ${urlSnap.exists()}`)
 
     if (!urlSnap.exists()) {
-      console.log(`❌ getUrlData: URL document does not exist for shortCode: ${shortCode}`)
+      console.log(`📖 URL document not found: ${shortCode}`)
       return null
     }
 
     const data = urlSnap.data() as UrlData
-    console.log(`✅ getUrlData: Retrieved data for shortCode: ${shortCode}`, {
-      originalUrl: data.originalUrl,
-      isActive: data.isActive,
-      totalClicks: data.totalClicks,
-    })
 
-    // Check if URL is expired or inactive
-    if (data.expiresAt && data.expiresAt.toDate() < new Date()) {
-      console.log(`❌ getUrlData: URL expired for shortCode: ${shortCode}`)
+    // Check if URL has expired
+    if ((data.expiresAt && data.expiresAt.toDate() < new Date()) || !data.isActive) {
+      console.log(`📖 URL expired or inactive: ${shortCode}`)
       return null
     }
 
-    if (!data.isActive) {
-      console.log(`❌ getUrlData: URL inactive for shortCode: ${shortCode}`)
-      return null
-    }
-
-    console.log(`✅ getUrlData: Returning valid URL data for shortCode: ${shortCode}`)
+    console.log(`📖 URL data retrieved: ${shortCode}`)
     return data
   } catch (error) {
-    console.error(`❌ getUrlData: Error getting URL data for shortCode: ${shortCode}`, error)
+    console.error("❌ Error getting URL data:", error)
     return null
   }
 }
@@ -275,8 +199,8 @@ export async function getUrlData(shortCode: string): Promise<UrlData | null> {
 // Get click count from unified structure
 export async function getClickCount(shortCode: string): Promise<number> {
   try {
-    const urlData = await getUrlData(shortCode)
-    return urlData?.totalClicks || 0
+    const analyticsData = await getAnalyticsData(shortCode)
+    return analyticsData?.totalClicks || 0
   } catch (error) {
     console.error("Error getting click count:", error)
     return 0
@@ -291,25 +215,18 @@ export async function getUrlWithAnalytics(shortCode: string): Promise<{
 }> {
   try {
     const urlData = await getUrlData(shortCode)
+    const analyticsData = await getAnalyticsData(shortCode)
 
-    if (!urlData) {
+    if (!urlData || !analyticsData) {
       return { url: null, clicks: 0, analytics: null }
-    }
-
-    // Create analytics data from URL data for backward compatibility
-    const analyticsData: AnalyticsData = {
-      shortCode: urlData.shortCode,
-      totalClicks: urlData.totalClicks,
-      createdAt: urlData.createdAt,
-      lastClickAt: urlData.lastClickAt,
     }
 
     return {
       url: urlData,
-      clicks: urlData.totalClicks,
+      clicks: analyticsData.totalClicks,
       analytics: analyticsData,
     }
-  } catch (error) {{
+  } catch (error) {
     console.error("Error getting URL with analytics:", error)
     return { url: null, clicks: 0, analytics: null }
   }
@@ -318,54 +235,42 @@ export async function getUrlWithAnalytics(shortCode: string): Promise<{
 // Get analytics data from unified structure (for backward compatibility)
 export async function getAnalyticsData(shortCode: string): Promise<AnalyticsData | null> {
   try {
-    const urlData = await getUrlData(shortCode)
+    console.log(`📊 Getting analytics data for: ${shortCode}`)
+    const analyticsRef = doc(db, "analytics", shortCode)
+    const analyticsSnap = await getDoc(analyticsRef)
 
-    if (!urlData) {
+    if (!analyticsSnap.exists()) {
+      console.log(`📊 Analytics document not found: ${shortCode}`)
       return null
     }
 
-    return {
-      shortCode: urlData.shortCode,
-      totalClicks: urlData.totalClicks,
-      createdAt: urlData.createdAt,
-      lastClickAt: urlData.lastClickAt,
-    }
+    const data = analyticsSnap.data() as AnalyticsData
+    console.log(`📊 Analytics data retrieved: ${shortCode}`)
+    return data
   } catch (error) {
-    console.error("Error getting analytics data:", error)
+    console.error("❌ Error getting analytics data:", error)
     return null
   }
 }
 
 // Get click history from clicks subcollection
-export async function getClickHistory(shortCode: string, limitCount = 50): Promise<IndividualClickData[]> {
+export async function getClickHistory(shortCode: string, limitCount = 50): Promise<ClickEvent[]> {
   try {
     console.log(`📊 Fetching click history for: ${shortCode}`)
 
-    const { db } = getFirebase()
-    if (!db) {
-      console.error("❌ Firebase database not initialized")
+    const analyticsRef = doc(db, "analytics", shortCode)
+    const analyticsSnap = await getDoc(analyticsRef)
+
+    if (!analyticsSnap.exists()) {
+      console.log(`📊 No analytics document found for: ${shortCode}`)
       return []
     }
 
-    const clicksRef = collection(db, "urls", shortCode, "clicks")
-    const clickHistoryQuery = query(clicksRef, orderBy("timestamp", "desc"), limit(limitCount))
-
-    const querySnapshot = await getDocs(clickHistoryQuery)
-    const clickHistory: IndividualClickData[] = []
-
-    querySnapshot.forEach((doc) => {
-      const data = doc.data() as IndividualClickData
-      // Skip placeholder documents
-      if (!data._placeholder) {
-        clickHistory.push({
-          ...data,
-          id: doc.id,
-        })
-      }
-    })
+    const data = analyticsSnap.data() as AnalyticsData
+    const clickHistory = data.clickEvents || []
 
     console.log(`📊 Found ${clickHistory.length} click records for: ${shortCode}`)
-    return clickHistory
+    return clickHistory.slice(-limitCount)
   } catch (error) {
     console.error("❌ Error getting click history:", error)
     return []
@@ -375,43 +280,22 @@ export async function getClickHistory(shortCode: string, limitCount = 50): Promi
 // Real-time subscription to click history
 export function subscribeToClickHistory(
   shortCode: string,
-  callback: (clickHistory: IndividualClickData[]) => void,
-  limitCount = 50,
+  callback: (clicks: ClickEvent[]) => void,
 ): () => void {
-  console.log(`🔄 Subscribing to click history: ${shortCode}`)
-
-  const { db } = getFirebase()
-  if (!db) {
-    console.error("❌ Firebase database not initialized")
-    callback([])
-    return () => {}
-  }
-
-  const clicksRef = collection(db, "urls", shortCode, "clicks")
-  const clickHistoryQuery = query(clicksRef, orderBy("timestamp", "desc"), limit(limitCount))
+  const analyticsRef = doc(db, "analytics", shortCode)
 
   return onSnapshot(
-    clickHistoryQuery,
-    { includeMetadataChanges: true },
-    (querySnapshot) => {
-      const clickHistory: IndividualClickData[] = []
-
-      querySnapshot.forEach((doc) => {
-        const data = doc.data() as IndividualClickData
-        // Skip placeholder documents
-        if (!data._placeholder) {
-          clickHistory.push({
-            ...data,
-            id: doc.id,
-          })
-        }
-      })
-
-      console.log(`📊 Click history update: ${shortCode} - ${clickHistory.length} records`)
-      callback(clickHistory)
+    analyticsRef,
+    (doc) => {
+      if (doc.exists()) {
+        const data = doc.data() as AnalyticsData
+        callback(data.clickEvents || [])
+      } else {
+        callback([])
+      }
     },
     (error) => {
-      console.error("❌ Click history subscription error:", error)
+      console.error("Error in click history subscription:", error)
       callback([])
     },
   )
@@ -420,163 +304,170 @@ export function subscribeToClickHistory(
 // Record click - Creates individual click document in subcollection AND increments totalClicks
 export async function recordClick(
   shortCode: string,
-  userAgent: string,
-  referer: string,
-  ip: string,
-  headers?: Record<string, string>,
+  clickData: Partial<ClickEvent> = {}
 ): Promise<void> {
-  console.log(`🔄 recordClick: Starting for shortCode: ${shortCode}`)
-
   try {
-    // Get Firebase instance
-    const { db } = getFirebase()
-    if (!db) {
-      throw new Error("Firebase database not initialized")
+    console.log(`🖱️ Recording click for: ${shortCode}`)
+
+    const analyticsRef = doc(db, "analytics", shortCode)
+    
+    // Check if analytics document exists
+    const analyticsSnap = await getDoc(analyticsRef)
+    if (!analyticsSnap.exists()) {
+      console.log(`⚠️ Analytics document doesn't exist for: ${shortCode}`)
+      return
     }
 
-    const urlRef = doc(db, "urls", shortCode)
-    const clicksCollectionRef = collection(db, "urls", shortCode, "clicks")
+    const clickEvent: ClickEvent = {
+      timestamp: serverTimestamp(),
+      userAgent: clickData.userAgent || "Unknown",
+      referer: clickData.referer || "Direct",
+      ip: clickData.ip || "Unknown",
+      country: clickData.country || "Unknown",
+      city: clickData.city || "Unknown",
+      clickSource: clickData.clickSource || "direct",
+      sessionId: clickData.sessionId || `session_${Date.now()}`,
+      id: `click_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    }
 
-    // First, increment the totalClicks counter in the main URL document
-    console.log(`🔄 recordClick: Incrementing totalClicks for ${shortCode}`)
-    await runTransaction(db, async (transaction) => {
-      const urlDoc = await transaction.get(urlRef)
-      if (urlDoc.exists()) {
-        transaction.update(urlRef, {
-          totalClicks: increment(1),
-          lastClickAt: serverTimestamp(),
-        })
-        console.log(`✅ recordClick: totalClicks incremented for ${shortCode}`)
-      } else {
-        throw new Error(`URL document not found for shortCode: ${shortCode}`)
-      }
+    // Get current analytics data
+    const currentData = analyticsSnap.data() as AnalyticsData
+    const currentClickEvents = currentData.clickEvents || []
+
+    // Add new click event to the array
+    const updatedClickEvents = [...currentClickEvents, clickEvent]
+
+    // Update analytics document
+    await updateDoc(analyticsRef, {
+      totalClicks: increment(1),
+      lastClickAt: serverTimestamp(),
+      clickEvents: updatedClickEvents,
     })
 
-    // Second, create a new document in the clicks subcollection
-    console.log(`🔄 recordClick: Creating individual click document for ${shortCode}`)
-
-    const clickData = {
-      timestamp: serverTimestamp(),
-      shortCode: shortCode,
-      "User-Agent": userAgent || "",
-      Referer: referer || "",
-      "X-Forwarded-For": ip || "",
-      Host: getHeaderValue(headers, "Host") || "",
-      Accept: getHeaderValue(headers, "Accept") || "",
-      "Accept-Language": getHeaderValue(headers, "Accept-Language") || "",
-      "Accept-Encoding": getHeaderValue(headers, "Accept-Encoding") || "",
-      "Accept-Charset": getHeaderValue(headers, "Accept-Charset") || "",
-      "Content-Type": getHeaderValue(headers, "Content-Type") || "",
-      "Content-Length": getHeaderValue(headers, "Content-Length") || "",
-      Authorization: getHeaderValue(headers, "Authorization") || "",
-      Cookie: getHeaderValue(headers, "Cookie") || "",
-      Origin: getHeaderValue(headers, "Origin") || "",
-      Connection: getHeaderValue(headers, "Connection") || "",
-      "Upgrade-Insecure-Requests": getHeaderValue(headers, "Upgrade-Insecure-Requests") || "",
-      "Cache-Control": getHeaderValue(headers, "Cache-Control") || "",
-      Pragma: getHeaderValue(headers, "Pragma") || "",
-      "If-Modified-Since": getHeaderValue(headers, "If-Modified-Since") || "",
-      "If-None-Match": getHeaderValue(headers, "If-None-Match") || "",
-      Range: getHeaderValue(headers, "Range") || "",
-      TE: getHeaderValue(headers, "TE") || "",
-      "Transfer-Encoding": getHeaderValue(headers, "Transfer-Encoding") || "",
-      Expect: getHeaderValue(headers, "Expect") || "",
-      "X-Requested-With": getHeaderValue(headers, "X-Requested-With") || "",
-    }
-
-    // Use addDoc to let Firestore generate the document ID automatically
-    const clickDocRef = await addDoc(clicksCollectionRef, clickData)
-    console.log(`✅ recordClick: Individual click document created with ID: ${clickDocRef.id}`)
-
-    // Verify the document was created
-    const verifyDoc = await getDoc(clickDocRef)
-    if (verifyDoc.exists()) {
-      console.log(`✅ recordClick: Verification successful - Click document exists in Firestore`)
-      console.log(`📊 recordClick: Document path: urls/${shortCode}/clicks/${clickDocRef.id}`)
-    } else {
-      console.error(`❌ recordClick: Verification failed - Document not found after creation`)
-    }
-
-    console.log(`✅ recordClick: Complete success for shortCode: ${shortCode}`)
+    console.log(`✅ Click recorded successfully for: ${shortCode}`)
   } catch (error) {
-    console.error(`❌ recordClick: Error for shortCode: ${shortCode}`, error)
+    console.error("❌ Error recording click:", error)
     throw error
   }
 }
 
 // Real-time subscription to analytics from unified structure
 export function subscribeToAnalytics(shortCode: string, callback: (data: AnalyticsData | null) => void): () => void {
-  const { db } = getFirebase()
-  if (!db) {
-    console.error("❌ Firebase database not initialized")
-    callback(null)
-    return () => {}
-  }
+  const analyticsRef = doc(db, "analytics", shortCode)
 
-  const urlRef = doc(db, "urls", shortCode)
-
-  console.log(`🔄 Subscribing to unified analytics: ${shortCode}`)
+  console.log(`🔄 Starting real-time analytics subscription for: ${shortCode}`)
 
   return onSnapshot(
-    urlRef,
-    { includeMetadataChanges: true },
-    (doc) => {
+    analyticsRef,
+    {
+      includeMetadataChanges: true,
+    },
+    async (doc) => {
       if (doc.exists()) {
-        const urlData = doc.data() as UrlData
-        const analyticsData: AnalyticsData = {
-          shortCode: urlData.shortCode,
-          totalClicks: urlData.totalClicks,
-          createdAt: urlData.createdAt,
-          lastClickAt: urlData.lastClickAt,
-        }
-        console.log(`📊 Unified analytics update: ${shortCode} - ${analyticsData.totalClicks} clicks`)
-        callback(analyticsData)
+        const data = doc.data() as AnalyticsData
+        console.log("📡 Analytics update received:", {
+          shortCode,
+          totalClicks: data.totalClicks,
+          clickEventsCount: data.clickEvents?.length || 0,
+        })
+        callback(data)
       } else {
+        console.log(`❌ No analytics document found for: ${shortCode}`)
         callback(null)
       }
     },
     (error) => {
-      console.error("❌ Unified analytics subscription error:", error)
+      console.error("❌ Real-time analytics subscription error:", error)
       callback(null)
     },
   )
 }
 
-// Get top URLs by click count from unified structure
-export function subscribeToTopUrls(
-  callback: (urls: Array<{ shortCode: string; clicks: number; originalUrl: string }>) => void,
-  limitCount = 10,
+// Subscribe to recent clicks - READ ONLY
+export function subscribeToRecentClicks(
+  callback: (clicks: Array<ClickEvent & { shortCode: string }>) => void,
+  limitCount = 50,
 ): () => void {
-  const { db } = getFirebase()
-  if (!db) {
-    console.error("❌ Firebase database not initialized")
-    callback([])
-    return () => {}
-  }
-
-  const urlsQuery = query(
-    collection(db, "urls"),
+  const analyticsQuery = query(
+    collection(db, "analytics"),
     where("totalClicks", ">", 0),
     orderBy("totalClicks", "desc"),
     limit(limitCount),
   )
 
   return onSnapshot(
-    urlsQuery,
-    { includeMetadataChanges: true },
+    analyticsQuery,
+    {
+      includeMetadataChanges: true,
+    },
     (snapshot) => {
-      const topUrls: Array<{ shortCode: string; clicks: number; originalUrl: string }> = []
+      const recentClicks: Array<ClickEvent & { shortCode: string }> = []
 
       snapshot.forEach((doc) => {
-        const urlData = doc.data() as UrlData
-        topUrls.push({
-          shortCode: urlData.shortCode,
-          clicks: urlData.totalClicks,
-          originalUrl: urlData.originalUrl,
-        })
+        const data = doc.data() as AnalyticsData
+        if (data.clickEvents && data.clickEvents.length > 0) {
+          const recentUrlClicks = data.clickEvents.slice(-5).map((click) => ({
+            ...click,
+            shortCode: data.shortCode,
+          }))
+          recentClicks.push(...recentUrlClicks)
+        }
       })
 
-      callback(topUrls)
+      recentClicks.sort((a, b) => {
+        const aTime = a.timestamp?.seconds || 0
+        const bTime = b.timestamp?.seconds || 0
+        return bTime - aTime
+      })
+
+      callback(recentClicks.slice(0, limitCount))
+    },
+    (error) => {
+      console.error("Error in recent clicks subscription:", error)
+      callback([])
+    },
+  )
+}
+
+// Subscribe to top URLs - READ ONLY
+export function subscribeToTopUrls(
+  callback: (urls: Array<{ shortCode: string; clicks: number; originalUrl: string }>) => void,
+  limitCount = 10,
+): () => void {
+  const urlsQuery = query(
+    collection(db, "urls"),
+    where("isActive", "==", true),
+    orderBy("createdAt", "desc"),
+    limit(limitCount),
+  )
+
+  return onSnapshot(
+    urlsQuery,
+    {
+      includeMetadataChanges: true,
+    },
+    async (snapshot) => {
+      const urls: Array<{ shortCode: string; clicks: number; originalUrl: string }> = []
+
+      for (const doc of snapshot.docs) {
+        const urlData = doc.data() as UrlData
+
+        // Get click count from analytics
+        const analyticsRef = doc(db, "analytics", urlData.shortCode)
+        const analyticsSnap = await getDoc(analyticsRef)
+        const clicks = analyticsSnap.exists() ? (analyticsSnap.data() as AnalyticsData).totalClicks || 0 : 0
+
+        urls.push({
+          shortCode: urlData.shortCode,
+          clicks,
+          originalUrl: urlData.originalUrl,
+        })
+      }
+
+      // Sort by clicks descending
+      urls.sort((a, b) => b.clicks - a.clicks)
+
+      callback(urls.slice(0, limitCount))
     },
     (error) => {
       console.error("Error in top URLs subscription:", error)
@@ -591,13 +482,19 @@ export async function migrateToCleanArchitecture(): Promise<void> {
 }
 
 export async function migrateToClicksCollection(): Promise<void> {
-  console.log("🔄 Migration not needed - using unified structure")
+  console.log("🔄 Starting migration to clicks collection...")
+  // This is a safe no-op function to prevent accidental data loss
+  console.log("⚠️ Migration disabled to prevent data loss")
 }
 
 export async function migrateRemoveClickEvents(): Promise<void> {
-  console.log("🧹 Migration not needed - using unified structure")
+  console.log("🔄 Starting migration to remove click events...")
+  // This is a safe no-op function to prevent accidental data loss
+  console.log("⚠️ Migration disabled to prevent data loss")
 }
 
 export async function migrateToShortcodeClicksSubcollections(): Promise<void> {
-  console.log("🔄 Migration not needed - using unified structure")
+  console.log("🔄 Starting migration to shortcode clicks subcollections...")
+  // This is a safe no-op function to prevent accidental data loss
+  console.log("⚠️ Migration disabled to prevent data loss")
 }
