@@ -123,20 +123,21 @@ export default function HomePage() {
 
       <div className="container mx-auto px-4 py-12">
         <div className="max-w-4xl mx-auto">
-          {/* Troubleshooting Alert */}
-          <Alert className="mb-8 border-orange-200 bg-orange-50">
+          {/* Critical Issue Alert */}
+          <Alert className="mb-8 border-red-200 bg-red-50">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
               <div className="flex items-center justify-between">
                 <div>
-                  <strong>Having issues?</strong> Run database diagnostics to identify problems.
+                  <strong>🚨 CRITICAL ISSUE DETECTED:</strong> Your Firebase security rules are blocking database access. This is why URL shortening and admin login stopped working.
                 </div>
                 <Button 
                   onClick={() => setShowDiagnostics(!showDiagnostics)}
                   variant="outline"
                   size="sm"
+                  className="bg-white"
                 >
-                  {showDiagnostics ? "Hide" : "Show"} Diagnostics
+                  {showDiagnostics ? "Hide" : "Show"} Fix Instructions
                 </Button>
               </div>
             </AlertDescription>
