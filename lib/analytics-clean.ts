@@ -20,80 +20,105 @@ import { db } from "./firebase"
 export interface ClickEvent {
   id?: string
   shortCode: string
-  timestamp: Timestamp
+  timestamp: any
   userAgent?: string
   referer?: string
   ip?: string
   "User-Agent"?: string
   "X-Forwarded-For"?: string
+  _placeholder?: boolean
 }
 
 export interface UrlData {
   shortCode: string
   originalUrl: string
-  createdAt: Timestamp
+  createdAt: any
   totalClicks: number
   isActive: boolean
-  expiresAt?: Timestamp
-  lastClickAt?: Timestamp
+  expiresAt?: any
+  lastClickAt?: any
 }
 
 export interface AnalyticsData {
   shortCode: string
   originalUrl: string
   totalClicks: number
-  createdAt: Timestamp
-  lastClickAt?: Timestamp
+  createdAt: any
+  lastClickAt?: any
 }
 
 // Create short URL with placeholder click document
 export async function createShortUrl(shortCode: string, originalUrl: string): Promise<void> {
-  const urlRef = doc(db, "urls", shortCode)
-
-  console.log(`📝 Creating short URL: ${shortCode} -> ${originalUrl}`)
-
   try {
-    // Check if short code already exists
-    const urlDoc = await getDoc(urlRef)
-    if (urlDoc.exists()) {
+    console.log(`🔗 Creating short URL: ${shortCode} -> ${originalUrl}`)
+
+    // Check if URL already exists first
+    const urlRef = doc(db, "urls", shortCode)
+    const urlSnap = await getDoc(urlRef)
+    
+    if (urlSnap.exists()) {
+      console.log(`⚠️ URL already exists: ${shortCode}`)
       throw new Error(`Short code ${shortCode} already exists`)
     }
 
-    // Create the URL document
+    // Create expiration date (30 days from now)
+    const expiresAt = new Date()
+    expiresAt.setDate(expiresAt.getDate() + 30)
+
     const urlData: UrlData = {
       shortCode,
       originalUrl,
-      createdAt: Timestamp.now(),
-      totalClicks: 0,
+      createdAt: serverTimestamp(),
       isActive: true,
+      expiresAt: Timestamp.fromDate(expiresAt),
+      totalClicks: 0,
     }
 
+    // Create URL document
     await setDoc(urlRef, urlData)
+
+    // Create placeholder document in clicks subcollection to initialize it
+    const clicksRef = collection(db, "urls", shortCode, "clicks")
+    const placeholderClick = {
+      _placeholder: true,
+      createdAt: serverTimestamp(),
+      shortCode: shortCode,
+      note: "This is a placeholder document to initialize the clicks subcollection"
+    }
+
+    await addDoc(clicksRef, placeholderClick)
+    
     console.log(`✅ Short URL created successfully: ${shortCode}`)
   } catch (error) {
-    console.error(`❌ Error creating short URL:`, error)
+    console.error("❌ Error creating short URL:", error)
     throw error
   }
 }
 
 // Get URL data
 export async function getUrlData(shortCode: string): Promise<UrlData | null> {
-  const urlRef = doc(db, "urls", shortCode)
-
   try {
     console.log(`📖 Getting URL data for: ${shortCode}`)
-    const urlDoc = await getDoc(urlRef)
+    const urlRef = doc(db, "urls", shortCode)
+    const urlSnap = await getDoc(urlRef)
 
-    if (!urlDoc.exists()) {
-      console.log(`❌ URL data not found for: ${shortCode}`)
+    if (!urlSnap.exists()) {
+      console.log(`📖 URL document not found: ${shortCode}`)
       return null
     }
 
-    const data = urlDoc.data() as UrlData
-    console.log(`📖 URL data retrieved: ${shortCode}`, data)
+    const data = urlSnap.data() as UrlData
+
+    // Check if URL has expired
+    if ((data.expiresAt && data.expiresAt.toDate() < new Date()) || !data.isActive) {
+      console.log(`📖 URL expired or inactive: ${shortCode}`)
+      return null
+    }
+
+    console.log(`📖 URL data retrieved: ${shortCode}`)
     return data
   } catch (error) {
-    console.error(`❌ Error getting URL data for ${shortCode}:`, error)
+    console.error("❌ Error getting URL data:", error)
     return null
   }
 }
@@ -112,7 +137,7 @@ export async function recordClick(
     // Check if URL exists
     const urlRef = doc(db, "urls", shortCode)
     const urlSnap = await getDoc(urlRef)
-
+    
     if (!urlSnap.exists()) {
       console.log(`⚠️ URL document doesn't exist for: ${shortCode}`)
       return
@@ -122,11 +147,11 @@ export async function recordClick(
     const clickEvent: ClickEvent = {
       timestamp: serverTimestamp(),
       shortCode: shortCode,
-      userAgent: headers["user-agent"] || userAgent,
-      referer: headers["referer"] || referer,
-      ip: headers["x-forwarded-for"] || ip,
       "User-Agent": headers["user-agent"] || userAgent,
+      referer: headers["referer"] || referer,
       "X-Forwarded-For": headers["x-forwarded-for"] || ip,
+      userAgent: headers["user-agent"] || userAgent,
+      ip: headers["x-forwarded-for"] || ip,
     }
 
     // Add click to subcollection
@@ -154,7 +179,7 @@ export async function getUrlWithAnalytics(shortCode: string): Promise<{
 }> {
   try {
     const urlData = await getUrlData(shortCode)
-
+    
     if (!urlData) {
       return { url: null, clicks: 0, clickHistory: [] }
     }
@@ -163,10 +188,11 @@ export async function getUrlWithAnalytics(shortCode: string): Promise<{
     const clicksRef = collection(db, "urls", shortCode, "clicks")
     const clicksQuery = query(
       clicksRef,
+      where("_placeholder", "!=", true),
       orderBy("timestamp", "desc"),
       limit(50)
     )
-
+    
     const clicksSnapshot = await getDocs(clicksQuery)
     const clickHistory: ClickEvent[] = []
 
@@ -194,93 +220,6 @@ export async function getAnalyticsData(shortCode: string) {
     clicks: result.clickHistory,
     totalClicks: result.clicks,
   } : null
-}
-
-// Get recent URLs
-export async function getRecentUrls(limitCount: number = 10): Promise<UrlData[]> {
-  const urlsQuery = query(
-    collection(db, "urls"),
-    orderBy("createdAt", "desc"),
-    limit(limitCount)
-  )
-
-  try {
-    const snapshot = await getDocs(urlsQuery)
-    const urls: UrlData[] = []
-
-    snapshot.forEach((doc) => {
-      urls.push(doc.data() as UrlData)
-    })
-
-    return urls
-  } catch (error) {
-    console.error("❌ Error getting recent URLs:", error)
-    return []
-  }
-}
-
-// Get analytics for a specific URL
-export async function getAnalytics(shortCode: string): Promise<AnalyticsData | null> {
-  try {
-    console.log(`📊 Getting analytics for ${shortCode}`)
-
-    const urlRef = doc(db, 'urls', shortCode)
-    const urlDoc = await getDoc(urlRef)
-
-    if (!urlDoc.exists()) {
-      console.log(`❌ URL ${shortCode} not found`)
-      return null
-    }
-
-    const urlData = urlDoc.data() as UrlData
-
-    const analytics: AnalyticsData = {
-      shortCode,
-      originalUrl: urlData.originalUrl,
-      totalClicks: urlData.totalClicks || 0,
-      createdAt: urlData.createdAt,
-      lastClickAt: urlData.lastClickAt,
-    }
-
-    console.log(`📊 Retrieved analytics for ${shortCode}:`, analytics)
-    return analytics
-  } catch (error) {
-    console.error('❌ Error getting analytics:', error)
-    return null
-  }
-}
-
-// Get all URLs
-export async function getAllUrls(): Promise<AnalyticsData[]> {
-  try {
-    console.log('📊 Getting all URLs')
-
-    const urlsQuery = query(
-      collection(db, 'urls'),
-      orderBy('createdAt', 'desc'),
-      limit(50)
-    )
-
-    const urlsSnapshot = await getDocs(urlsQuery)
-    const urls: AnalyticsData[] = []
-
-    for (const doc of urlsSnapshot.docs) {
-      const data = doc.data() as UrlData
-      urls.push({
-        shortCode: doc.id,
-        originalUrl: data.originalUrl,
-        totalClicks: data.totalClicks || 0,
-        createdAt: data.createdAt,
-        lastClickAt: data.lastClickAt,
-      })
-    }
-
-    console.log(`📊 Retrieved ${urls.length} URLs`)
-    return urls
-  } catch (error) {
-    console.error('❌ Error getting all URLs:', error)
-    return []
-  }
 }
 
 // Enhanced real-time listener for analytics data
@@ -314,64 +253,15 @@ export function subscribeToAnalytics(shortCode: string, callback: (data: UrlData
   )
 }
 
-// Get recent clicks across all URLs (for dashboard)
-export function subscribeToRecentClicks(
-  callback: (clicks: Array<ClickEvent & { shortCode: string }>) => void,
-  limitCount = 50,
-): () => void {
-  const urlsQuery = query(
-    collection(db, 'urls'),
-    where('totalClicks', '>', 0),
-    orderBy('createdAt', 'desc'),
-    limit(limitCount),
-  )
-
-  return onSnapshot(
-    urlsQuery,
-    {
-      includeMetadataChanges: true,
-    },
-    async (snapshot) => {
-      const recentClicks: Array<ClickEvent & { shortCode: string }> = []
-
-      for (const doc of snapshot.docs) {
-        const urlData = doc.data() as UrlData
-        const clicksQuery = query(
-          collection(db, 'urls', urlData.shortCode, 'clicks'),
-          orderBy('timestamp', 'desc'),
-          limit(5)
-        )
-        const clicksSnapshot = await getDocs(clicksQuery)
-        clicksSnapshot.forEach((clickDoc) => {
-          const clickData = clickDoc.data() as ClickEvent
-          recentClicks.push({ ...clickData, shortCode: urlData.shortCode })
-        })
-      }
-
-      recentClicks.sort((a, b) => {
-        const aTime = a.timestamp?.seconds || 0
-        const bTime = b.timestamp?.seconds || 0
-        return bTime - aTime
-      })
-
-      callback(recentClicks.slice(0, limitCount))
-    },
-    (error) => {
-      console.error("Error in recent clicks subscription:", error)
-      callback([])
-    },
-  )
-}
-
 // Subscribe to top URLs
 export function subscribeToTopUrls(
   callback: (urls: Array<{ shortCode: string; clicks: number; originalUrl: string }>) => void,
   limitCount = 10,
 ): () => void {
   const urlsQuery = query(
-    collection(db, 'urls'),
-    where('isActive', '==', true),
-    orderBy('totalClicks', 'desc'),
+    collection(db, "urls"),
+    where("isActive", "==", true),
+    orderBy("totalClicks", "desc"),
     limit(limitCount),
   )
 
@@ -380,19 +270,19 @@ export function subscribeToTopUrls(
     {
       includeMetadataChanges: true,
     },
-    async (snapshot) => {
+    (snapshot) => {
       const urls: Array<{ shortCode: string; clicks: number; originalUrl: string }> = []
 
-      for (const doc of snapshot.docs) {
+      snapshot.forEach((doc) => {
         const urlData = doc.data() as UrlData
         urls.push({
           shortCode: urlData.shortCode,
           clicks: urlData.totalClicks,
           originalUrl: urlData.originalUrl,
         })
-      }
+      })
 
-      callback(urls.slice(0, limitCount))
+      callback(urls)
     },
     (error) => {
       console.error("Error in top URLs subscription:", error)

@@ -1,39 +1,40 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { collection, query, orderBy, limit, onSnapshot, where } from "firebase/firestore"
 import { db } from "@/lib/firebase"
-import { collection, query, orderBy, limit, onSnapshot, Timestamp } from "firebase/firestore"
 
-export interface ClickHistoryItem {
-  id: string
-  timestamp: Timestamp
+export interface ClickEvent {
+  id?: string
+  timestamp: any
   userAgent?: string
   referer?: string
   ip?: string
-  'User-Agent'?: string
-  'X-Forwarded-For'?: string
+  "User-Agent"?: string
+  "X-Forwarded-For"?: string
+  shortCode?: string
 }
 
-export function useClickHistory(shortCode: string, limitCount: number = 100) {
-  const [clickHistory, setClickHistory] = useState<ClickHistoryItem[]>([])
+export function useClickHistory(shortCode: string, limitCount: number = 50) {
+  const [clickHistory, setClickHistory] = useState<ClickEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!shortCode) {
       setLoading(false)
-      setError("No short code provided")
       return
     }
 
-    console.log(`🔄 useClickHistory: Setting up for shortCode: ${shortCode}`)
+    console.log(`🔄 useClickHistory: Setting up real-time subscription for: ${shortCode}`)
     setLoading(true)
     setError(null)
 
-    // Set up real-time subscription for click history
+    // Subscribe to clicks subcollection for real-time updates
     const clicksRef = collection(db, "urls", shortCode, "clicks")
     const clicksQuery = query(
       clicksRef,
+      where("_placeholder", "!=", true), // Exclude placeholder documents
       orderBy("timestamp", "desc"),
       limit(limitCount)
     )
@@ -44,19 +45,27 @@ export function useClickHistory(shortCode: string, limitCount: number = 100) {
         includeMetadataChanges: true,
       },
       (snapshot) => {
-        console.log(`📊 useClickHistory: Received ${snapshot.docs.length} clicks for ${shortCode}`)
+        console.log(`📊 useClickHistory: Real-time click update received for ${shortCode}`)
         
-        const clicks: ClickHistoryItem[] = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as ClickHistoryItem[]
+        const clicks: ClickEvent[] = []
+        snapshot.forEach((doc) => {
+          const clickData = doc.data() as ClickEvent
+          // Skip placeholder documents
+          if (!clickData._placeholder) {
+            clicks.push({
+              id: doc.id,
+              ...clickData,
+            })
+          }
+        })
 
+        console.log(`📊 useClickHistory: Processed ${clicks.length} clicks for ${shortCode}`)
         setClickHistory(clicks)
         setLoading(false)
         setError(null)
       },
       (err) => {
-        console.error(`❌ useClickHistory: Error subscribing to clicks for ${shortCode}:`, err)
+        console.error(`❌ useClickHistory: Error in real-time subscription for ${shortCode}:`, err)
         setError(err.message)
         setLoading(false)
       }
