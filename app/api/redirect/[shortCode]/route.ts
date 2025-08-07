@@ -122,6 +122,21 @@ export async function GET(
       }
     }
 
+    // Enhanced logging for IP extraction debugging
+    console.log(`🖱️ IP extraction debugging for ${shortCode}:`, {
+      'x-forwarded-for': forwardedFor,
+      'cf-connecting-ip': cfConnectingIP, 
+      'x-real-ip': realIP,
+      'x-client-ip': clientIP,
+      'x-forwarded': forwarded,
+      'forwarded-for': forwardedForHeader,
+      'forwarded': forwardedHeader,
+      'remote-addr': remoteAddr,
+      'request.ip': request.ip,
+      'final-extracted-ip': extractedIP,
+      'extraction-successful': extractedIP !== 'Unknown IP'
+    })
+
     const referer = 
       headers.get('referer') || 
       headers.get('Referer') || 
@@ -138,21 +153,6 @@ export async function GET(
       headers.get('accept-language') || 
       headers.get('Accept-Language') ||
       'Unknown'
-
-    // Enhanced logging for IP extraction debugging
-    console.log(`🖱️ IP extraction debugging for ${shortCode}:`, {
-      'x-forwarded-for': forwardedFor,
-      'cf-connecting-ip': cfConnectingIP, 
-      'x-real-ip': realIP,
-      'x-client-ip': clientIP,
-      'x-forwarded': forwarded,
-      'forwarded-for': forwardedForHeader,
-      'forwarded': forwardedHeader,
-      'remote-addr': remoteAddr,
-      'request.ip': request.ip,
-      'final-extracted-ip': extractedIP,
-      'extraction-successful': extractedIP !== 'Unknown IP'
-    })
 
     console.log(`🖱️ Header extraction results for ${shortCode}:`, {
       userAgent: userAgent.substring(0, 100) + (userAgent.length > 100 ? '...' : ''),
