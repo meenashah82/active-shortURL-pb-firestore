@@ -15,7 +15,7 @@ export function useRealTimeAnalytics(shortCode: string) {
   const [isNewClick, setIsNewClick] = useState(false)
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
   
-  const previousClickCount = useRef(0)
+  const previousClickCount = useRef(-1) // Start with -1 to avoid false positives on initial load
   const newClickTimeout = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
@@ -35,15 +35,17 @@ export function useRealTimeAnalytics(shortCode: string) {
     
     const unsubscribe = onSnapshot(
       urlRef,
-      {
-        includeMetadataChanges: false, // Only listen to actual data changes
-      },
       (doc) => {
         if (doc.exists()) {
           const data = doc.data() as UrlData
+          const newClickCount = data.totalClicks || 0
+          
           console.log(`📡 useRealTimeAnalytics: Real-time update received for ${shortCode}:`, {
-            totalClicks: data.totalClicks,
-            timestamp: new Date().toISOString()
+            totalClicks: newClickCount,
+            previousCount: previousClickCount.current,
+            timestamp: new Date().toISOString(),
+            fromCache: doc.metadata.fromCache,
+            hasPendingWrites: doc.metadata.hasPendingWrites
           })
 
           setUrlData(data)
@@ -54,10 +56,8 @@ export function useRealTimeAnalytics(shortCode: string) {
           setError(null)
 
           // Handle click count updates with animation
-          const newClickCount = data.totalClicks || 0
-          
           // Only trigger animation if this is a real increase and we have a previous count
-          if (newClickCount > previousClickCount.current && previousClickCount.current >= 0) {
+          if (previousClickCount.current >= 0 && newClickCount > previousClickCount.current) {
             console.log(`🎉 useRealTimeAnalytics: New click detected! ${previousClickCount.current} -> ${newClickCount}`)
             setIsNewClick(true)
             

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { collection, query, where, orderBy, limit, onSnapshot } from "firebase/firestore"
+import { collection, query, orderBy, limit, onSnapshot } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { ClickEvent } from "@/lib/analytics-clean"
 
@@ -24,22 +24,19 @@ export function useClickHistory(shortCode: string, limitCount: number = 100) {
     const clicksRef = collection(db, "urls", shortCode, "clicks")
     const clicksQuery = query(
       clicksRef,
-      where("_placeholder", "!=", true),
       orderBy("timestamp", "desc"),
       limit(limitCount)
     )
 
     const unsubscribe = onSnapshot(
       clicksQuery,
-      {
-        includeMetadataChanges: true,
-      },
       (snapshot) => {
-        console.log(`📡 useClickHistory: Real-time update received for ${shortCode}`)
+        console.log(`📡 useClickHistory: Real-time update received for ${shortCode}, ${snapshot.docs.length} documents`)
         const clicks: ClickEvent[] = []
 
         snapshot.forEach((doc) => {
           const clickData = doc.data() as ClickEvent
+          // Skip placeholder documents
           if (!clickData._placeholder) {
             clicks.push({
               ...clickData,
@@ -48,7 +45,7 @@ export function useClickHistory(shortCode: string, limitCount: number = 100) {
           }
         })
 
-        console.log(`📡 useClickHistory: ${clicks.length} clicks loaded for ${shortCode}`)
+        console.log(`📡 useClickHistory: ${clicks.length} valid clicks loaded for ${shortCode}`)
         setClickHistory(clicks)
         setLoading(false)
         setError(null)

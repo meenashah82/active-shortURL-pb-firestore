@@ -1,54 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getFirebase } from '@/lib/firebase'
-import { doc, getDoc, collection, addDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore'
+import { getUrlData, recordClick } from '@/lib/analytics-clean'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ shortCode: string }> }
 ) {
-  const { shortCode } = await params
-  const { db } = getFirebase()
-
-  if (!db) {
-    return NextResponse.json({ error: 'Database not available' }, { status: 500 })
-  }
-
   try {
+    const { shortCode } = await params
+    console.log(`🔗 Redirect request for: ${shortCode}`)
+
     // Get URL data
-    const urlDoc = await getDoc(doc(db, 'urls', shortCode))
+    const urlData = await getUrlData(shortCode)
     
-    if (!urlDoc.exists()) {
-      return NextResponse.json({ error: 'URL not found' }, { status: 404 })
+    if (!urlData) {
+      console.log(`❌ URL not found: ${shortCode}`)
+      return NextResponse.redirect(new URL('/not-found', request.url))
     }
 
-    const urlData = urlDoc.data()
-    
-    // Record click in subcollection
-    const headers = Object.fromEntries(request.headers.entries())
-    
-    await addDoc(collection(db, 'urls', shortCode, 'clicks'), {
-      timestamp: serverTimestamp(),
-      userAgent: headers['user-agent'] || '',
-      referer: headers.referer || '',
-      ip: headers['x-forwarded-for'] || headers['x-real-ip'] || 'unknown',
-      country: headers['cf-ipcountry'] || 'unknown',
+    // Extract request information
+    const userAgent = request.headers.get('user-agent') || 'Unknown'
+    const referer = request.headers.get('referer') || ''
+    const forwardedFor = request.headers.get('x-forwarded-for') || 
+                        request.headers.get('x-real-ip') || 
+                        'Unknown'
+
+    // Convert headers to record
+    const headers: Record<string, string> = {}
+    request.headers.forEach((value, key) => {
+      headers[key] = value
     })
 
-    // Update URL document
-    await updateDoc(doc(db, 'urls', shortCode), {
-      totalClicks: increment(1),
-      lastClickAt: serverTimestamp(),
-    })
+    console.log(`🖱️ Recording click for ${shortCode} from ${forwardedFor}`)
 
-    // Ensure URL has protocol
-    let targetUrl = urlData.originalUrl.trim()
-    if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
-      targetUrl = 'https://' + targetUrl
+    // Record the click (this will trigger real-time updates)
+    try {
+      await recordClick(shortCode, userAgent, referer, forwardedFor, headers)
+      console.log(`✅ Click recorded successfully for: ${shortCode}`)
+    } catch (clickError) {
+      console.error(`❌ Error recording click for ${shortCode}:`, clickError)
+      // Continue with redirect even if click recording fails
     }
 
-    return NextResponse.redirect(targetUrl, 302)
+    // Redirect to original URL
+    console.log(`🔄 Redirecting ${shortCode} to: ${urlData.originalUrl}`)
+    return NextResponse.redirect(urlData.originalUrl, { status: 302 })
+
   } catch (error) {
-    console.error('Error in redirect API:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('❌ Error in redirect handler:', error)
+    return NextResponse.redirect(new URL('/not-found', request.url))
   }
 }
