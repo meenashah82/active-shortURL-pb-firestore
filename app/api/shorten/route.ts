@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getFirebase } from '@/lib/firebase'
-import { collection, doc, setDoc, getDoc } from 'firebase/firestore'
+import { createShortUrl, getUrlData } from '@/lib/analytics-clean'
 
 function generateShortCode(): string {
   const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
@@ -49,18 +48,6 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ URL validation passed:', url)
 
-    // Get Firebase instance
-    const { db } = getFirebase()
-    if (!db) {
-      console.error('❌ Firebase database not available')
-      return NextResponse.json(
-        { error: 'Database connection failed' },
-        { status: 500 }
-      )
-    }
-
-    console.log('✅ Firebase database connected')
-
     // Generate unique short code
     let shortCode: string
     let attempts = 0
@@ -73,10 +60,9 @@ export async function POST(request: NextRequest) {
       console.log(`🎲 Generated short code attempt ${attempts}: ${shortCode}`)
       
       // Check if short code already exists
-      const docRef = doc(db, 'urls', shortCode)
-      const docSnap = await getDoc(docRef)
+      const existingUrl = await getUrlData(shortCode)
       
-      if (!docSnap.exists()) {
+      if (!existingUrl) {
         console.log('✅ Short code is unique:', shortCode)
         break
       }
@@ -92,28 +78,29 @@ export async function POST(request: NextRequest) {
       }
     } while (true)
 
-    // Create URL document
-    const urlData = {
-      originalUrl: url,
-      shortCode,
-      createdAt: new Date().toISOString(),
-      totalClicks: 0,
-      isActive: true
+    // Create URL using analytics-clean library
+    console.log(`🔗 Creating short URL: ${shortCode} -> ${url}`)
+    
+    try {
+      await createShortUrl(shortCode, url)
+      console.log('✅ Short URL created successfully')
+    } catch (createError) {
+      console.error('❌ Error creating short URL:', createError)
+      return NextResponse.json(
+        { 
+          error: 'Failed to create short URL',
+          details: createError instanceof Error ? createError.message : String(createError)
+        },
+        { status: 500 }
+      )
     }
-
-    console.log('📝 Creating URL document:', urlData)
-
-    const docRef = doc(db, 'urls', shortCode)
-    await setDoc(docRef, urlData)
-
-    console.log('✅ URL document created successfully')
 
     // Create response
     const response = {
       shortCode,
       originalUrl: url,
       shortUrl: `${request.nextUrl.origin}/${shortCode}`,
-      createdAt: urlData.createdAt
+      createdAt: new Date().toISOString()
     }
 
     console.log('📤 Sending response:', response)
