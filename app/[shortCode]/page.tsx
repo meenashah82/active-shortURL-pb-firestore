@@ -1,41 +1,47 @@
-import { redirect } from 'next/navigation'
-import { getUrlData, trackClick } from '@/lib/analytics'
+import { redirect } from 'next/navigation';
+import { db } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { trackClick } from '@/lib/analytics';
+import { headers } from 'next/headers';
 
 interface PageProps {
   params: {
-    shortCode: string
-  }
+    shortCode: string;
+  };
 }
 
-export default async function ShortCodePage({ params }: PageProps) {
-  const { shortCode } = params
+export default async function RedirectPage({ params }: PageProps) {
+  const { shortCode } = params;
   
   try {
-    console.log(`🔍 Page request for: ${shortCode}`)
+    console.log(`[Redirect Page] Processing ${shortCode}`);
     
-    // Get URL data
-    const urlData = await getUrlData(shortCode)
-    
-    if (!urlData || !urlData.isActive) {
-      console.log(`❌ URL not found or inactive: ${shortCode}`)
-      redirect('/not-found')
+    const docRef = doc(db, 'urls', shortCode);
+    const docSnap = await getDoc(docRef);
+
+    if (!docSnap.exists()) {
+      console.log(`[Redirect Page] Short code ${shortCode} not found`);
+      redirect('/not-found');
     }
 
-    // Track the click (server-side)
-    try {
-      await trackClick(shortCode, {
-        userAgent: 'Server-side redirect',
-      })
-    } catch (error) {
-      console.error(`❌ Error tracking click for ${shortCode}:`, error)
-    }
+    const urlData = docSnap.data();
+    const originalUrl = urlData.originalUrl;
 
-    console.log(`✅ Redirecting ${shortCode} to ${urlData.originalUrl}`)
+    // Get headers for tracking
+    const headersList = headers();
     
-    // Redirect to the original URL
-    redirect(urlData.originalUrl)
+    // Track the click
+    await trackClick(shortCode, {
+      userAgent: headersList.get('user-agent') || undefined,
+      referer: headersList.get('referer') || undefined,
+      ip: headersList.get('x-forwarded-for') || undefined
+    });
+
+    console.log(`[Redirect Page] Redirecting ${shortCode} to ${originalUrl}`);
+    redirect(originalUrl);
+    
   } catch (error) {
-    console.error(`❌ Error in page for ${shortCode}:`, error)
-    redirect('/not-found')
+    console.error(`[Redirect Page] Error processing ${shortCode}:`, error);
+    redirect('/not-found');
   }
 }

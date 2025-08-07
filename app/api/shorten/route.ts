@@ -1,82 +1,88 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { createShortUrl, getUrlData } from "@/lib/analytics"
+import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@/lib/firebase';
+import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
 
 function generateShortCode(): string {
-  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-  let result = ""
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
   for (let i = 0; i < 6; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length))
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
   }
-  return result
+  return result;
+}
+
+function isValidUrl(string: string): boolean {
+  try {
+    new URL(string);
+    return true;
+  } catch (_) {
+    return false;
+  }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("🚀 API: Starting URL shortening request")
+    console.log('[API] Shorten request received');
     
-    const { url } = await request.json()
-    console.log("📋 API: Received URL:", url)
-
+    const { url } = await request.json();
+    
     if (!url) {
-      console.log("❌ API: No URL provided")
-      return NextResponse.json({ error: "URL is required" }, { status: 400 })
+      console.log('[API] No URL provided');
+      return NextResponse.json({ error: 'URL is required' }, { status: 400 });
     }
 
-    // Validate URL format
-    try {
-      new URL(url)
-      console.log("✅ API: URL format is valid")
-    } catch {
-      console.log("❌ API: Invalid URL format")
-      return NextResponse.json({ error: "Invalid URL format" }, { status: 400 })
+    if (!isValidUrl(url)) {
+      console.log('[API] Invalid URL provided:', url);
+      return NextResponse.json({ error: 'Invalid URL' }, { status: 400 });
     }
 
     // Generate unique short code
-    let shortCode: string
-    let attempts = 0
-    const maxAttempts = 10
+    let shortCode: string;
+    let attempts = 0;
+    const maxAttempts = 10;
 
     do {
-      shortCode = generateShortCode()
-      attempts++
-      console.log(`🎲 API: Generated short code attempt ${attempts}: ${shortCode}`)
+      shortCode = generateShortCode();
+      attempts++;
       
       if (attempts > maxAttempts) {
-        console.log("❌ API: Max attempts reached")
-        return NextResponse.json({ error: "Failed to generate unique short code" }, { status: 500 })
+        console.error('[API] Failed to generate unique short code after', maxAttempts, 'attempts');
+        return NextResponse.json({ error: 'Failed to generate unique short code' }, { status: 500 });
       }
       
-      // Check if this short code already exists
-      const existingUrl = await getUrlData(shortCode)
-      if (!existingUrl) {
-        console.log("✅ API: Short code is unique")
-        break
-      } else {
-        console.log("⚠️ API: Short code exists, trying again")
+      const docRef = doc(db, 'urls', shortCode);
+      const docSnap = await getDoc(docRef);
+      
+      if (!docSnap.exists()) {
+        break;
       }
-    } while (true)
+      
+      console.log('[API] Short code', shortCode, 'already exists, trying again');
+    } while (true);
 
-    console.log(`🔗 API: Creating short URL: ${shortCode} -> ${url}`)
-
-    // Create the short URL
-    await createShortUrl(shortCode, url)
-    console.log("✅ API: Short URL created successfully")
-
-    const shortUrl = `${request.nextUrl.origin}/${shortCode}`
-
-    const response = {
-      shortUrl,
-      shortCode,
+    // Create URL document
+    const urlData = {
       originalUrl: url,
-    }
+      shortCode,
+      createdAt: Timestamp.now(),
+      totalClicks: 0
+    };
 
-    console.log("📤 API: Sending response:", response)
-    return NextResponse.json(response)
+    await setDoc(doc(db, 'urls', shortCode), urlData);
+    
+    console.log('[API] URL shortened successfully:', shortCode);
+    
+    return NextResponse.json({
+      shortCode,
+      shortUrl: `${request.nextUrl.origin}/${shortCode}`,
+      originalUrl: url
+    });
+
   } catch (error) {
-    console.error("❌ API: Error creating short URL:", error)
-    return NextResponse.json({ 
-      error: "Failed to create short URL",
-      details: error instanceof Error ? error.message : String(error)
-    }, { status: 500 })
+    console.error('[API] Error shortening URL:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
