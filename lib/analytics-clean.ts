@@ -24,8 +24,11 @@ export interface ClickEvent {
   userAgent?: string
   referer?: string
   ip?: string
+  country?: string
+  acceptLanguage?: string
   "User-Agent"?: string
   "X-Forwarded-For"?: string
+  "client-ip"?: string
   _placeholder?: boolean
 }
 
@@ -152,18 +155,27 @@ export async function recordClick(
       return
     }
 
-    // Create click document with all headers
+    // Create comprehensive click document
     const clickEvent: ClickEvent = {
       timestamp: serverTimestamp(),
       shortCode: shortCode,
-      "User-Agent": headers["user-agent"] || userAgent,
-      referer: headers["referer"] || referer,
-      "X-Forwarded-For": headers["x-forwarded-for"] || ip,
-      userAgent: headers["user-agent"] || userAgent,
-      ip: headers["x-forwarded-for"] || ip,
+      userAgent: userAgent || 'Unknown Browser',
+      referer: referer || 'Direct',
+      ip: ip || 'Unknown IP',
+      country: headers['country'] || headers['cf-ipcountry'] || 'Unknown',
+      acceptLanguage: headers['accept-language'] || 'Unknown',
+      "User-Agent": userAgent || 'Unknown Browser',
+      "X-Forwarded-For": headers['x-forwarded-for'] || ip || 'Unknown IP',
+      "client-ip": headers['client-ip'] || ip || 'Unknown IP',
     }
 
-    console.log(`🖱️ Creating click event:`, clickEvent)
+    console.log(`🖱️ Creating click event with data:`, {
+      shortCode,
+      userAgent: clickEvent.userAgent?.substring(0, 50) + '...',
+      ip: clickEvent.ip,
+      country: clickEvent.country,
+      referer: clickEvent.referer
+    })
 
     // Add click to subcollection first
     const clicksRef = collection(db, "urls", shortCode, "clicks")

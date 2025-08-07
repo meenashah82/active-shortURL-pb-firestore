@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { doc, getDoc, collection, addDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { getUrlData, recordClick } from '@/lib/analytics-clean'
 
 export async function GET(
   request: NextRequest,
@@ -10,59 +9,65 @@ export async function GET(
     const { shortCode } = await params
     console.log(`🔗 Redirect request for: ${shortCode}`)
 
-    if (!db) {
-      console.error('❌ Database not available')
-      return NextResponse.json({ error: 'Database not available' }, { status: 500 })
-    }
-
     // Get URL data
-    const urlRef = doc(db, 'urls', shortCode)
-    const urlDoc = await getDoc(urlRef)
+    const urlData = await getUrlData(shortCode)
     
-    if (!urlDoc.exists()) {
+    if (!urlData) {
       console.log(`❌ URL not found: ${shortCode}`)
       return NextResponse.redirect(new URL('/not-found', request.url))
     }
 
-    const urlData = urlDoc.data()
+    // Extract request information with better fallbacks
+    const userAgent = request.headers.get('user-agent') || 
+                     request.headers.get('User-Agent') || 
+                     'Unknown Browser'
     
-    // Check if URL is active
-    if (!urlData.isActive) {
-      console.log(`❌ URL inactive: ${shortCode}`)
-      return NextResponse.redirect(new URL('/not-found', request.url))
-    }
+    const referer = request.headers.get('referer') || 
+                   request.headers.get('Referer') || 
+                   'Direct'
+    
+    // Try multiple IP header sources
+    const ip = request.headers.get('x-forwarded-for') || 
+              request.headers.get('x-real-ip') || 
+              request.headers.get('cf-connecting-ip') || 
+              request.headers.get('x-client-ip') || 
+              request.headers.get('x-forwarded') || 
+              request.headers.get('forwarded-for') || 
+              request.headers.get('forwarded') ||
+              request.ip ||
+              'Unknown IP'
 
-    // Extract request information
-    const userAgent = request.headers.get('user-agent') || 'Unknown'
-    const referer = request.headers.get('referer') || ''
-    const forwardedFor = request.headers.get('x-forwarded-for') || 
-                        request.headers.get('x-real-ip') || 
-                        'Unknown'
+    // Get the first IP if there are multiple (x-forwarded-for can be a comma-separated list)
+    const clientIP = ip.split(',')[0].trim()
 
-    console.log(`🖱️ Recording click for ${shortCode} from ${forwardedFor}`)
+    // Convert headers to record for additional data
+    const headers: Record<string, string> = {}
+    request.headers.forEach((value, key) => {
+      headers[key] = value
+    })
 
-    // Record click in subcollection
-    const clickEvent = {
-      timestamp: serverTimestamp(),
-      shortCode: shortCode,
-      userAgent: userAgent,
-      referer: referer,
-      ip: forwardedFor,
-      "User-Agent": userAgent,
-      "X-Forwarded-For": forwardedFor,
-    }
+    // Add additional useful headers
+    const country = request.headers.get('cf-ipcountry') || 
+                   request.headers.get('cloudfront-viewer-country') || 
+                   'Unknown'
+    
+    const acceptLanguage = request.headers.get('accept-language') || 'Unknown'
 
+    console.log(`🖱️ Recording click for ${shortCode}:`, {
+      ip: clientIP,
+      userAgent: userAgent.substring(0, 100), // Log first 100 chars
+      referer,
+      country
+    })
+
+    // Record the click with enhanced data
     try {
-      // Add click to subcollection
-      const clicksRef = collection(db, 'urls', shortCode, 'clicks')
-      await addDoc(clicksRef, clickEvent)
-
-      // Update URL document with incremented click count
-      await updateDoc(urlRef, {
-        totalClicks: increment(1),
-        lastClickAt: serverTimestamp(),
+      await recordClick(shortCode, userAgent, referer, clientIP, {
+        ...headers,
+        'client-ip': clientIP,
+        'country': country,
+        'accept-language': acceptLanguage
       })
-
       console.log(`✅ Click recorded successfully for: ${shortCode}`)
     } catch (clickError) {
       console.error(`❌ Error recording click for ${shortCode}:`, clickError)
@@ -80,6 +85,6 @@ export async function GET(
 
   } catch (error) {
     console.error('❌ Error in redirect handler:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.redirect(new URL('/not-found', request.url))
   }
 }
