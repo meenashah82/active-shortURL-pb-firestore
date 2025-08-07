@@ -113,18 +113,10 @@ function getHeaderValue(headers: Record<string, string> | undefined, headerName:
 // Create short URL - using new unified structure and create clicks subcollection
 export async function createShortUrl(shortCode: string, originalUrl: string, metadata?: any): Promise<void> {
   try {
-    console.log(`🔄 createShortUrl: Starting for ${shortCode} -> ${originalUrl}`)
-
-    // Validate Firebase connection
-    if (!db) {
-      console.error("❌ createShortUrl: Firebase database not initialized")
-      throw new Error("Firebase database not initialized")
-    }
-    console.log("✅ createShortUrl: Firebase database is available")
+    console.log(`Creating short URL: ${shortCode} -> ${originalUrl}`)
 
     const urlRef = doc(db, "urls", shortCode)
     const clicksRef = collection(db, "urls", shortCode, "clicks")
-    console.log(`📄 createShortUrl: Created document references for ${shortCode}`)
 
     const expiresAt = new Date()
     expiresAt.setDate(expiresAt.getDate() + 30)
@@ -140,17 +132,8 @@ export async function createShortUrl(shortCode: string, originalUrl: string, met
       lastClickAt: null,
     }
 
-    console.log(`📝 createShortUrl: Prepared URL data:`, {
-      originalUrl: urlData.originalUrl,
-      shortCode: urlData.shortCode,
-      isActive: urlData.isActive,
-      totalClicks: urlData.totalClicks,
-    })
-
     // Create the main URL document
-    console.log(`🔄 createShortUrl: Creating main URL document for ${shortCode}`)
     await setDoc(urlRef, urlData)
-    console.log(`✅ createShortUrl: Main URL document created for ${shortCode}`)
 
     // Create the clicks subcollection by adding an initial placeholder document
     // This ensures the subcollection exists immediately when the shortcode is created
@@ -161,17 +144,12 @@ export async function createShortUrl(shortCode: string, originalUrl: string, met
       note: "This is a placeholder document to initialize the clicks subcollection",
     }
 
-    console.log(`🔄 createShortUrl: Creating placeholder document in clicks subcollection for ${shortCode}`)
     await addDoc(clicksRef, placeholderClickData)
-    console.log(`✅ createShortUrl: Placeholder document created in clicks subcollection for ${shortCode}`)
 
-    console.log(`🎉 createShortUrl: SUCCESS - URL created with unified structure: ${shortCode}`)
-    console.log(`📊 createShortUrl: Clicks subcollection initialized for: ${shortCode}`)
+    console.log(`✅ URL created with unified structure: ${shortCode}`)
+    console.log(`✅ Clicks subcollection created for: ${shortCode}`)
   } catch (error) {
-    console.error(`❌ createShortUrl: FAILED for ${shortCode}:`, error)
-    console.error(`❌ createShortUrl: Error name:`, error instanceof Error ? error.name : "Unknown")
-    console.error(`❌ createShortUrl: Error message:`, error instanceof Error ? error.message : String(error))
-    console.error(`❌ createShortUrl: Error stack:`, error instanceof Error ? error.stack : undefined)
+    console.error("❌ Error creating short URL:", error)
     throw error
   }
 }
@@ -198,12 +176,6 @@ export async function getUrlData(shortCode: string): Promise<UrlData | null> {
   console.log(`🔍 getUrlData: Starting for shortCode: ${shortCode}`)
 
   try {
-    // Validate Firebase connection
-    if (!db) {
-      console.error("❌ getUrlData: Firebase database not initialized")
-      return null
-    }
-
     const urlRef = doc(db, "urls", shortCode)
     console.log(`🔍 getUrlData: Created document reference for: urls/${shortCode}`)
 
