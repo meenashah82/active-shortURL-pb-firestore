@@ -3,7 +3,18 @@
 import { useState, useEffect } from "react"
 import { collection, query, orderBy, limit, onSnapshot } from "firebase/firestore"
 import { db } from "@/lib/firebase"
-import { ClickEvent } from "@/lib/analytics-clean"
+
+export interface ClickEvent {
+  id?: string
+  timestamp: any
+  userAgent?: string
+  referer?: string
+  ip?: string
+  "User-Agent"?: string
+  "X-Forwarded-For"?: string
+  shortCode?: string
+  _placeholder?: boolean
+}
 
 export function useClickHistory(shortCode: string, limitCount: number = 100) {
   const [clickHistory, setClickHistory] = useState<ClickEvent[]>([])
@@ -11,7 +22,7 @@ export function useClickHistory(shortCode: string, limitCount: number = 100) {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!shortCode) {
+    if (!shortCode || !db) {
       setLoading(false)
       return
     }

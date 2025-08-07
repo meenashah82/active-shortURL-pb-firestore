@@ -1,5 +1,5 @@
-import { initializeApp, getApps } from "firebase/app"
-import { getFirestore } from "firebase/firestore"
+import { initializeApp, getApps } from 'firebase/app'
+import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore'
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -21,12 +21,17 @@ if (getApps().length === 0) {
 // Initialize Firestore
 export const db = getFirestore(app)
 
-// Helper function to get Firebase instances
-export function getFirebase() {
-  return {
-    app,
-    db,
+// Connect to emulator in development
+if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
+  try {
+    connectFirestoreEmulator(db, 'localhost', 8080)
+  } catch (error) {
+    // Emulator already connected or not available
   }
+}
+
+export function getFirebase() {
+  return { db }
 }
 
 export default app
