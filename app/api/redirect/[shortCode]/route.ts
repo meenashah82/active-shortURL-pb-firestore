@@ -105,16 +105,6 @@ export async function GET(
     } else if (request.ip && request.ip.trim() !== '') {
       // Next.js request IP property
       extractedIP = request.ip.trim()
-    } else {
-      // Last resort: try to get from request URL or connection info
-      try {
-        const url = new URL(request.url)
-        if (url.searchParams.has('clientIP')) {
-          extractedIP = url.searchParams.get('clientIP') || 'Unknown IP'
-        }
-      } catch (e) {
-        // URL parsing failed, keep as Unknown IP
-      }
     }
 
     // Clean up IP address format
