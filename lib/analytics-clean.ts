@@ -110,12 +110,13 @@ function getHeaderValue(headers: Record<string, string> | undefined, headerName:
   return foundKey ? headers[foundKey] : undefined
 }
 
-// Create short URL - using new unified structure WITHOUT creating clicks subcollection
+// Create short URL - using new unified structure and create clicks subcollection
 export async function createShortUrl(shortCode: string, originalUrl: string, metadata?: any): Promise<void> {
   try {
     console.log(`Creating short URL: ${shortCode} -> ${originalUrl}`)
 
     const urlRef = doc(db, "urls", shortCode)
+    const clicksRef = collection(db, "urls", shortCode, "clicks")
 
     const expiresAt = new Date()
     expiresAt.setDate(expiresAt.getDate() + 30)
@@ -131,11 +132,22 @@ export async function createShortUrl(shortCode: string, originalUrl: string, met
       lastClickAt: null,
     }
 
-    // Create only the main URL document - clicks subcollection will be created on first click
+    // Create the main URL document
     await setDoc(urlRef, urlData)
 
+    // Create the clicks subcollection by adding an initial placeholder document
+    // This ensures the subcollection exists immediately when the shortcode is created
+    const placeholderClickData = {
+      _placeholder: true,
+      createdAt: serverTimestamp(),
+      shortCode: shortCode,
+      note: "This is a placeholder document to initialize the clicks subcollection",
+    }
+
+    await addDoc(clicksRef, placeholderClickData)
+
     console.log(`✅ URL created with unified structure: ${shortCode}`)
-    console.log(`📝 Clicks subcollection will be created on first click for: ${shortCode}`)
+    console.log(`✅ Clicks subcollection created for: ${shortCode}`)
   } catch (error) {
     console.error("❌ Error creating short URL:", error)
     throw error
@@ -278,11 +290,13 @@ export async function getClickHistory(shortCode: string, limitCount = 50): Promi
 
     querySnapshot.forEach((doc) => {
       const data = doc.data() as IndividualClickData
-      // No need to filter placeholder documents since we don't create them anymore
-      clickHistory.push({
-        ...data,
-        id: doc.id,
-      })
+      // Skip placeholder documents
+      if (!data._placeholder) {
+        clickHistory.push({
+          ...data,
+          id: doc.id,
+        })
+      }
     })
 
     console.log(`📊 Found ${clickHistory.length} click records for: ${shortCode}`)
@@ -312,11 +326,13 @@ export function subscribeToClickHistory(
 
       querySnapshot.forEach((doc) => {
         const data = doc.data() as IndividualClickData
-        // No need to filter placeholder documents since we don't create them anymore
-        clickHistory.push({
-          ...data,
-          id: doc.id,
-        })
+        // Skip placeholder documents
+        if (!data._placeholder) {
+          clickHistory.push({
+            ...data,
+            id: doc.id,
+          })
+        }
       })
 
       console.log(`📊 Click history update: ${shortCode} - ${clickHistory.length} records`)
@@ -364,7 +380,6 @@ export async function recordClick(
     })
 
     // Second, create a new document in the clicks subcollection
-    // This will automatically create the subcollection on the first click
     console.log(`🔄 recordClick: Creating individual click document for ${shortCode}`)
 
     const clickData = {
@@ -397,10 +412,8 @@ export async function recordClick(
     }
 
     // Use addDoc to let Firestore generate the document ID automatically
-    // This will create the subcollection if it doesn't exist
     const clickDocRef = await addDoc(clicksCollectionRef, clickData)
     console.log(`✅ recordClick: Individual click document created with ID: ${clickDocRef.id}`)
-    console.log(`📝 recordClick: Clicks subcollection created/updated for: ${shortCode}`)
 
     // Verify the document was created
     const verifyDoc = await getDoc(clickDocRef)
