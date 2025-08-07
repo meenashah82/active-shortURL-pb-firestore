@@ -180,9 +180,9 @@ export default function AnalyticsPage({ params }: AnalyticsPageProps) {
                     }}
                   >
                     {connectionStatus === "connected"
-                      ? "🔥 Real-time WebSocket connected - Clicks update instantly!"
+                      ? "🔥 Real-time Firestore connected - Clicks update instantly!"
                       : connectionStatus === "connecting"
-                        ? "Connecting to Firestore WebSocket..."
+                        ? "Connecting to Firestore real-time updates..."
                         : "Connection lost - Attempting to reconnect..."}
                   </span>
 
@@ -260,7 +260,7 @@ export default function AnalyticsPage({ params }: AnalyticsPageProps) {
                   {clickCount}
                 </div>
                 <p className="mt-2 text-lg" style={{ color: "#94909C" }}>
-                  Updates instantly via Firestore WebSocket when short URL is clicked
+                  Updates instantly via Firestore real-time listener when short URL is clicked
                 </p>
                 {isNewClick && (
                   <div
@@ -274,7 +274,7 @@ export default function AnalyticsPage({ params }: AnalyticsPageProps) {
                       🎉 Someone just clicked your short URL!
                     </div>
                     <div className="text-sm mt-2" style={{ color: "#F22C7C" }}>
-                      Real-time update via Firestore WebSocket - No refresh needed!
+                      Real-time update via Firestore onSnapshot - No refresh needed!
                     </div>
                   </div>
                 )}
@@ -433,7 +433,7 @@ export default function AnalyticsPage({ params }: AnalyticsPageProps) {
           {/* Test Real-time Tracking */}
           <Card className="mt-6 shadow-sm" style={{ backgroundColor: "#FFFFFF", borderColor: "#D9D8FD" }}>
             <CardHeader>
-              <CardTitle style={{ color: "#4D475B" }}>Test Real-time WebSocket Updates</CardTitle>
+              <CardTitle style={{ color: "#4D475B" }}>Test Real-time Updates</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex gap-2 flex-wrap">
@@ -510,7 +510,7 @@ export default function AnalyticsPage({ params }: AnalyticsPageProps) {
                 <ul className="text-xs mt-2 space-y-1" style={{ color: "#833ADF" }}>
                   <li>1. Open your short URL in a new tab/window</li>
                   <li>2. Watch this page update instantly when you click the link</li>
-                  <li>3. No refresh needed - powered by Firestore WebSocket!</li>
+                  <li>3. No refresh needed - powered by Firestore real-time listeners!</li>
                 </ul>
               </div>
             </CardContent>
