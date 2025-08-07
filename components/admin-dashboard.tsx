@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { getFirebase } from "@/lib/firebase"
-import { collection, getDocs, deleteDoc, doc, onSnapshot, writeBatch } from "firebase/firestore"
+import { collection, getDocs, deleteDoc, doc, onSnapshot } from "firebase/firestore"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -74,35 +74,8 @@ export function AdminDashboard() {
         return
       }
 
-      console.log(`🗑️ Starting deletion of URL: ${shortCode}`)
-
-      // Step 1: Delete all documents in the clicks subcollection
-      const clicksRef = collection(db, "urls", id, "clicks")
-      const clicksSnapshot = await getDocs(clicksRef)
-      
-      if (clicksSnapshot.docs.length > 0) {
-        console.log(`🔄 Deleting ${clicksSnapshot.docs.length} click documents for ${shortCode}`)
-        
-        // Use batch to delete all click documents
-        const batch = writeBatch(db)
-        clicksSnapshot.docs.forEach((clickDoc) => {
-          batch.delete(clickDoc.ref)
-        })
-        await batch.commit()
-        
-        console.log(`✅ Deleted ${clicksSnapshot.docs.length} click documents`)
-      } else {
-        console.log(`ℹ️ No click documents found for ${shortCode}`)
-      }
-
-      // Step 2: Delete the main URL document
       await deleteDoc(doc(db, "urls", id))
-      console.log(`✅ Deleted main URL document: ${shortCode}`)
-
-      // Step 3: Update the UI state
       setUrls(urls.filter((url) => url.id !== id))
-      console.log(`✅ URL deletion completed: ${shortCode}`)
-
     } catch (error: any) {
       console.error("Error deleting URL:", error)
       setError(`Failed to delete URL: ${error.message}`)
