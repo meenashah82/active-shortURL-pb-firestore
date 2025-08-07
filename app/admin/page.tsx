@@ -7,7 +7,7 @@ import { AdminUserManagement } from "@/components/admin-user-management"
 import { getSession, clearSession, type AdminUser } from "@/lib/admin-auth"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { LogOut, Shield, Link, Users } from "lucide-react"
+import { LogOut, Shield, Link, Users } from 'lucide-react'
 import { Skeleton } from "@/components/ui/skeleton"
 
 export default function AdminPage() {
@@ -95,22 +95,26 @@ export default function AdminPage() {
 
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <Tabs defaultValue="urls" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 bg-gray-100">
+          <TabsList className={`grid w-full ${user.role === 'superadmin' ? 'grid-cols-2' : 'grid-cols-1'} bg-gray-100`}>
             <TabsTrigger value="urls" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white">
               <Link className="mr-2 h-4 w-4" />
               URL Management
             </TabsTrigger>
-            <TabsTrigger value="users" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white">
-              <Users className="mr-2 h-4 w-4" />
-              User Management
-            </TabsTrigger>
+            {user.role === 'superadmin' && (
+              <TabsTrigger value="users" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white">
+                <Users className="mr-2 h-4 w-4" />
+                User Management
+              </TabsTrigger>
+            )}
           </TabsList>
           <TabsContent value="urls">
             <AdminDashboard />
           </TabsContent>
-          <TabsContent value="users">
-            <AdminUserManagement />
-          </TabsContent>
+          {user.role === 'superadmin' && (
+            <TabsContent value="users">
+              <AdminUserManagement />
+            </TabsContent>
+          )}
         </Tabs>
       </main>
     </div>
