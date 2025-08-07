@@ -27,6 +27,12 @@ export async function GET(
     const urlData = urlDoc.data()
     console.log(`Found URL: ${shortCode} -> ${urlData.originalUrl}`)
 
+    // Extract all headers for detailed click tracking
+    const headers: Record<string, string> = {}
+    request.headers.forEach((value, key) => {
+      headers[key] = value
+    })
+
     // Record the click with all headers
     const userAgent = request.headers.get("user-agent") || "Unknown"
     const referer = request.headers.get("referer") || "Direct"
@@ -34,23 +40,51 @@ export async function GET(
     const realIp = request.headers.get("x-real-ip")
     const ip = forwardedFor?.split(",")[0] || realIp || "Unknown"
 
-    // Record click (fire and forget)
+    // Record click in subcollection (fire and forget)
     Promise.resolve().then(async () => {
       try {
-        await addDoc(collection(db, 'clicks'), {
-          shortCode,
+        // Create click document in the subcollection urls/{shortCode}/clicks
+        const clicksRef = collection(db, "urls", shortCode, "clicks")
+        
+        const clickEvent = {
           timestamp: Timestamp.now(),
-          userAgent,
-          referer,
-          ip
-        })
+          shortCode: shortCode,
+          "User-Agent": headers["user-agent"] || userAgent,
+          Referer: headers["referer"] || referer,
+          "X-Forwarded-For": headers["x-forwarded-for"] || ip,
+          Host: headers["host"],
+          Accept: headers["accept"],
+          "Accept-Language": headers["accept-language"],
+          "Accept-Encoding": headers["accept-encoding"],
+          "Accept-Charset": headers["accept-charset"],
+          "Content-Type": headers["content-type"],
+          "Content-Length": headers["content-length"],
+          Authorization: headers["authorization"],
+          Cookie: headers["cookie"],
+          Origin: headers["origin"],
+          Connection: headers["connection"],
+          "Upgrade-Insecure-Requests": headers["upgrade-insecure-requests"],
+          "Cache-Control": headers["cache-control"],
+          Pragma: headers["pragma"],
+          "If-Modified-Since": headers["if-modified-since"],
+          "If-None-Match": headers["if-none-match"],
+          Range: headers["range"],
+          TE: headers["te"],
+          "Transfer-Encoding": headers["transfer-encoding"],
+          Expect: headers["expect"],
+          "X-Requested-With": headers["x-requested-with"],
+        }
 
+        // Add click to subcollection (this creates a unique document ID automatically)
+        await addDoc(clicksRef, clickEvent)
+
+        // Update URL document with incremented click count
         await updateDoc(urlRef, {
           totalClicks: increment(1),
           lastClickAt: Timestamp.now()
         })
 
-        console.log(`Click recorded for: ${shortCode}`)
+        console.log(`Click recorded in subcollection for: ${shortCode}`)
       } catch (error) {
         console.error(`Failed to record click for ${shortCode}:`, error)
       }
