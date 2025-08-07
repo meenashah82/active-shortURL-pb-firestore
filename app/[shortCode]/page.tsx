@@ -20,6 +20,7 @@ export default async function ShortCodePage({ params }: ShortCodePageProps) {
     if (!urlData) {
       console.log(`❌ Short code not found: ${shortCode}`)
       redirect('/not-found')
+      return
     }
 
     // Get headers for click tracking
@@ -36,17 +37,13 @@ export default async function ShortCodePage({ params }: ShortCodePageProps) {
       headersRecord[key] = value
     })
 
-    // Record the click
-    try {
-      await recordClick(shortCode, userAgent, referer, ip, headersRecord)
-      console.log(`📊 Click recorded for: ${shortCode}`)
-    } catch (clickError) {
-      console.error(`❌ Failed to record click for ${shortCode}:`, clickError)
-      // Continue with redirect even if click recording fails
-    }
+    // Record the click (don't await to avoid blocking redirect)
+    recordClick(shortCode, userAgent, referer, ip, headersRecord).catch(error => {
+      console.error(`❌ Failed to record click for ${shortCode}:`, error)
+    })
 
     // Ensure URL has protocol
-    let targetUrl = urlData.originalUrl
+    let targetUrl = urlData.originalUrl.trim()
     if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
       targetUrl = 'https://' + targetUrl
     }
@@ -58,4 +55,7 @@ export default async function ShortCodePage({ params }: ShortCodePageProps) {
     console.error(`❌ Error in server-side redirect for ${shortCode}:`, error)
     redirect('/not-found')
   }
+
+  // This should never be reached due to redirect, but TypeScript requires it
+  return null
 }
