@@ -1,111 +1,63 @@
-"use client"
-
-import { useState, useEffect, useRef } from "react"
-import { doc, onSnapshot } from "firebase/firestore"
-import { db } from "@/lib/firebase"
-import { UrlData } from "@/lib/analytics-clean"
+import { useState, useEffect, useRef } from 'react'
+import { subscribeToAnalytics, UrlData } from '@/lib/analytics-clean'
 
 export function useRealTimeAnalytics(shortCode: string) {
-  const [urlData, setUrlData] = useState<UrlData | null>(null)
-  const [analyticsData, setAnalyticsData] = useState<any>(null)
+  const [data, setData] = useState<UrlData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [connectionStatus, setConnectionStatus] = useState<"connecting" | "connected" | "disconnected">("connecting")
-  const [clickCount, setClickCount] = useState(0)
-  const [isNewClick, setIsNewClick] = useState(false)
-  const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
-  
-  const previousClickCount = useRef(-1)
-  const newClickTimeout = useRef<NodeJS.Timeout | null>(null)
+  const [isConnected, setIsConnected] = useState(false)
+  const [clickAnimation, setClickAnimation] = useState(false)
+  const previousClicksRef = useRef<number>(0)
 
   useEffect(() => {
-    if (!shortCode || !db) {
+    if (!shortCode) {
       setLoading(false)
-      setError("No short code provided or database unavailable")
       return
     }
 
-    console.log(`🔄 useRealTimeAnalytics: Setting up real-time subscription for: ${shortCode}`)
+    console.log(`🔄 Setting up real-time analytics for: ${shortCode}`)
     setLoading(true)
     setError(null)
-    setConnectionStatus("connecting")
 
-    // Set up real-time subscription to the URL document
-    const urlRef = doc(db, "urls", shortCode)
-    
-    const unsubscribe = onSnapshot(
-      urlRef,
-      (doc) => {
-        if (doc.exists()) {
-          const data = doc.data() as UrlData
-          const newClickCount = data.totalClicks || 0
-          
-          console.log(`📡 useRealTimeAnalytics: Real-time update received for ${shortCode}:`, {
-            totalClicks: newClickCount,
-            previousCount: previousClickCount.current,
-            timestamp: new Date().toISOString(),
-            fromCache: doc.metadata.fromCache,
-            hasPendingWrites: doc.metadata.hasPendingWrites
-          })
+    const unsubscribe = subscribeToAnalytics(shortCode, (urlData) => {
+      if (urlData) {
+        console.log(`📡 Real-time analytics update:`, {
+          shortCode,
+          totalClicks: urlData.totalClicks,
+          previousClicks: previousClicksRef.current
+        })
 
-          setUrlData(data)
-          setAnalyticsData(data)
-          setConnectionStatus("connected")
-          setLastUpdate(new Date())
-          setLoading(false)
-          setError(null)
-
-          // Handle click count updates with animation
-          if (previousClickCount.current >= 0 && newClickCount > previousClickCount.current) {
-            console.log(`🎉 useRealTimeAnalytics: New click detected! ${previousClickCount.current} -> ${newClickCount}`)
-            setIsNewClick(true)
-            
-            // Clear existing timeout
-            if (newClickTimeout.current) {
-              clearTimeout(newClickTimeout.current)
-            }
-            
-            // Reset animation after 3 seconds
-            newClickTimeout.current = setTimeout(() => {
-              setIsNewClick(false)
-            }, 3000)
-          }
-          
-          setClickCount(newClickCount)
-          previousClickCount.current = newClickCount
-        } else {
-          console.log(`❌ useRealTimeAnalytics: Document not found for: ${shortCode}`)
-          setError("URL not found")
-          setConnectionStatus("disconnected")
-          setLoading(false)
+        // Trigger animation if clicks increased
+        if (urlData.totalClicks > previousClicksRef.current) {
+          console.log(`🎉 New click detected! ${previousClicksRef.current} -> ${urlData.totalClicks}`)
+          setClickAnimation(true)
+          setTimeout(() => setClickAnimation(false), 1000)
         }
-      },
-      (err) => {
-        console.error(`❌ useRealTimeAnalytics: Error in real-time subscription for ${shortCode}:`, err)
-        setError(err.message)
-        setConnectionStatus("disconnected")
-        setLoading(false)
-      }
-    )
 
-    // Cleanup subscription on unmount
-    return () => {
-      console.log(`🧹 useRealTimeAnalytics: Cleaning up subscription for: ${shortCode}`)
-      unsubscribe()
-      if (newClickTimeout.current) {
-        clearTimeout(newClickTimeout.current)
+        previousClicksRef.current = urlData.totalClicks
+        setData(urlData)
+        setIsConnected(true)
+        setError(null)
+      } else {
+        console.log(`❌ No data received for: ${shortCode}`)
+        setError('URL not found')
+        setIsConnected(false)
       }
+      setLoading(false)
+    })
+
+    return () => {
+      console.log(`🔄 Cleaning up real-time analytics for: ${shortCode}`)
+      unsubscribe()
     }
   }, [shortCode])
 
   return {
-    urlData,
-    analyticsData,
+    data,
     loading,
     error,
-    connectionStatus,
-    clickCount,
-    isNewClick,
-    lastUpdate,
+    isConnected,
+    clickAnimation,
+    totalClicks: data?.totalClicks || 0
   }
 }

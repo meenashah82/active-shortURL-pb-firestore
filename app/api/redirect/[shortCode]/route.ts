@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { doc, getDoc, collection, addDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc, collection, addDoc, updateDoc, increment, serverTimestamp, runTransaction } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 
 export async function GET(
@@ -15,7 +15,7 @@ export async function GET(
       return NextResponse.json({ error: 'Database not available' }, { status: 500 })
     }
 
-    // Get URL data
+    // Get URL data first
     const urlRef = doc(db, 'urls', shortCode)
     const urlDoc = await getDoc(urlRef)
     
@@ -84,14 +84,18 @@ export async function GET(
     }
 
     try {
-      // Add click to subcollection
-      const clicksRef = collection(db, 'urls', shortCode, 'clicks')
-      await addDoc(clicksRef, clickEvent)
+      // Use a transaction to ensure both operations succeed together
+      await runTransaction(db, async (transaction) => {
+        // Add click to subcollection
+        const clicksRef = collection(db, 'urls', shortCode, 'clicks')
+        const clickDocRef = doc(clicksRef)
+        transaction.set(clickDocRef, clickEvent)
 
-      // Update URL document with incremented click count
-      await updateDoc(urlRef, {
-        totalClicks: increment(1),
-        lastClickAt: serverTimestamp(),
+        // Update URL document with incremented click count
+        transaction.update(urlRef, {
+          totalClicks: increment(1),
+          lastClickAt: serverTimestamp(),
+        })
       })
 
       console.log(`✅ Click recorded successfully for: ${shortCode}`)
