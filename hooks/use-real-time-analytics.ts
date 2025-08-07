@@ -3,16 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { doc, onSnapshot } from "firebase/firestore"
 import { db } from "@/lib/firebase"
-
-interface UrlData {
-  shortCode: string
-  originalUrl: string
-  createdAt: any
-  totalClicks: number
-  isActive: boolean
-  expiresAt?: any
-  lastClickAt?: any
-}
+import { UrlData } from "@/lib/analytics-clean"
 
 export function useRealTimeAnalytics(shortCode: string) {
   const [urlData, setUrlData] = useState<UrlData | null>(null)
@@ -38,16 +29,12 @@ export function useRealTimeAnalytics(shortCode: string) {
     setLoading(true)
     setError(null)
     setConnectionStatus("connecting")
-    previousClickCount.current = null // Reset on new shortCode
+    previousClickCount.current = null
 
-    // Set up real-time subscription to the URL document
     const urlRef = doc(db, "urls", shortCode)
     
     const unsubscribe = onSnapshot(
       urlRef,
-      {
-        includeMetadataChanges: false // Only trigger on actual data changes
-      },
       (doc) => {
         if (doc.exists()) {
           const data = doc.data() as UrlData
@@ -68,21 +55,18 @@ export function useRealTimeAnalytics(shortCode: string) {
           setLoading(false)
           setError(null)
 
-          // Handle click count updates with animation
-          // Trigger animation for any increase, including first click (0 -> 1)
-          if (previousClickCount.current !== null && newClickCount > previousClickCount.current) {
-            console.log(`🎉 useRealTimeAnalytics: New click detected! ${previousClickCount.current} -> ${newClickCount}`)
+          // Trigger animation for any click count change
+          if (previousClickCount.current !== null && newClickCount !== previousClickCount.current) {
+            console.log(`🎉 useRealTimeAnalytics: Click count changed! ${previousClickCount.current} -> ${newClickCount}`)
             setIsNewClick(true)
             
-            // Clear existing timeout
             if (newClickTimeout.current) {
               clearTimeout(newClickTimeout.current)
             }
             
-            // Reset animation after 3 seconds
             newClickTimeout.current = setTimeout(() => {
               setIsNewClick(false)
-            }, 3000)
+            }, 2000)
           }
           
           setClickCount(newClickCount)
@@ -102,7 +86,6 @@ export function useRealTimeAnalytics(shortCode: string) {
       }
     )
 
-    // Cleanup subscription on unmount
     return () => {
       console.log(`🧹 useRealTimeAnalytics: Cleaning up subscription for: ${shortCode}`)
       unsubscribe()

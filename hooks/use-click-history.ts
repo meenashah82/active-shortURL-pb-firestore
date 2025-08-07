@@ -3,20 +3,7 @@
 import { useState, useEffect } from "react"
 import { collection, query, orderBy, limit, onSnapshot } from "firebase/firestore"
 import { db } from "@/lib/firebase"
-
-export interface ClickEvent {
-  id?: string
-  timestamp: any
-  userAgent?: string
-  referer?: string
-  ip?: string
-  "User-Agent"?: string
-  "X-Forwarded-For"?: string
-  shortCode?: string
-  _placeholder?: boolean
-  country?: string
-  acceptLanguage?: string
-}
+import { ClickEvent } from "@/lib/analytics-clean"
 
 export function useClickHistory(shortCode: string, limitCount: number = 100) {
   const [clickHistory, setClickHistory] = useState<ClickEvent[]>([])
@@ -33,7 +20,6 @@ export function useClickHistory(shortCode: string, limitCount: number = 100) {
     setLoading(true)
     setError(null)
 
-    // Set up real-time subscription to clicks subcollection
     const clicksRef = collection(db, "urls", shortCode, "clicks")
     const clicksQuery = query(
       clicksRef,
@@ -43,16 +29,12 @@ export function useClickHistory(shortCode: string, limitCount: number = 100) {
 
     const unsubscribe = onSnapshot(
       clicksQuery,
-      {
-        includeMetadataChanges: false // Only trigger on actual data changes
-      },
       (snapshot) => {
         console.log(`📡 useClickHistory: Real-time update received for ${shortCode}, ${snapshot.docs.length} documents`)
         const clicks: ClickEvent[] = []
 
         snapshot.forEach((doc) => {
           const clickData = doc.data() as ClickEvent
-          // Skip placeholder documents
           if (!clickData._placeholder) {
             clicks.push({
               ...clickData,
@@ -73,7 +55,6 @@ export function useClickHistory(shortCode: string, limitCount: number = 100) {
       }
     )
 
-    // Cleanup subscription on unmount
     return () => {
       console.log(`🧹 useClickHistory: Cleaning up subscription for: ${shortCode}`)
       unsubscribe()

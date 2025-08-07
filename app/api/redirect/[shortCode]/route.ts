@@ -15,7 +15,6 @@ export async function GET(
       return NextResponse.json({ error: 'Database not available' }, { status: 500 })
     }
 
-    // Get URL data first
     const urlRef = doc(db, 'urls', shortCode)
     const urlDoc = await getDoc(urlRef)
     
@@ -26,13 +25,11 @@ export async function GET(
 
     const urlData = urlDoc.data()
     
-    // Check if URL is active
     if (!urlData.isActive) {
       console.log(`❌ URL inactive: ${shortCode}`)
       return NextResponse.redirect(new URL('/not-found', request.url))
     }
 
-    // Extract request information with better fallbacks
     const userAgent = request.headers.get('user-agent') || 
                      request.headers.get('User-Agent') || 
                      'Unknown Browser'
@@ -41,7 +38,6 @@ export async function GET(
                    request.headers.get('Referer') || 
                    'Direct'
     
-    // Try multiple IP header sources
     const ip = request.headers.get('x-forwarded-for') || 
               request.headers.get('x-real-ip') || 
               request.headers.get('cf-connecting-ip') || 
@@ -52,14 +48,10 @@ export async function GET(
               request.ip ||
               'Unknown IP'
 
-    // Get the first IP if there are multiple (x-forwarded-for can be a comma-separated list)
     const clientIP = ip.split(',')[0].trim()
-
-    // Get additional useful headers
     const country = request.headers.get('cf-ipcountry') || 
                    request.headers.get('cloudfront-viewer-country') || 
                    'Unknown'
-    
     const acceptLanguage = request.headers.get('accept-language') || 'Unknown'
 
     console.log(`🖱️ Recording click for ${shortCode}:`, {
@@ -69,7 +61,6 @@ export async function GET(
       country
     })
 
-    // Create comprehensive click document
     const clickEvent = {
       timestamp: serverTimestamp(),
       shortCode: shortCode,
@@ -84,14 +75,11 @@ export async function GET(
     }
 
     try {
-      // Use a transaction to ensure both operations succeed together
       await runTransaction(db, async (transaction) => {
-        // Add click to subcollection
         const clicksRef = collection(db, 'urls', shortCode, 'clicks')
         const clickDocRef = doc(clicksRef)
         transaction.set(clickDocRef, clickEvent)
 
-        // Update URL document with incremented click count
         transaction.update(urlRef, {
           totalClicks: increment(1),
           lastClickAt: serverTimestamp(),
@@ -101,10 +89,8 @@ export async function GET(
       console.log(`✅ Click recorded successfully for: ${shortCode}`)
     } catch (clickError) {
       console.error(`❌ Error recording click for ${shortCode}:`, clickError)
-      // Continue with redirect even if click recording fails
     }
 
-    // Ensure URL has protocol
     let targetUrl = urlData.originalUrl.trim()
     if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
       targetUrl = 'https://' + targetUrl
