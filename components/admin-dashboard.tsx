@@ -79,25 +79,38 @@ export function AdminDashboard() {
     }
   }
 
-  const deleteUrl = async (id: string, shortCode: string) => {
-    if (!confirm(`Are you sure you want to delete the short URL "${shortCode}"?`)) {
+const deleteUrl = async (id: string, shortCode: string) => {
+  if (!confirm(`Are you sure you want to delete the short URL "${shortCode}"? This will also delete all associated click data.`)) {
+    return
+  }
+
+  try {
+    const { db } = getFirebase()
+    if (!db) {
+      setError("Database connection not available")
       return
     }
 
-    try {
-      const { db } = getFirebase()
-      if (!db) {
-        setError("Database connection not available")
-        return
-      }
+    // First, delete all click documents in the subcollection
+    const clicksRef = collection(db, "urls", id, "clicks")
+    const clicksSnapshot = await getDocs(clicksRef)
+    
+    // Delete all click documents
+    const deletePromises = clicksSnapshot.docs.map(clickDoc => deleteDoc(clickDoc.ref))
+    await Promise.all(deletePromises)
 
-      await deleteDoc(doc(db, "urls", id))
-      setUrls(urls.filter((url) => url.id !== id))
-    } catch (error: any) {
-      console.error("Error deleting URL:", error)
-      setError(`Failed to delete URL: ${error.message}`)
-    }
+    // Then delete the main URL document
+    await deleteDoc(doc(db, "urls", id))
+    
+    // Update the UI
+    setUrls(urls.filter((url) => url.id !== id))
+    
+    console.log(`✅ Successfully deleted URL ${shortCode} and ${clicksSnapshot.docs.length} click records`)
+  } catch (error: any) {
+    console.error("Error deleting URL:", error)
+    setError(`Failed to delete URL: ${error.message}`)
   }
+}
 
   const openUrl = (shortCode: string) => {
     const shortUrl = `https://www.wodify.link/${shortCode}`
