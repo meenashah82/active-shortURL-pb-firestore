@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { UrlShortenerForm } from "@/components/url-shortener-form"
 import { LinkHistory } from "@/components/link-history"
-import { BarChart3, Shield, User, LogOut } from "lucide-react"
+import { BarChart3, Shield, User, LogOut } from 'lucide-react'
 import { useAuth } from "@/hooks/use-auth"
 
 export default function HomePage() {
@@ -83,7 +83,7 @@ export default function HomePage() {
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-8">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Authentication Required</h1>
-          <p className="text-gray-600 mb-6">
+          <p className="text-lg text-gray-600 mb-6">
             This app requires authentication from Wodify. Please ensure you're accessing this app through the Wodify
             platform.
           </p>
