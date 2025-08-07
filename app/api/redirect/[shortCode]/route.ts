@@ -12,7 +12,7 @@ export async function GET(
       return NextResponse.json({ error: "Short code is required" }, { status: 400 })
     }
 
-    console.log(`🔍 Looking up short code: ${shortCode}`)
+    console.log(`🔍 API redirect for: ${shortCode}`)
 
     // Get URL data
     const urlData = await getUrlData(shortCode)
@@ -48,7 +48,7 @@ export async function GET(
     // Redirect to the original URL
     return NextResponse.redirect(urlData.originalUrl, { status: 302 })
   } catch (error) {
-    console.error("❌ Error in redirect:", error)
+    console.error("❌ Error in API redirect:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
