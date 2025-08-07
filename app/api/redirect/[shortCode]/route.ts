@@ -30,123 +30,73 @@ export async function GET(
       return NextResponse.redirect(new URL('/not-found', request.url))
     }
 
-    // Enhanced header extraction with comprehensive fallbacks and logging
-    const headers = request.headers
-    console.log('📋 Available headers for debugging:', {
-      'user-agent': headers.get('user-agent'),
-      'User-Agent': headers.get('User-Agent'),
-      'x-forwarded-for': headers.get('x-forwarded-for'),
-      'x-real-ip': headers.get('x-real-ip'),
-      'cf-connecting-ip': headers.get('cf-connecting-ip'),
-      'x-client-ip': headers.get('x-client-ip'),
-      'remote-addr': headers.get('remote-addr'),
-      'forwarded': headers.get('forwarded'),
-      'request-ip': request.ip
-    })
-
-    // User Agent extraction with multiple fallbacks
+    // Extract User Agent
     const userAgent = 
-      headers.get('user-agent') || 
-      headers.get('User-Agent') || 
-      headers.get('USER-AGENT') ||
-      headers.get('sec-ch-ua') ||
+      request.headers.get('user-agent') || 
+      request.headers.get('User-Agent') || 
       'Unknown Browser'
 
-    // Simplified and more reliable IP extraction
+    // Extract IP Address with comprehensive fallbacks
     let extractedIP = 'Unknown IP'
-
+    
     // Try different IP headers in order of reliability
-    const ipHeaders = [
-      request.headers.get('x-forwarded-for'),
-      request.headers.get('cf-connecting-ip'),
-      request.headers.get('x-real-ip'),
-      request.headers.get('x-client-ip'),
-      request.headers.get('forwarded'),
-      request.headers.get('remote-addr'),
-      request.ip
-    ]
+    const xForwardedFor = request.headers.get('x-forwarded-for')
+    const cfConnectingIP = request.headers.get('cf-connecting-ip')
+    const xRealIP = request.headers.get('x-real-ip')
+    const xClientIP = request.headers.get('x-client-ip')
+    const forwarded = request.headers.get('forwarded')
+    const remoteAddr = request.headers.get('remote-addr')
+    
+    if (xForwardedFor) {
+      // X-Forwarded-For can contain multiple IPs, take the first one
+      extractedIP = xForwardedFor.split(',')[0].trim()
+    } else if (cfConnectingIP) {
+      // Cloudflare connecting IP
+      extractedIP = cfConnectingIP.trim()
+    } else if (xRealIP) {
+      // X-Real-IP header
+      extractedIP = xRealIP.trim()
+    } else if (xClientIP) {
+      // X-Client-IP header
+      extractedIP = xClientIP.trim()
+    } else if (forwarded) {
+      // Parse Forwarded header for IP
+      const forMatch = forwarded.match(/for=([^;,\s]+)/)
+      if (forMatch && forMatch[1]) {
+        extractedIP = forMatch[1].replace(/["\[\]]/g, '').trim()
+      }
+    } else if (remoteAddr) {
+      // Remote address header
+      extractedIP = remoteAddr.trim()
+    } else if (request.ip) {
+      // Next.js request IP
+      extractedIP = request.ip.trim()
+    }
 
-    for (const header of ipHeaders) {
-      if (header && header.trim() && header.trim() !== '') {
-        // Handle comma-separated IPs (take first one)
-        let ip = header.split(',')[0].trim()
-        
-        // Clean up the IP
-        ip = ip.replace(/^\[|\]$/g, '') // Remove IPv6 brackets
-        ip = ip.replace(/['"]/g, '')    // Remove quotes
-        ip = ip.split(':')[0]           // Remove port if present
-        
-        if (ip && ip !== '' && ip !== 'undefined' && ip !== 'null') {
-          extractedIP = ip
-          break
-        }
+    // Clean up IP format
+    if (extractedIP && extractedIP !== 'Unknown IP') {
+      extractedIP = extractedIP
+        .replace(/^\[|\]$/g, '') // Remove IPv6 brackets
+        .replace(/['"]/g, '')    // Remove quotes
+        .split(':')[0]           // Remove port if present
+        .trim()
+      
+      // Validate IP is not empty after cleanup
+      if (!extractedIP || extractedIP === '' || extractedIP === 'undefined' || extractedIP === 'null') {
+        extractedIP = 'Unknown IP'
       }
     }
 
-    console.log(`🔍 IP extraction for ${shortCode}:`, {
-      headers: {
-        'x-forwarded-for': request.headers.get('x-forwarded-for'),
-        'cf-connecting-ip': request.headers.get('cf-connecting-ip'),
-        'x-real-ip': request.headers.get('x-real-ip'),
-        'x-client-ip': request.headers.get('x-client-ip'),
-        'forwarded': request.headers.get('forwarded'),
-        'remote-addr': request.headers.get('remote-addr'),
-        'request.ip': request.ip
-      },
-      extractedIP,
-      success: extractedIP !== 'Unknown IP'
-    })
+    const referer = request.headers.get('referer') || 'Direct'
+    const country = request.headers.get('cf-ipcountry') || 'Unknown'
+    const acceptLanguage = request.headers.get('accept-language') || 'Unknown'
 
-    const referer = 
-      headers.get('referer') || 
-      headers.get('Referer') || 
-      headers.get('REFERER') ||
-      'Direct'
-
-    const country = 
-      headers.get('cf-ipcountry') || 
-      headers.get('cloudfront-viewer-country') || 
-      headers.get('x-country-code') ||
-      'Unknown'
-      
-    const acceptLanguage = 
-      headers.get('accept-language') || 
-      headers.get('Accept-Language') ||
-      'Unknown'
-
-    console.log(`🖱️ Header extraction results for ${shortCode}:`, {
-      userAgent: userAgent.substring(0, 100) + (userAgent.length > 100 ? '...' : ''),
-      extractedIP,
+    console.log(`🖱️ Recording click for ${shortCode}:`, {
+      userAgent: userAgent.substring(0, 50) + '...',
+      ip: extractedIP,
       referer,
-      country,
-      acceptLanguage: acceptLanguage.substring(0, 50),
-      extractionMethod: 'Unknown'
+      country
     })
-
-    // Validate critical fields and log warnings
-    if (userAgent === 'Unknown Browser') {
-      console.warn(`⚠️ User Agent not found for ${shortCode}. Available UA headers:`, {
-        'user-agent': headers.get('user-agent'),
-        'User-Agent': headers.get('User-Agent'),
-        'sec-ch-ua': headers.get('sec-ch-ua')
-      })
-    }
-
-    if (extractedIP === 'Unknown IP') {
-      console.warn(`⚠️ IP Address not found for ${shortCode}. This may indicate:`, {
-        message: 'Request may be coming through a proxy that strips IP headers',
-        availableHeaders: {
-          'x-forwarded-for': request.headers.get('x-forwarded-for'),
-          'x-real-ip': request.headers.get('x-real-ip'),
-          'cf-connecting-ip': request.headers.get('cf-connecting-ip'),
-          'x-client-ip': request.headers.get('x-client-ip'),
-          'forwarded': request.headers.get('forwarded'),
-          'remote-addr': request.headers.get('remote-addr'),
-          'request.ip': request.ip
-        },
-        suggestion: 'Check proxy configuration or add custom IP header handling'
-      })
-    }
 
     const clickEvent = {
       timestamp: serverTimestamp(),
@@ -156,8 +106,8 @@ export async function GET(
       ip: extractedIP,
       country: country,
       acceptLanguage: acceptLanguage,
-      "User-Agent": userAgent, // Duplicate for compatibility
-      "X-Forwarded-For": request.headers.get('x-forwarded-for') || extractedIP,
+      "User-Agent": userAgent,
+      "X-Forwarded-For": xForwardedFor || extractedIP,
       "client-ip": extractedIP,
     }
 
