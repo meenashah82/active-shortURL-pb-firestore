@@ -36,8 +36,6 @@ export function AdminDashboard() {
   const [urls, setUrls] = useState<UrlData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [deleteResult, setDeleteResult] = useState<string | null>(null)
   const router = useRouter()
 
   // Check if current user is superadmin
@@ -98,35 +96,6 @@ export function AdminDashboard() {
     } catch (error: any) {
       console.error("Error deleting URL:", error)
       setError(`Failed to delete URL: ${error.message}`)
-    }
-  }
-
-  const handleRemoveAllData = async () => {
-    setIsDeleting(true)
-    setDeleteResult(null)
-    setError(null)
-
-    try {
-      const result = await removeAllClicksData()
-
-      if (result.success) {
-        setDeleteResult(
-          `Successfully deleted all data:\n` +
-            `• URL Documents: ${result.deletedCounts.urls}\n` +
-            `• URLs with Click Subcollections: ${result.deletedCounts.clickSubcollections}\n` +
-            `• Total Click Documents: ${result.deletedCounts.totalClickDocuments}\n` +
-            `• Legacy Analytics: ${result.deletedCounts.legacyAnalytics}\n` +
-            `• Legacy Clicks: ${result.deletedCounts.legacyClicks}`,
-        )
-        // Refresh the URLs list
-        setUrls([])
-      } else {
-        setError(`Failed to delete all data: ${result.error}`)
-      }
-    } catch (error: any) {
-      setError(`Error during deletion: ${error.message}`)
-    } finally {
-      setIsDeleting(false)
     }
   }
 
@@ -208,48 +177,6 @@ export function AdminDashboard() {
           <h1 className="text-2xl font-semibold text-gray-900">Admin Dashboard</h1>
           <p className="text-gray-600 mt-1">Manage shortened URLs and view analytics</p>
         </div>
-
-        {/* Super Admin Only: Remove All Data Button */}
-        {isSuperAdmin && (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" className="bg-red-600 hover:bg-red-700" disabled={isDeleting}>
-                <AlertTriangle className="mr-2 h-4 w-4" />
-                {isDeleting ? "Deleting..." : "Remove All Data"}
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle className="flex items-center text-red-600">
-                  <AlertTriangle className="mr-2 h-5 w-5" />
-                  Dangerous Operation
-                </AlertDialogTitle>
-                <AlertDialogDescription className="space-y-2">
-                  <p className="font-semibold">This will permanently delete ALL data from:</p>
-                  <ul className="list-disc list-inside space-y-1 text-sm">
-                    <li>All shortened URLs</li>
-                    <li>All click tracking subcollections</li>
-                    <li>All individual click records</li>
-                    <li>Any legacy analytics data</li>
-                  </ul>
-                  <p className="text-red-600 font-semibold mt-4">
-                    This action cannot be undone. Are you absolutely sure?
-                  </p>
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleRemoveAllData}
-                  className="bg-red-600 hover:bg-red-700"
-                  disabled={isDeleting}
-                >
-                  {isDeleting ? "Deleting..." : "Yes, Delete Everything"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        )}
       </div>
 
       {error && (
@@ -267,12 +194,6 @@ export function AdminDashboard() {
               </div>
             )}
           </AlertDescription>
-        </Alert>
-      )}
-
-      {deleteResult && (
-        <Alert className="border-green-200 bg-green-50">
-          <AlertDescription className="text-green-800 whitespace-pre-line">{deleteResult}</AlertDescription>
         </Alert>
       )}
 
