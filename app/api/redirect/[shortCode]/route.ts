@@ -37,16 +37,21 @@ export async function GET(
     const realIp = request.headers.get("x-real-ip")
     const ip = forwardedFor?.split(",")[0] || realIp || "Unknown"
 
-    try {
-      await recordClick(shortCode, userAgent, referer, ip, headers)
-      console.log(`📊 Click recorded for: ${shortCode}`)
-    } catch (clickError) {
-      console.error(`❌ Failed to record click for ${shortCode}:`, clickError)
-      // Continue with redirect even if click recording fails
+    // Record click asynchronously (don't block redirect)
+    recordClick(shortCode, userAgent, referer, ip, headers).catch(error => {
+      console.error(`❌ Failed to record click for ${shortCode}:`, error)
+    })
+
+    // Ensure URL has protocol
+    let targetUrl = urlData.originalUrl.trim()
+    if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+      targetUrl = 'https://' + targetUrl
     }
 
+    console.log(`🚀 Redirecting ${shortCode} to: ${targetUrl}`)
+
     // Redirect to the original URL
-    return NextResponse.redirect(urlData.originalUrl, { status: 302 })
+    return NextResponse.redirect(targetUrl, { status: 302 })
   } catch (error) {
     console.error("❌ Error in API redirect:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

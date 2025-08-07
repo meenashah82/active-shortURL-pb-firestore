@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation'
+import { redirect, notFound } from 'next/navigation'
 import { getUrlData, recordClick } from '@/lib/analytics-clean'
 import { headers } from 'next/headers'
 
@@ -19,7 +19,7 @@ export default async function ShortCodePage({ params }: ShortCodePageProps) {
 
     if (!urlData) {
       console.log(`❌ Short code not found: ${shortCode}`)
-      redirect('/not-found')
+      notFound()
       return
     }
 
@@ -53,7 +53,7 @@ export default async function ShortCodePage({ params }: ShortCodePageProps) {
 
   } catch (error) {
     console.error(`❌ Error in server-side redirect for ${shortCode}:`, error)
-    redirect('/not-found')
+    notFound()
   }
 
   // This should never be reached due to redirect, but TypeScript requires it
