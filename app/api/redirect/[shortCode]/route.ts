@@ -52,89 +52,49 @@ export async function GET(
       headers.get('sec-ch-ua') ||
       'Unknown Browser'
 
-    // Enhanced IP extraction with comprehensive proxy support
+    // Simplified and more reliable IP extraction
     let extractedIP = 'Unknown IP'
 
-    // Get all possible IP headers
-    const forwardedFor = headers.get('x-forwarded-for')
-    const realIP = headers.get('x-real-ip') 
-    const cfConnectingIP = headers.get('cf-connecting-ip')
-    const clientIP = headers.get('x-client-ip')
-    const forwarded = headers.get('x-forwarded')
-    const forwardedForHeader = headers.get('forwarded-for')
-    const forwardedHeader = headers.get('forwarded')
-    const remoteAddr = headers.get('remote-addr')
+    // Try different IP headers in order of reliability
+    const ipHeaders = [
+      request.headers.get('x-forwarded-for'),
+      request.headers.get('cf-connecting-ip'),
+      request.headers.get('x-real-ip'),
+      request.headers.get('x-client-ip'),
+      request.headers.get('forwarded'),
+      request.headers.get('remote-addr'),
+      request.ip
+    ]
 
-    // Try to extract IP from various sources in order of preference
-    if (forwardedFor && forwardedFor.trim() !== '') {
-      // X-Forwarded-For: most common proxy header, can contain multiple IPs
-      const ips = forwardedFor.split(',').map(ip => ip.trim()).filter(ip => ip !== '')
-      if (ips.length > 0 && ips[0] !== '') {
-        extractedIP = ips[0]
-      }
-    } else if (cfConnectingIP && cfConnectingIP.trim() !== '') {
-      // Cloudflare connecting IP - very reliable
-      extractedIP = cfConnectingIP.trim()
-    } else if (realIP && realIP.trim() !== '') {
-      // X-Real-IP header - common in nginx setups
-      extractedIP = realIP.trim()
-    } else if (clientIP && clientIP.trim() !== '') {
-      // X-Client-IP header
-      extractedIP = clientIP.trim()
-    } else if (forwarded && forwarded.trim() !== '') {
-      // X-Forwarded header
-      const ips = forwarded.split(',').map(ip => ip.trim()).filter(ip => ip !== '')
-      if (ips.length > 0 && ips[0] !== '') {
-        extractedIP = ips[0]
-      }
-    } else if (forwardedForHeader && forwardedForHeader.trim() !== '') {
-      // Forwarded-For header
-      const ips = forwardedForHeader.split(',').map(ip => ip.trim()).filter(ip => ip !== '')
-      if (ips.length > 0 && ips[0] !== '') {
-        extractedIP = ips[0]
-      }
-    } else if (forwardedHeader && forwardedHeader.trim() !== '') {
-      // Parse RFC 7239 Forwarded header: for=192.0.2.60;proto=http;by=203.0.113.43
-      const forMatch = forwardedHeader.match(/for=([^;,\s]+)/)
-      if (forMatch && forMatch[1]) {
-        extractedIP = forMatch[1].replace(/["\[\]]/g, '').trim()
-      }
-    } else if (remoteAddr && remoteAddr.trim() !== '') {
-      // Remote address header
-      extractedIP = remoteAddr.trim()
-    } else if (request.ip && request.ip.trim() !== '') {
-      // Next.js request IP property
-      extractedIP = request.ip.trim()
-    }
-
-    // Clean up IP address format
-    if (extractedIP && extractedIP !== 'Unknown IP') {
-      // Remove IPv6 brackets, quotes, and extract IP from port notation
-      extractedIP = extractedIP
-        .replace(/^\[|\]$/g, '') // Remove IPv6 brackets
-        .replace(/['"]/g, '')    // Remove quotes
-        .split(':')[0]           // Remove port if present (IPv4:port)
-        .trim()
-      
-      // Validate IP format (basic check)
-      if (extractedIP === '' || extractedIP === 'undefined' || extractedIP === 'null') {
-        extractedIP = 'Unknown IP'
+    for (const header of ipHeaders) {
+      if (header && header.trim() && header.trim() !== '') {
+        // Handle comma-separated IPs (take first one)
+        let ip = header.split(',')[0].trim()
+        
+        // Clean up the IP
+        ip = ip.replace(/^\[|\]$/g, '') // Remove IPv6 brackets
+        ip = ip.replace(/['"]/g, '')    // Remove quotes
+        ip = ip.split(':')[0]           // Remove port if present
+        
+        if (ip && ip !== '' && ip !== 'undefined' && ip !== 'null') {
+          extractedIP = ip
+          break
+        }
       }
     }
 
-    // Enhanced logging for IP extraction debugging
-    console.log(`🖱️ IP extraction debugging for ${shortCode}:`, {
-      'x-forwarded-for': forwardedFor,
-      'cf-connecting-ip': cfConnectingIP, 
-      'x-real-ip': realIP,
-      'x-client-ip': clientIP,
-      'x-forwarded': forwarded,
-      'forwarded-for': forwardedForHeader,
-      'forwarded': forwardedHeader,
-      'remote-addr': remoteAddr,
-      'request.ip': request.ip,
-      'final-extracted-ip': extractedIP,
-      'extraction-successful': extractedIP !== 'Unknown IP'
+    console.log(`🔍 IP extraction for ${shortCode}:`, {
+      headers: {
+        'x-forwarded-for': request.headers.get('x-forwarded-for'),
+        'cf-connecting-ip': request.headers.get('cf-connecting-ip'),
+        'x-real-ip': request.headers.get('x-real-ip'),
+        'x-client-ip': request.headers.get('x-client-ip'),
+        'forwarded': request.headers.get('forwarded'),
+        'remote-addr': request.headers.get('remote-addr'),
+        'request.ip': request.ip
+      },
+      extractedIP,
+      success: extractedIP !== 'Unknown IP'
     })
 
     const referer = 
@@ -182,12 +142,12 @@ export async function GET(
       console.warn(`⚠️ IP Address not found for ${shortCode}. This may indicate:`, {
         message: 'Request may be coming through a proxy that strips IP headers',
         availableHeaders: {
-          'x-forwarded-for': forwardedFor,
-          'x-real-ip': realIP,
-          'cf-connecting-ip': cfConnectingIP,
-          'x-client-ip': clientIP,
-          'forwarded': forwardedHeader,
-          'remote-addr': remoteAddr,
+          'x-forwarded-for': request.headers.get('x-forwarded-for'),
+          'x-real-ip': request.headers.get('x-real-ip'),
+          'cf-connecting-ip': request.headers.get('cf-connecting-ip'),
+          'x-client-ip': request.headers.get('x-client-ip'),
+          'forwarded': request.headers.get('forwarded'),
+          'remote-addr': request.headers.get('remote-addr'),
           'request.ip': request.ip
         },
         suggestion: 'Check proxy configuration or add custom IP header handling'
@@ -203,7 +163,7 @@ export async function GET(
       country: country,
       acceptLanguage: acceptLanguage,
       "User-Agent": userAgent, // Duplicate for compatibility
-      "X-Forwarded-For": forwardedFor || extractedIP,
+      "X-Forwarded-For": request.headers.get('x-forwarded-for') || extractedIP,
       "client-ip": extractedIP,
     }
 
