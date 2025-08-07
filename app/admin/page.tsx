@@ -7,7 +7,7 @@ import { AdminUserManagement } from "@/components/admin-user-management"
 import { getSession, clearSession, type AdminUser } from "@/lib/admin-auth"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { LogOut, Shield, Link, Users } from "lucide-react"
+import { LogOut, Shield, Link, Users } from 'lucide-react'
 import { Skeleton } from "@/components/ui/skeleton"
 
 export default function AdminPage() {

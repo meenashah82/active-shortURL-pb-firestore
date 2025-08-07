@@ -7,15 +7,17 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, LogIn, AlertCircle } from 'lucide-react'
-import { authenticateAdmin, setSession } from '@/lib/admin-auth'
-import { useRouter } from 'next/navigation'
+import { authenticateAdmin, setSession, type AdminUser } from '@/lib/admin-auth'
 
-export default function AdminLogin() {
+interface AdminLoginProps {
+  onLogin: (user: AdminUser) => void
+}
+
+export function AdminLogin({ onLogin }: AdminLoginProps) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -30,8 +32,7 @@ export default function AdminLogin() {
       if (result.success && result.user) {
         console.log('Login successful, setting session')
         setSession(result.user)
-        router.push('/dashboard')
-        router.refresh()
+        onLogin(result.user)
       } else {
         console.log('Login failed:', result.message)
         setError(result.message)

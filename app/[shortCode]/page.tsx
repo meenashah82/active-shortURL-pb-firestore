@@ -1,109 +1,71 @@
-import { redirect } from 'next/navigation'
-import { headers } from 'next/headers'
-import { db } from '@/lib/firebase'
-import { doc, getDoc, updateDoc, increment, addDoc, collection, Timestamp } from 'firebase/firestore'
+import { notFound, redirect } from 'next/navigation'
+import { getFirebase } from '@/lib/firebase'
+import { doc, getDoc, collection, addDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore'
 
-interface ShortCodePageProps {
-  params: {
-    shortCode: string
-  }
+interface UrlData {
+  originalUrl: string
+  shortCode: string
+  createdAt: string
+  totalClicks: number
+  lastClickAt?: string
 }
 
-async function getUrlDataDirect(shortCode: string) {
+async function getUrlData(shortCode: string): Promise<UrlData | null> {
+  const { db } = getFirebase()
+  if (!db) return null
+
   try {
-    const urlRef = doc(db, "urls", shortCode)
-    const urlDoc = await getDoc(urlRef)
-    
+    const urlDoc = await getDoc(doc(db, 'urls', shortCode))
     if (!urlDoc.exists()) {
       return null
     }
 
-    return urlDoc.data()
+    return urlDoc.data() as UrlData
   } catch (error) {
-    console.error(`Error getting URL data for ${shortCode}:`, error)
+    console.error('Error fetching URL data:', error)
     return null
   }
 }
 
-async function recordClickDirect(shortCode: string, userAgent: string, referer: string, ip: string, headers: Record<string, string>) {
+async function recordClick(shortCode: string, headers: any) {
+  const { db } = getFirebase()
+  if (!db) return
+
   try {
-    // Create click document in the subcollection urls/{shortCode}/clicks
-    const clicksRef = collection(db, "urls", shortCode, "clicks")
-    
-    const clickEvent = {
-      timestamp: Timestamp.now(),
-      shortCode: shortCode,
-      "User-Agent": headers["user-agent"] || userAgent,
-      Referer: headers["referer"] || referer,
-      "X-Forwarded-For": headers["x-forwarded-for"] || ip,
-      Host: headers["host"],
-      Accept: headers["accept"],
-      "Accept-Language": headers["accept-language"],
-      "Accept-Encoding": headers["accept-encoding"],
-      "Accept-Charset": headers["accept-charset"],
-      "Content-Type": headers["content-type"],
-      "Content-Length": headers["content-length"],
-      Authorization: headers["authorization"],
-      Cookie: headers["cookie"],
-      Origin: headers["origin"],
-      Connection: headers["connection"],
-      "Upgrade-Insecure-Requests": headers["upgrade-insecure-requests"],
-      "Cache-Control": headers["cache-control"],
-      Pragma: headers["pragma"],
-      "If-Modified-Since": headers["if-modified-since"],
-      "If-None-Match": headers["if-none-match"],
-      Range: headers["range"],
-      TE: headers["te"],
-      "Transfer-Encoding": headers["transfer-encoding"],
-      Expect: headers["expect"],
-      "X-Requested-With": headers["x-requested-with"],
-    }
-
-    // Add click to subcollection (this creates a unique document ID automatically)
-    await addDoc(clicksRef, clickEvent)
-
-    // Update URL document with incremented click count
-    const urlRef = doc(db, "urls", shortCode)
-    await updateDoc(urlRef, {
-      totalClicks: increment(1),
-      lastClickAt: Timestamp.now()
+    // Create a new click document in the subcollection
+    await addDoc(collection(db, 'urls', shortCode, 'clicks'), {
+      timestamp: serverTimestamp(),
+      userAgent: headers['user-agent'] || '',
+      referer: headers.referer || '',
+      ip: headers['x-forwarded-for'] || headers['x-real-ip'] || 'unknown',
+      country: headers['cf-ipcountry'] || 'unknown',
     })
 
-    console.log(`Click recorded in subcollection for: ${shortCode}`)
+    // Update the URL document with incremented click count
+    await updateDoc(doc(db, 'urls', shortCode), {
+      totalClicks: increment(1),
+      lastClickAt: serverTimestamp(),
+    })
   } catch (error) {
-    console.error(`Failed to record click for ${shortCode}:`, error)
+    console.error('Error recording click:', error)
   }
 }
 
-export default async function ShortCodePage({ params }: ShortCodePageProps) {
-  const { shortCode } = params
-
-  console.log(`Processing redirect for: ${shortCode}`)
-
-  // Get URL data directly
-  const urlData = await getUrlDataDirect(shortCode)
-
+export default async function RedirectPage({
+  params,
+}: {
+  params: Promise<{ shortCode: string }>
+}) {
+  const { shortCode } = await params
+  
+  const urlData = await getUrlData(shortCode)
+  
   if (!urlData) {
-    console.log(`Short code not found: ${shortCode}`)
-    redirect('/not-found')
+    notFound()
   }
 
-  // Get headers for click tracking
-  const headersList = headers()
-  const userAgent = headersList.get('user-agent') || 'Unknown'
-  const referer = headersList.get('referer') || 'Direct'
-  const forwardedFor = headersList.get('x-forwarded-for')
-  const realIp = headersList.get('x-real-ip')
-  const ip = forwardedFor?.split(',')[0] || realIp || 'Unknown'
-
-  // Convert headers to record
-  const headersRecord: Record<string, string> = {}
-  headersList.forEach((value, key) => {
-    headersRecord[key] = value
-  })
-
-  // Record the click in subcollection (fire and forget)
-  recordClickDirect(shortCode, userAgent, referer, ip, headersRecord).catch(console.error)
+  // Record the click (fire and forget)
+  recordClick(shortCode, {}).catch(console.error)
 
   // Ensure URL has protocol
   let targetUrl = urlData.originalUrl.trim()
@@ -111,8 +73,5 @@ export default async function ShortCodePage({ params }: ShortCodePageProps) {
     targetUrl = 'https://' + targetUrl
   }
 
-  console.log(`Redirecting ${shortCode} to: ${targetUrl}`)
-  
-  // Use permanent redirect to avoid caching issues
   redirect(targetUrl)
 }
