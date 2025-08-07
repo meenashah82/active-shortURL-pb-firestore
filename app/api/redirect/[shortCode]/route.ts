@@ -30,74 +30,80 @@ export async function GET(
       return NextResponse.redirect(new URL('/not-found', request.url))
     }
 
-    // Extract User Agent
-    const userAgent = 
-      request.headers.get('user-agent') || 
-      request.headers.get('User-Agent') || 
-      'Unknown Browser'
+    // Log all available headers for debugging
+    console.log('📋 All request headers:', Object.fromEntries(request.headers.entries()))
+
+    // Extract User Agent with fallbacks
+    let userAgent = request.headers.get('user-agent') || 
+                   request.headers.get('User-Agent') || 
+                   request.headers.get('sec-ch-ua') || 
+                   'Unknown Browser'
 
     // Extract IP Address with comprehensive fallbacks
     let extractedIP = 'Unknown IP'
     
-    // Try different IP headers in order of reliability
-    const xForwardedFor = request.headers.get('x-forwarded-for')
-    const cfConnectingIP = request.headers.get('cf-connecting-ip')
-    const xRealIP = request.headers.get('x-real-ip')
-    const xClientIP = request.headers.get('x-client-ip')
-    const forwarded = request.headers.get('forwarded')
-    const remoteAddr = request.headers.get('remote-addr')
-    
-    if (xForwardedFor) {
-      // X-Forwarded-For can contain multiple IPs, take the first one
-      extractedIP = xForwardedFor.split(',')[0].trim()
-    } else if (cfConnectingIP) {
-      // Cloudflare connecting IP
-      extractedIP = cfConnectingIP.trim()
-    } else if (xRealIP) {
-      // X-Real-IP header
-      extractedIP = xRealIP.trim()
-    } else if (xClientIP) {
-      // X-Client-IP header
-      extractedIP = xClientIP.trim()
-    } else if (forwarded) {
-      // Parse Forwarded header for IP
-      const forMatch = forwarded.match(/for=([^;,\s]+)/)
-      if (forMatch && forMatch[1]) {
-        extractedIP = forMatch[1].replace(/["\[\]]/g, '').trim()
-      }
-    } else if (remoteAddr) {
-      // Remote address header
-      extractedIP = remoteAddr.trim()
-    } else if (request.ip) {
-      // Next.js request IP
-      extractedIP = request.ip.trim()
-    }
+    // Check all possible IP headers
+    const possibleIPHeaders = [
+      'x-forwarded-for',
+      'cf-connecting-ip', 
+      'x-real-ip',
+      'x-client-ip',
+      'x-forwarded',
+      'forwarded-for',
+      'forwarded',
+      'remote-addr'
+    ]
 
-    // Clean up IP format
-    if (extractedIP && extractedIP !== 'Unknown IP') {
-      extractedIP = extractedIP
-        .replace(/^\[|\]$/g, '') // Remove IPv6 brackets
-        .replace(/['"]/g, '')    // Remove quotes
-        .split(':')[0]           // Remove port if present
-        .trim()
-      
-      // Validate IP is not empty after cleanup
-      if (!extractedIP || extractedIP === '' || extractedIP === 'undefined' || extractedIP === 'null') {
-        extractedIP = 'Unknown IP'
+    for (const headerName of possibleIPHeaders) {
+      const headerValue = request.headers.get(headerName)
+      if (headerValue && headerValue.trim() !== '') {
+        // Handle comma-separated IPs (take first one)
+        let ip = headerValue.split(',')[0].trim()
+        
+        // Clean up IP format
+        ip = ip.replace(/^\[|\]$/g, '') // Remove IPv6 brackets
+        ip = ip.replace(/['"]/g, '')    // Remove quotes
+        ip = ip.split(':')[0]           // Remove port if present
+        
+        if (ip && ip !== '' && ip !== 'undefined' && ip !== 'null') {
+          extractedIP = ip
+          console.log(`✅ IP extracted from ${headerName}: ${extractedIP}`)
+          break
+        }
       }
     }
 
-    const referer = request.headers.get('referer') || 'Direct'
-    const country = request.headers.get('cf-ipcountry') || 'Unknown'
-    const acceptLanguage = request.headers.get('accept-language') || 'Unknown'
+    // Fallback to request.ip if available
+    if (extractedIP === 'Unknown IP' && request.ip) {
+      extractedIP = request.ip
+      console.log(`✅ IP extracted from request.ip: ${extractedIP}`)
+    }
 
-    console.log(`🖱️ Recording click for ${shortCode}:`, {
-      userAgent: userAgent.substring(0, 50) + '...',
+    // Extract Referer
+    let referer = request.headers.get('referer') || 
+                 request.headers.get('Referer') || 
+                 'Direct'
+
+    // Extract Country
+    let country = request.headers.get('cf-ipcountry') || 
+                 request.headers.get('cloudfront-viewer-country') || 
+                 request.headers.get('x-country-code') ||
+                 'Unknown'
+
+    // Extract Accept-Language
+    let acceptLanguage = request.headers.get('accept-language') || 
+                        request.headers.get('Accept-Language') ||
+                        'Unknown'
+
+    console.log(`🖱️ Extracted data for ${shortCode}:`, {
+      userAgent: userAgent.substring(0, 100),
       ip: extractedIP,
-      referer,
-      country
+      referer: referer,
+      country: country,
+      acceptLanguage: acceptLanguage.substring(0, 50)
     })
 
+    // Create click event with extracted data
     const clickEvent = {
       timestamp: serverTimestamp(),
       shortCode: shortCode,
@@ -107,9 +113,11 @@ export async function GET(
       country: country,
       acceptLanguage: acceptLanguage,
       "User-Agent": userAgent,
-      "X-Forwarded-For": xForwardedFor || extractedIP,
+      "X-Forwarded-For": request.headers.get('x-forwarded-for') || extractedIP,
       "client-ip": extractedIP,
     }
+
+    console.log(`💾 Saving click event to Firestore:`, clickEvent)
 
     try {
       await runTransaction(db, async (transaction) => {
@@ -133,6 +141,7 @@ export async function GET(
       console.error(`❌ Error recording click for ${shortCode}:`, clickError)
     }
 
+    // Prepare target URL for redirect
     let targetUrl = urlData.originalUrl.trim()
     if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
       targetUrl = 'https://' + targetUrl
