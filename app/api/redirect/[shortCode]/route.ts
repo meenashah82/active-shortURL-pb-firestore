@@ -53,8 +53,11 @@ export async function GET(
       'Unknown Browser'
 
     // Enhanced IP extraction with comprehensive proxy support
+    let extractedIP = 'Unknown IP'
+
+    // Get all possible IP headers
     const forwardedFor = headers.get('x-forwarded-for')
-    const realIP = headers.get('x-real-ip')
+    const realIP = headers.get('x-real-ip') 
     const cfConnectingIP = headers.get('cf-connecting-ip')
     const clientIP = headers.get('x-client-ip')
     const forwarded = headers.get('x-forwarded')
@@ -62,45 +65,71 @@ export async function GET(
     const forwardedHeader = headers.get('forwarded')
     const remoteAddr = headers.get('remote-addr')
 
-    // Parse forwarded-for header (can contain multiple IPs)
-    let extractedIP = 'Unknown IP'
-
-    if (forwardedFor) {
-      // X-Forwarded-For can contain multiple IPs, take the first (original client)
-      extractedIP = forwardedFor.split(',')[0].trim()
-    } else if (cfConnectingIP) {
-      // Cloudflare connecting IP
+    // Try to extract IP from various sources in order of preference
+    if (forwardedFor && forwardedFor.trim() !== '') {
+      // X-Forwarded-For: most common proxy header, can contain multiple IPs
+      const ips = forwardedFor.split(',').map(ip => ip.trim()).filter(ip => ip !== '')
+      if (ips.length > 0 && ips[0] !== '') {
+        extractedIP = ips[0]
+      }
+    } else if (cfConnectingIP && cfConnectingIP.trim() !== '') {
+      // Cloudflare connecting IP - very reliable
       extractedIP = cfConnectingIP.trim()
-    } else if (realIP) {
-      // X-Real-IP header
+    } else if (realIP && realIP.trim() !== '') {
+      // X-Real-IP header - common in nginx setups
       extractedIP = realIP.trim()
-    } else if (clientIP) {
+    } else if (clientIP && clientIP.trim() !== '') {
       // X-Client-IP header
       extractedIP = clientIP.trim()
-    } else if (forwarded) {
+    } else if (forwarded && forwarded.trim() !== '') {
       // X-Forwarded header
-      extractedIP = forwarded.split(',')[0].trim()
-    } else if (forwardedForHeader) {
-      // Forwarded-For header
-      extractedIP = forwardedForHeader.split(',')[0].trim()
-    } else if (forwardedHeader) {
-      // Parse RFC 7239 Forwarded header
-      const forMatch = forwardedHeader.match(/for=([^;,\s]+)/)
-      if (forMatch) {
-        extractedIP = forMatch[1].replace(/"/g, '').trim()
+      const ips = forwarded.split(',').map(ip => ip.trim()).filter(ip => ip !== '')
+      if (ips.length > 0 && ips[0] !== '') {
+        extractedIP = ips[0]
       }
-    } else if (remoteAddr) {
-      // Remote address
+    } else if (forwardedForHeader && forwardedForHeader.trim() !== '') {
+      // Forwarded-For header
+      const ips = forwardedForHeader.split(',').map(ip => ip.trim()).filter(ip => ip !== '')
+      if (ips.length > 0 && ips[0] !== '') {
+        extractedIP = ips[0]
+      }
+    } else if (forwardedHeader && forwardedHeader.trim() !== '') {
+      // Parse RFC 7239 Forwarded header: for=192.0.2.60;proto=http;by=203.0.113.43
+      const forMatch = forwardedHeader.match(/for=([^;,\s]+)/)
+      if (forMatch && forMatch[1]) {
+        extractedIP = forMatch[1].replace(/["\[\]]/g, '').trim()
+      }
+    } else if (remoteAddr && remoteAddr.trim() !== '') {
+      // Remote address header
       extractedIP = remoteAddr.trim()
-    } else if (request.ip) {
-      // Next.js request IP
-      extractedIP = request.ip
+    } else if (request.ip && request.ip.trim() !== '') {
+      // Next.js request IP property
+      extractedIP = request.ip.trim()
+    } else {
+      // Last resort: try to get from request URL or connection info
+      try {
+        const url = new URL(request.url)
+        if (url.searchParams.has('clientIP')) {
+          extractedIP = url.searchParams.get('clientIP') || 'Unknown IP'
+        }
+      } catch (e) {
+        // URL parsing failed, keep as Unknown IP
+      }
     }
 
-    // Clean up IP address (remove port if present)
+    // Clean up IP address format
     if (extractedIP && extractedIP !== 'Unknown IP') {
-      // Remove IPv6 brackets and port numbers
-      extractedIP = extractedIP.replace(/^\[|\]$/g, '').split(':')[0]
+      // Remove IPv6 brackets, quotes, and extract IP from port notation
+      extractedIP = extractedIP
+        .replace(/^\[|\]$/g, '') // Remove IPv6 brackets
+        .replace(/['"]/g, '')    // Remove quotes
+        .split(':')[0]           // Remove port if present (IPv4:port)
+        .trim()
+      
+      // Validate IP format (basic check)
+      if (extractedIP === '' || extractedIP === 'undefined' || extractedIP === 'null') {
+        extractedIP = 'Unknown IP'
+      }
     }
 
     const referer = 
@@ -120,7 +149,21 @@ export async function GET(
       headers.get('Accept-Language') ||
       'Unknown'
 
-    // Log extraction results for debugging
+    // Enhanced logging for IP extraction debugging
+    console.log(`🖱️ IP extraction debugging for ${shortCode}:`, {
+      'x-forwarded-for': forwardedFor,
+      'cf-connecting-ip': cfConnectingIP, 
+      'x-real-ip': realIP,
+      'x-client-ip': clientIP,
+      'x-forwarded': forwarded,
+      'forwarded-for': forwardedForHeader,
+      'forwarded': forwardedHeader,
+      'remote-addr': remoteAddr,
+      'request.ip': request.ip,
+      'final-extracted-ip': extractedIP,
+      'extraction-successful': extractedIP !== 'Unknown IP'
+    })
+
     console.log(`🖱️ Header extraction results for ${shortCode}:`, {
       userAgent: userAgent.substring(0, 100) + (userAgent.length > 100 ? '...' : ''),
       extractedIP,
@@ -128,12 +171,12 @@ export async function GET(
       country,
       acceptLanguage: acceptLanguage.substring(0, 50),
       extractionMethod: forwardedFor ? 'x-forwarded-for' :
-                      cfConnectingIP ? 'cf-connecting-ip' :
-                      realIP ? 'x-real-ip' :
-                      clientIP ? 'x-client-ip' :
-                      forwardedHeader ? 'forwarded' :
-                      remoteAddr ? 'remote-addr' :
-                      request.ip ? 'request.ip' : 'none'
+                  cfConnectingIP ? 'cf-connecting-ip' :
+                  realIP ? 'x-real-ip' :
+                  clientIP ? 'x-client-ip' :
+                  forwardedHeader ? 'forwarded' :
+                  remoteAddr ? 'remote-addr' :
+                  request.ip ? 'request.ip' : 'none'
     })
 
     // Validate critical fields and log warnings
