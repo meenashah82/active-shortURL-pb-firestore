@@ -45,8 +45,14 @@ export default async function ShortCodePage({ params }: ShortCodePageProps) {
       // Continue with redirect even if click recording fails
     }
 
-    console.log(`🚀 Redirecting ${shortCode} to: ${urlData.originalUrl}`)
-    redirect(urlData.originalUrl)
+    // Ensure URL has protocol
+    let targetUrl = urlData.originalUrl
+    if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+      targetUrl = 'https://' + targetUrl
+    }
+
+    console.log(`🚀 Redirecting ${shortCode} to: ${targetUrl}`)
+    redirect(targetUrl)
 
   } catch (error) {
     console.error(`❌ Error in server-side redirect for ${shortCode}:`, error)
