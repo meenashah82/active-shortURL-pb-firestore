@@ -1,6 +1,5 @@
-import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { getFirestore, Firestore } from 'firebase/firestore';
-import { getAuth, Auth } from 'firebase/auth';
+import { initializeApp, getApps, FirebaseApp } from 'firebase/app'
+import { getFirestore, Firestore } from 'firebase/firestore'
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -9,27 +8,28 @@ const firebaseConfig = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
-
-// Initialize Firebase
-let app: FirebaseApp;
-if (getApps().length === 0) {
-  app = initializeApp(firebaseConfig);
-} else {
-  app = getApps()[0];
 }
 
-// Initialize Firestore
-export const db: Firestore = getFirestore(app);
+// Initialize Firebase
+let app: FirebaseApp
+let db: Firestore
 
-// Initialize Auth
-export const auth: Auth = getAuth(app);
+if (getApps().length === 0) {
+  app = initializeApp(firebaseConfig)
+} else {
+  app = getApps()[0]
+}
 
-// Export the app instance
-export const firebaseApp = app;
+db = getFirestore(app)
 
-// Helper functions for compatibility
-export const getFirebase = () => app;
-export const getFirebaseApp = () => app;
+// Export functions that return the initialized instances
+export function getFirebase() {
+  return { app, db }
+}
 
-export default app;
+export function getFirebaseApp() {
+  return app
+}
+
+// Direct exports for compatibility
+export { app as firebaseApp, db }

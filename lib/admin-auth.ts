@@ -84,16 +84,17 @@ export async function createAdminUser(
   password: string,
   role: "admin" | "superadmin" = "admin",
 ): Promise<{ success: boolean; message: string; user?: AdminUser }> {
-  const { db } = getFirebase()
-
-  if (!db) {
-    return {
-      success: false,
-      message: "Database connection not available. Please check Firebase configuration.",
-    }
-  }
-
   try {
+    const { db } = getFirebase()
+
+    if (!db) {
+      console.error("Database not available")
+      return {
+        success: false,
+        message: "Database connection not available. Please check Firebase configuration.",
+      }
+    }
+
     // Check if username already exists
     const usernameQuery = query(collection(db, ADMIN_COLLECTION), where("username", "==", username))
     const usernameSnapshot = await getDocs(usernameQuery)
@@ -155,16 +156,17 @@ export async function authenticateAdmin(
   username: string,
   password: string,
 ): Promise<{ success: boolean; message: string; user?: AdminUser }> {
-  const { db } = getFirebase()
-
-  if (!db) {
-    return {
-      success: false,
-      message: "Database connection not available. Please check Firebase configuration.",
-    }
-  }
-
   try {
+    const { db } = getFirebase()
+
+    if (!db) {
+      console.error("Database not available")
+      return {
+        success: false,
+        message: "Database connection not available. Please check Firebase configuration.",
+      }
+    }
+
     console.log("Attempting to authenticate user:", username)
     const userDoc = await getDoc(doc(db, ADMIN_COLLECTION, username.toLowerCase()))
 
@@ -227,16 +229,16 @@ export async function authenticateAdmin(
   }
 }
 
-// Get all admin users - Fixed to return array directly
+// Get all admin users
 export async function getAllAdminUsers(): Promise<AdminUser[]> {
-  const { db } = getFirebase()
-
-  if (!db) {
-    console.error("Database connection not available")
-    return []
-  }
-
   try {
+    const { db } = getFirebase()
+
+    if (!db) {
+      console.error("Database connection not available")
+      return []
+    }
+
     const snapshot = await getDocs(collection(db, ADMIN_COLLECTION))
     const users: AdminUser[] = []
 
@@ -265,16 +267,16 @@ export async function updateAdminUser(
   userId: string,
   updates: Partial<Pick<AdminUser, "username" | "email" | "role" | "isActive">>,
 ): Promise<{ success: boolean; error?: string }> {
-  const { db } = getFirebase()
-
-  if (!db) {
-    return {
-      success: false,
-      error: "Database connection not available",
-    }
-  }
-
   try {
+    const { db } = getFirebase()
+
+    if (!db) {
+      return {
+        success: false,
+        error: "Database connection not available",
+      }
+    }
+
     await updateDoc(doc(db, ADMIN_COLLECTION, userId), updates)
     return {
       success: true,
@@ -290,16 +292,16 @@ export async function updateAdminUser(
 
 // Delete admin user
 export async function deleteAdminUser(userId: string): Promise<{ success: boolean; error?: string }> {
-  const { db } = getFirebase()
-
-  if (!db) {
-    return {
-      success: false,
-      error: "Database connection not available",
-    }
-  }
-
   try {
+    const { db } = getFirebase()
+
+    if (!db) {
+      return {
+        success: false,
+        error: "Database connection not available",
+      }
+    }
+
     await deleteDoc(doc(db, ADMIN_COLLECTION, userId))
     return {
       success: true,
@@ -318,16 +320,16 @@ export async function changePassword(
   userId: string,
   newPassword: string,
 ): Promise<{ success: boolean; error?: string }> {
-  const { db } = getFirebase()
-
-  if (!db) {
-    return {
-      success: false,
-      error: "Database connection not available",
-    }
-  }
-
   try {
+    const { db } = getFirebase()
+
+    if (!db) {
+      return {
+        success: false,
+        error: "Database connection not available",
+      }
+    }
+
     const hashedPassword = await hashPassword(newPassword)
     await updateDoc(doc(db, ADMIN_COLLECTION, userId), {
       password: hashedPassword,
