@@ -1,32 +1,39 @@
 "use client"
 
 import React from "react"
+
 import { useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ArrowLeft, ExternalLink, Calendar, Globe, Loader2, Zap, Target, Activity, Wifi, WifiOff, RefreshCw, Clock, Monitor, Smartphone, MapPin } from 'lucide-react'
+import {
+  ArrowLeft,
+  ExternalLink,
+  Calendar,
+  Globe,
+  Loader2,
+  Zap,
+  Target,
+  Activity,
+  Wifi,
+  WifiOff,
+  RefreshCw,
+  Clock,
+  Monitor,
+  Smartphone,
+  MapPin,
+} from "lucide-react"
 import Link from "next/link"
 import { useRealTimeAnalytics } from "@/hooks/use-real-time-analytics"
 import { useClickHistory } from "@/hooks/use-click-history"
 import { RealTimeClickTracker } from "@/lib/real-time-tracker"
 
-interface AnalyticsPageProps {
-  params: Promise<{ shortCode: string }>
-}
-
-export default function AnalyticsPage({ params }: AnalyticsPageProps) {
-  const [shortCode, setShortCode] = React.useState<string>("")
-  const [isLoading, setIsLoading] = React.useState(true)
-
-  // Unwrap params promise
-  React.useEffect(() => {
-    params.then((resolvedParams) => {
-      setShortCode(resolvedParams.shortCode)
-      setIsLoading(false)
-    })
-  }, [params])
-
+export default function AnalyticsPage({
+  params,
+}: {
+  params: { shortCode: string }
+}) {
+  const { shortCode } = params
   const { urlData, analyticsData, loading, error, connectionStatus, clickCount, isNewClick, lastUpdate } =
     useRealTimeAnalytics(shortCode)
 
@@ -36,12 +43,10 @@ export default function AnalyticsPage({ params }: AnalyticsPageProps) {
 
   // Initialize tracker for analytics page interactions
   React.useEffect(() => {
-    if (shortCode) {
-      trackerRef.current = new RealTimeClickTracker(shortCode)
-      return () => {
-        if (trackerRef.current) {
-          trackerRef.current.destroy()
-        }
+    trackerRef.current = new RealTimeClickTracker(shortCode)
+    return () => {
+      if (trackerRef.current) {
+        trackerRef.current.destroy()
       }
     }
   }, [shortCode])
@@ -102,7 +107,7 @@ export default function AnalyticsPage({ params }: AnalyticsPageProps) {
     return <Monitor className="h-4 w-4" style={{ color: "#94909C" }} />
   }
 
-  if (isLoading || loading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#FFFFFF" }}>
         <div className="flex items-center gap-2">
@@ -180,9 +185,9 @@ export default function AnalyticsPage({ params }: AnalyticsPageProps) {
                     }}
                   >
                     {connectionStatus === "connected"
-                      ? "🔥 Real-time Firestore connected - Clicks update instantly!"
+                      ? "🔥 Real-time WebSocket connected - Clicks update instantly!"
                       : connectionStatus === "connecting"
-                        ? "Connecting to Firestore real-time updates..."
+                        ? "Connecting to Firestore WebSocket..."
                         : "Connection lost - Attempting to reconnect..."}
                   </span>
 
@@ -260,7 +265,7 @@ export default function AnalyticsPage({ params }: AnalyticsPageProps) {
                   {clickCount}
                 </div>
                 <p className="mt-2 text-lg" style={{ color: "#94909C" }}>
-                  Updates instantly via Firestore real-time listener when short URL is clicked
+                  Updates instantly via Firestore WebSocket when short URL is clicked
                 </p>
                 {isNewClick && (
                   <div
@@ -274,7 +279,7 @@ export default function AnalyticsPage({ params }: AnalyticsPageProps) {
                       🎉 Someone just clicked your short URL!
                     </div>
                     <div className="text-sm mt-2" style={{ color: "#F22C7C" }}>
-                      Real-time update via Firestore onSnapshot - No refresh needed!
+                      Real-time update via Firestore WebSocket - No refresh needed!
                     </div>
                   </div>
                 )}
@@ -427,6 +432,92 @@ export default function AnalyticsPage({ params }: AnalyticsPageProps) {
                   </Table>
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Test Real-time Tracking */}
+          <Card className="mt-6 shadow-sm" style={{ backgroundColor: "#FFFFFF", borderColor: "#D9D8FD" }}>
+            <CardHeader>
+              <CardTitle style={{ color: "#4D475B" }}>Test Real-time WebSocket Updates</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  onClick={(e) => {
+                    handleElementClick("test-button-1")(e)
+                    if (trackerRef.current) {
+                      trackerRef.current.trackClick("test", { testType: "button-1" })
+                    }
+                  }}
+                  variant="outline"
+                  style={{
+                    backgroundColor: "#FFFFFF",
+                    borderColor: "#D9D8FD",
+                    color: "#833ADF",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(131, 58, 223, 0.1)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#FFFFFF")}
+                >
+                  Test Click 1
+                </Button>
+                <Button
+                  onClick={(e) => {
+                    handleElementClick("test-button-2")(e)
+                    if (trackerRef.current) {
+                      trackerRef.current.trackClick("test", { testType: "button-2" })
+                    }
+                  }}
+                  variant="outline"
+                  style={{
+                    backgroundColor: "#FFFFFF",
+                    borderColor: "#D9D8FD",
+                    color: "#833ADF",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(131, 58, 223, 0.1)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#FFFFFF")}
+                >
+                  Test Click 2
+                </Button>
+                <Button
+                  onClick={(e) => {
+                    handleElementClick("simulate-multiple")(e)
+                    // Simulate multiple clicks
+                    if (trackerRef.current) {
+                      for (let i = 0; i < 3; i++) {
+                        setTimeout(() => {
+                          trackerRef.current?.trackClick("test", { testType: "multiple", index: i })
+                        }, i * 500)
+                      }
+                    }
+                  }}
+                  variant="outline"
+                  style={{
+                    backgroundColor: "#FFFFFF",
+                    borderColor: "#D9D8FD",
+                    color: "#833ADF",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(131, 58, 223, 0.1)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#FFFFFF")}
+                >
+                  Simulate Multiple Clicks
+                </Button>
+              </div>
+              <div
+                className="mt-4 p-3 rounded-lg border"
+                style={{
+                  backgroundColor: "rgba(217, 216, 253, 0.3)",
+                  borderColor: "#D9D8FD",
+                }}
+              >
+                <p className="text-sm font-medium" style={{ color: "#833ADF" }}>
+                  💡 How to test real-time updates:
+                </p>
+                <ul className="text-xs mt-2 space-y-1" style={{ color: "#833ADF" }}>
+                  <li>1. Open your short URL in a new tab/window</li>
+                  <li>2. Watch this page update instantly when you click the link</li>
+                  <li>3. No refresh needed - powered by Firestore WebSocket!</li>
+                </ul>
+              </div>
             </CardContent>
           </Card>
         </div>

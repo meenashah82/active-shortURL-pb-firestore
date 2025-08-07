@@ -1,77 +1,94 @@
-import { notFound, redirect } from 'next/navigation'
-import { getFirebase } from '@/lib/firebase'
-import { doc, getDoc, collection, addDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore'
+"use client"
 
-interface UrlData {
-  originalUrl: string
-  shortCode: string
-  createdAt: string
-  totalClicks: number
-  lastClickAt?: string
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import { Card, CardContent } from "@/components/ui/card"
+import { Loader2 } from "lucide-react"
+
+interface RedirectPageProps {
+  params: {
+    shortCode: string
+  }
 }
 
-async function getUrlData(shortCode: string): Promise<UrlData | null> {
-  const { db } = getFirebase()
-  if (!db) return null
+export default function RedirectPage({ params }: RedirectPageProps) {
+  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
-  try {
-    const urlDoc = await getDoc(doc(db, 'urls', shortCode))
-    if (!urlDoc.exists()) {
-      return null
+  useEffect(() => {
+    const handleRedirect = async () => {
+      try {
+        console.log(`🔄 CLIENT: Starting redirect for shortCode: ${params.shortCode}`)
+
+        // Call the API to get redirect URL and record the click
+        const response = await fetch(`/api/redirect/${params.shortCode}`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+
+        console.log(`📡 CLIENT: API response status: ${response.status}`)
+
+        if (!response.ok) {
+          console.error(`❌ CLIENT: API response not ok: ${response.status}`)
+          if (response.status === 404) {
+            setError("Short URL not found")
+            return
+          }
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+
+        const data = await response.json()
+        console.log(`📡 CLIENT: API response data:`, data)
+
+        if (data.success && data.redirectUrl) {
+          console.log(`🔄 CLIENT: Redirecting to: ${data.redirectUrl}`)
+          // Use window.location.href for immediate redirect
+          window.location.href = data.redirectUrl
+        } else {
+          console.error(`❌ CLIENT: Invalid response data:`, data)
+          setError("Invalid redirect response")
+        }
+      } catch (error) {
+        console.error(`❌ CLIENT: Error during redirect:`, error)
+        setError("Failed to redirect")
+      }
     }
 
-    return urlDoc.data() as UrlData
-  } catch (error) {
-    console.error('Error fetching URL data:', error)
-    return null
-  }
-}
+    handleRedirect()
+  }, [params.shortCode, router])
 
-async function recordClick(shortCode: string, headers: any) {
-  const { db } = getFirebase()
-  if (!db) return
-
-  try {
-    // Create a new click document in the subcollection
-    await addDoc(collection(db, 'urls', shortCode, 'clicks'), {
-      timestamp: serverTimestamp(),
-      userAgent: headers['user-agent'] || '',
-      referer: headers.referer || '',
-      ip: headers['x-forwarded-for'] || headers['x-real-ip'] || 'unknown',
-      country: headers['cf-ipcountry'] || 'unknown',
-    })
-
-    // Update the URL document with incremented click count
-    await updateDoc(doc(db, 'urls', shortCode), {
-      totalClicks: increment(1),
-      lastClickAt: serverTimestamp(),
-    })
-  } catch (error) {
-    console.error('Error recording click:', error)
-  }
-}
-
-export default async function RedirectPage({
-  params,
-}: {
-  params: Promise<{ shortCode: string }>
-}) {
-  const { shortCode } = await params
-  
-  const urlData = await getUrlData(shortCode)
-  
-  if (!urlData) {
-    notFound()
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex flex-col items-center justify-center p-6">
+            <div className="text-red-600 text-center">
+              <h2 className="text-lg font-semibold mb-2">Error</h2>
+              <p>{error}</p>
+              <button
+                onClick={() => router.back()}
+                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Go Back
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
-  // Record the click (fire and forget)
-  recordClick(shortCode, {}).catch(console.error)
-
-  // Ensure URL has protocol
-  let targetUrl = urlData.originalUrl.trim()
-  if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
-    targetUrl = 'https://' + targetUrl
-  }
-
-  redirect(targetUrl)
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <Card className="w-full max-w-md">
+        <CardContent className="flex flex-col items-center justify-center p-6">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600 mb-4" />
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">Redirecting...</h2>
+          <p className="text-sm text-gray-600 text-center">Please wait while we redirect you to your destination.</p>
+        </CardContent>
+      </Card>
+    </div>
+  )
 }

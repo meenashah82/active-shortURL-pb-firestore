@@ -4,7 +4,8 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { UrlShortenerForm } from "@/components/url-shortener-form"
-import { BarChart3, Shield, User, LogOut } from 'lucide-react'
+import { LinkHistory } from "@/components/link-history"
+import { BarChart3, Shield, User, LogOut } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 
 export default function HomePage() {
@@ -145,6 +146,9 @@ export default function HomePage() {
           <div className="mb-12">
             <UrlShortenerForm onUrlCreated={handleUrlCreated} />
           </div>
+
+          {/* Link History */}
+          <LinkHistory refreshTrigger={refreshTrigger} />
         </div>
       </div>
     </div>

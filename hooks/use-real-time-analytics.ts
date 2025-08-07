@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { getUrlData, subscribeToAnalytics, type UrlData, type AnalyticsData } from "@/lib/analytics-clean"
 
 export function useRealTimeAnalytics(shortCode: string) {
@@ -13,10 +13,6 @@ export function useRealTimeAnalytics(shortCode: string) {
   const [isNewClick, setIsNewClick] = useState(false)
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
 
-  const previousClickCount = useRef(0)
-  const isInitialized = useRef(false)
-  const newClickTimeout = useRef<NodeJS.Timeout | null>(null)
-
   useEffect(() => {
     if (!shortCode) {
       setLoading(false)
@@ -28,8 +24,6 @@ export function useRealTimeAnalytics(shortCode: string) {
     setLoading(true)
     setError(null)
     setConnectionStatus("connecting")
-    isInitialized.current = false
-    previousClickCount.current = 0
 
     // First, get the initial URL data
     const fetchInitialData = async () => {
@@ -48,10 +42,8 @@ export function useRealTimeAnalytics(shortCode: string) {
         console.log(`✅ useRealTimeAnalytics: Initial data loaded for: ${shortCode}`, initialUrlData)
         setUrlData(initialUrlData)
         setClickCount(initialUrlData.totalClicks || 0)
-        previousClickCount.current = initialUrlData.totalClicks || 0
         setConnectionStatus("connected")
         setLoading(false)
-        isInitialized.current = true
       } catch (err) {
         console.error(`❌ useRealTimeAnalytics: Error fetching initial data:`, err)
         setError(err instanceof Error ? err.message : "Failed to load analytics data")
@@ -71,26 +63,18 @@ export function useRealTimeAnalytics(shortCode: string) {
 
         // Check if click count increased (new click detected)
         const newClickCount = data.totalClicks || 0
-        
-        // Only trigger animation after initialization and if count actually increased
-        if (isInitialized.current && newClickCount > previousClickCount.current) {
-          console.log(`🎉 useRealTimeAnalytics: New click detected! ${previousClickCount.current} -> ${newClickCount}`)
+        if (newClickCount > clickCount) {
+          console.log(`🎉 useRealTimeAnalytics: New click detected! ${clickCount} -> ${newClickCount}`)
           setIsNewClick(true)
           setLastUpdate(new Date())
 
-          // Clear existing timeout
-          if (newClickTimeout.current) {
-            clearTimeout(newClickTimeout.current)
-          }
-
           // Reset the new click indicator after 3 seconds
-          newClickTimeout.current = setTimeout(() => {
+          setTimeout(() => {
             setIsNewClick(false)
           }, 3000)
         }
 
         setClickCount(newClickCount)
-        previousClickCount.current = newClickCount
         setConnectionStatus("connected")
       } else {
         console.log(`❌ useRealTimeAnalytics: No analytics data received`)
@@ -102,11 +86,8 @@ export function useRealTimeAnalytics(shortCode: string) {
     return () => {
       console.log(`🧹 useRealTimeAnalytics: Cleaning up subscription for: ${shortCode}`)
       unsubscribe()
-      if (newClickTimeout.current) {
-        clearTimeout(newClickTimeout.current)
-      }
     }
-  }, [shortCode])
+  }, [shortCode, clickCount])
 
   return {
     urlData,

@@ -1,73 +1,35 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { db } from "@/lib/firebase"
-import { collection, query, orderBy, limit, onSnapshot, Timestamp } from "firebase/firestore"
+import { subscribeToClickHistory, type IndividualClickData } from "@/lib/analytics-clean"
 
-export interface ClickHistoryItem {
-  id: string
-  timestamp: Timestamp
-  userAgent?: string
-  referer?: string
-  ip?: string
-  'User-Agent'?: string
-  'X-Forwarded-For'?: string
-  country?: string
-  acceptLanguage?: string
-  _placeholder?: boolean
-}
-
-export function useClickHistory(shortCode: string, limitCount: number = 100) {
-  const [clickHistory, setClickHistory] = useState<ClickHistoryItem[]>([])
+export function useClickHistory(shortCode: string, limitCount = 50) {
+  const [clickHistory, setClickHistory] = useState<IndividualClickData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!shortCode) {
       setLoading(false)
-      setError("No short code provided")
       return
     }
 
-    console.log(`🔄 useClickHistory: Setting up for shortCode: ${shortCode}`)
+    console.log(`🔄 Setting up click history subscription for: ${shortCode}`)
     setLoading(true)
     setError(null)
 
-    // Set up real-time subscription for click history
-    const clicksRef = collection(db, "urls", shortCode, "clicks")
-    const clicksQuery = query(
-      clicksRef,
-      orderBy("timestamp", "desc"),
-      limit(limitCount)
-    )
-
-    const unsubscribe = onSnapshot(
-      clicksQuery,
-      (snapshot) => {
-        console.log(`📊 useClickHistory: Received ${snapshot.docs.length} clicks for ${shortCode}`)
-        
-        const clicks: ClickHistoryItem[] = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as ClickHistoryItem[]
-
-        // Filter out placeholder documents
-        const validClicks = clicks.filter(click => !click._placeholder)
-
-        setClickHistory(validClicks)
+    const unsubscribe = subscribeToClickHistory(
+      shortCode,
+      (history) => {
+        console.log(`📊 Click history received: ${history.length} records`)
+        setClickHistory(history)
         setLoading(false)
-        setError(null)
       },
-      (err) => {
-        console.error(`❌ useClickHistory: Error subscribing to clicks for ${shortCode}:`, err)
-        setError(err.message)
-        setLoading(false)
-      }
+      limitCount,
     )
 
-    // Cleanup subscription on unmount
     return () => {
-      console.log(`🧹 useClickHistory: Cleaning up subscription for: ${shortCode}`)
+      console.log(`🧹 Cleaning up click history subscription for: ${shortCode}`)
       unsubscribe()
     }
   }, [shortCode, limitCount])

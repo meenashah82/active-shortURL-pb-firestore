@@ -13,6 +13,7 @@ interface UrlShortenerFormProps {
 
 export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
   const [url, setUrl] = useState("")
+  const [customShortCode, setCustomShortCode] = useState("")
   const [shortUrl, setShortUrl] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
@@ -44,12 +45,17 @@ export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
     setIsLoading(true)
 
     try {
+      const requestBody: { url: string; customShortCode?: string } = { url }
+      if (customShortCode.trim()) {
+        requestBody.customShortCode = customShortCode.trim()
+      }
+
       const response = await fetch("/api/shorten", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify(requestBody),
       })
 
       if (!response.ok) {
@@ -69,17 +75,21 @@ export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
         shortUrl: data.shortUrl,
         createdAt: new Date().toISOString(),
         totalClicks: 0,
+        isCustom: data.isCustom || false,
       }
       storedUrls.unshift(newUrl)
       localStorage.setItem("shortened-urls", JSON.stringify(storedUrls.slice(0, 50))) // Keep last 50
 
       toast({
         title: "Success!",
-        description: "URL shortened successfully.",
+        description: data.isCustom 
+          ? "Custom short URL created successfully!" 
+          : "URL shortened successfully.",
       })
 
-      // Clear the input
+      // Clear the inputs
       setUrl("")
+      setCustomShortCode("")
 
       // Notify parent component
       onUrlCreated?.()
@@ -197,6 +207,24 @@ export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
                 "Shorten"
               )}
             </Button>
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="customShortCode" className="text-sm font-medium text-gray-700">
+              Custom short code (optional)
+            </label>
+            <Input
+              id="customShortCode"
+              type="text"
+              placeholder="my-custom-link"
+              value={customShortCode}
+              onChange={(e) => setCustomShortCode(e.target.value)}
+              className="border-gray-300 focus:border-purple-500 focus:ring-purple-500"
+              disabled={isLoading}
+            />
+            <p className="text-xs text-gray-500">
+              3-20 characters, letters, numbers, hyphens, and underscores only
+            </p>
           </div>
         </form>
 
