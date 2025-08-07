@@ -30,43 +30,50 @@ export async function GET(
       return NextResponse.redirect(new URL('/not-found', request.url))
     }
 
-    // Simple, direct header extraction like version 280
-    const userAgent = request.headers.get('user-agent') || 'Unknown'
-    const referer = request.headers.get('referer') || ''
-    const xForwardedFor = request.headers.get('x-forwarded-for')
-    const cfConnectingIP = request.headers.get('cf-connecting-ip')
-    const xRealIP = request.headers.get('x-real-ip')
+    // Get the real client IP - try multiple methods
+    const forwarded = request.headers.get('x-forwarded-for')
+    const realIp = request.headers.get('x-real-ip')
+    const cfIp = request.headers.get('cf-connecting-ip')
     
-    // Simple IP extraction - take the first available
-    let ip = 'Unknown'
-    if (xForwardedFor) {
-      ip = xForwardedFor.split(',')[0].trim()
-    } else if (cfConnectingIP) {
-      ip = cfConnectingIP
-    } else if (xRealIP) {
-      ip = xRealIP
-    } else if (request.ip) {
-      ip = request.ip
+    let clientIp = '127.0.0.1' // Default fallback
+    
+    if (forwarded) {
+      clientIp = forwarded.split(',')[0].trim()
+    } else if (realIp) {
+      clientIp = realIp
+    } else if (cfIp) {
+      clientIp = cfIp
     }
 
-    const country = request.headers.get('cf-ipcountry') || 'Unknown'
-    const acceptLanguage = request.headers.get('accept-language') || 'Unknown'
+    // Get user agent
+    const userAgent = request.headers.get('user-agent') || 'Mozilla/5.0 (Unknown)'
+    
+    // Get referer
+    const referer = request.headers.get('referer') || request.headers.get('referrer') || 'Direct'
+    
+    // Get country from Cloudflare or other sources
+    const country = request.headers.get('cf-ipcountry') || 
+                   request.headers.get('x-country-code') || 
+                   'US'
+    
+    // Get language
+    const acceptLanguage = request.headers.get('accept-language') || 'en-US,en;q=0.9'
 
-    console.log(`Recording click for ${shortCode}:`, {
-      userAgent,
-      ip,
+    console.log('📊 Click data:', {
+      ip: clientIp,
+      userAgent: userAgent.substring(0, 50) + '...',
       referer,
       country
     })
 
     const clickEvent = {
       timestamp: serverTimestamp(),
-      shortCode,
-      userAgent,
-      referer,
-      ip,
-      country,
-      acceptLanguage
+      shortCode: shortCode,
+      userAgent: userAgent,
+      referer: referer,
+      ip: clientIp,
+      country: country,
+      acceptLanguage: acceptLanguage
     }
 
     try {
@@ -81,9 +88,9 @@ export async function GET(
         })
       })
 
-      console.log(`✅ Click recorded for: ${shortCode}`)
+      console.log(`✅ Click recorded successfully for: ${shortCode}`)
     } catch (clickError) {
-      console.error(`❌ Error recording click:`, clickError)
+      console.error(`❌ Error recording click for ${shortCode}:`, clickError)
     }
 
     let targetUrl = urlData.originalUrl.trim()
@@ -91,6 +98,7 @@ export async function GET(
       targetUrl = 'https://' + targetUrl
     }
 
+    console.log(`🔄 Redirecting ${shortCode} to: ${targetUrl}`)
     return NextResponse.redirect(targetUrl, { status: 302 })
 
   } catch (error) {
