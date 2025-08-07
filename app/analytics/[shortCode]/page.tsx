@@ -1,39 +1,32 @@
 "use client"
 
 import React from "react"
-
 import { useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import {
-  ArrowLeft,
-  ExternalLink,
-  Calendar,
-  Globe,
-  Loader2,
-  Zap,
-  Target,
-  Activity,
-  Wifi,
-  WifiOff,
-  RefreshCw,
-  Clock,
-  Monitor,
-  Smartphone,
-  MapPin,
-} from "lucide-react"
+import { ArrowLeft, ExternalLink, Calendar, Globe, Loader2, Zap, Target, Activity, Wifi, WifiOff, RefreshCw, Clock, Monitor, Smartphone, MapPin } from 'lucide-react'
 import Link from "next/link"
 import { useRealTimeAnalytics } from "@/hooks/use-real-time-analytics"
 import { useClickHistory } from "@/hooks/use-click-history"
 import { RealTimeClickTracker } from "@/lib/real-time-tracker"
 
-export default function AnalyticsPage({
-  params,
-}: {
-  params: { shortCode: string }
-}) {
-  const { shortCode } = params
+interface AnalyticsPageProps {
+  params: Promise<{ shortCode: string }>
+}
+
+export default function AnalyticsPage({ params }: AnalyticsPageProps) {
+  const [shortCode, setShortCode] = React.useState<string>("")
+  const [isLoading, setIsLoading] = React.useState(true)
+
+  // Unwrap params promise
+  React.useEffect(() => {
+    params.then((resolvedParams) => {
+      setShortCode(resolvedParams.shortCode)
+      setIsLoading(false)
+    })
+  }, [params])
+
   const { urlData, analyticsData, loading, error, connectionStatus, clickCount, isNewClick, lastUpdate } =
     useRealTimeAnalytics(shortCode)
 
@@ -43,10 +36,12 @@ export default function AnalyticsPage({
 
   // Initialize tracker for analytics page interactions
   React.useEffect(() => {
-    trackerRef.current = new RealTimeClickTracker(shortCode)
-    return () => {
-      if (trackerRef.current) {
-        trackerRef.current.destroy()
+    if (shortCode) {
+      trackerRef.current = new RealTimeClickTracker(shortCode)
+      return () => {
+        if (trackerRef.current) {
+          trackerRef.current.destroy()
+        }
       }
     }
   }, [shortCode])
@@ -107,7 +102,7 @@ export default function AnalyticsPage({
     return <Monitor className="h-4 w-4" style={{ color: "#94909C" }} />
   }
 
-  if (loading) {
+  if (isLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#FFFFFF" }}>
         <div className="flex items-center gap-2">
