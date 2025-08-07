@@ -120,13 +120,7 @@ export async function GET(
       referer,
       country,
       acceptLanguage: acceptLanguage.substring(0, 50),
-      extractionMethod: forwardedFor ? 'x-forwarded-for' :
-                  cfConnectingIP ? 'cf-connecting-ip' :
-                  realIP ? 'x-real-ip' :
-                  clientIP ? 'x-client-ip' :
-                  forwardedHeader ? 'forwarded' :
-                  remoteAddr ? 'remote-addr' :
-                  request.ip ? 'request.ip' : 'none'
+      extractionMethod: 'Unknown'
     })
 
     // Validate critical fields and log warnings
