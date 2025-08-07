@@ -1,47 +1,54 @@
-import { redirect } from 'next/navigation';
-import { db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
-import { trackClick } from '@/lib/analytics';
-import { headers } from 'next/headers';
+import { redirect, notFound } from 'next/navigation'
+import { getUrlData, recordClick } from '@/lib/analytics-clean'
+import { headers } from 'next/headers'
 
 interface PageProps {
   params: {
-    shortCode: string;
-  };
+    shortCode: string
+  }
 }
 
-export default async function RedirectPage({ params }: PageProps) {
-  const { shortCode } = params;
+export default async function ShortCodePage({ params }: PageProps) {
+  const { shortCode } = params
   
   try {
-    console.log(`[Redirect Page] Processing ${shortCode}`);
+    console.log(`🔗 Page redirect request for: ${shortCode}`)
     
-    const docRef = doc(db, 'urls', shortCode);
-    const docSnap = await getDoc(docRef);
-
-    if (!docSnap.exists()) {
-      console.log(`[Redirect Page] Short code ${shortCode} not found`);
-      redirect('/not-found');
+    // Get URL data
+    const urlData = await getUrlData(shortCode)
+    
+    if (!urlData) {
+      console.log(`❌ URL not found: ${shortCode}`)
+      notFound()
     }
 
-    const urlData = docSnap.data();
-    const originalUrl = urlData.originalUrl;
+    // Get headers for click tracking
+    const headersList = headers()
+    const userAgent = headersList.get('user-agent') || 'Unknown'
+    const referer = headersList.get('referer') || 'Direct'
+    const ip = headersList.get('x-forwarded-for') || 
+               headersList.get('x-real-ip') || 
+               'Unknown'
 
-    // Get headers for tracking
-    const headersList = headers();
-    
-    // Track the click
-    await trackClick(shortCode, {
-      userAgent: headersList.get('user-agent') || undefined,
-      referer: headersList.get('referer') || undefined,
-      ip: headersList.get('x-forwarded-for') || undefined
-    });
+    // Record the click
+    try {
+      await recordClick(shortCode, {
+        userAgent,
+        referer,
+        ip,
+        clickSource: 'direct'
+      })
+      console.log(`✅ Click recorded for: ${shortCode}`)
+    } catch (clickError) {
+      console.error(`⚠️ Failed to record click for ${shortCode}:`, clickError)
+      // Continue with redirect even if click recording fails
+    }
 
-    console.log(`[Redirect Page] Redirecting ${shortCode} to ${originalUrl}`);
-    redirect(originalUrl);
-    
+    console.log(`🚀 Redirecting ${shortCode} to: ${urlData.originalUrl}`)
+    redirect(urlData.originalUrl)
+
   } catch (error) {
-    console.error(`[Redirect Page] Error processing ${shortCode}:`, error);
-    redirect('/not-found');
+    console.error(`❌ Error in page redirect for ${shortCode}:`, error)
+    notFound()
   }
 }
