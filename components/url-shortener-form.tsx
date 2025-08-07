@@ -19,8 +19,10 @@ export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log("🚀 Form submission started")
 
     if (!url) {
+      console.log("❌ No URL provided")
       toast({
         title: "Error",
         description: "Please enter a URL to shorten.",
@@ -32,7 +34,9 @@ export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
     // Basic URL validation
     try {
       new URL(url)
+      console.log("✅ URL validation passed:", url)
     } catch {
+      console.log("❌ URL validation failed:", url)
       toast({
         title: "Error",
         description: "Please enter a valid URL (including http:// or https://).",
@@ -42,22 +46,32 @@ export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
     }
 
     setIsLoading(true)
+    console.log("🔄 Starting API call to /api/shorten")
 
     try {
+      const requestBody = { url }
+      console.log("📤 Sending request:", requestBody)
+
       const response = await fetch("/api/shorten", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify(requestBody),
       })
+
+      console.log("📥 Response status:", response.status)
+      console.log("📥 Response ok:", response.ok)
 
       if (!response.ok) {
         const errorData = await response.json()
+        console.log("❌ Error response data:", errorData)
         throw new Error(errorData.error || "Failed to shorten URL")
       }
 
       const data = await response.json()
+      console.log("✅ Success response data:", data)
+      
       setShortUrl(data.shortUrl)
 
       // Store in localStorage for history
@@ -72,6 +86,7 @@ export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
       }
       storedUrls.unshift(newUrl)
       localStorage.setItem("shortened-urls", JSON.stringify(storedUrls.slice(0, 50))) // Keep last 50
+      console.log("💾 Saved to localStorage:", newUrl)
 
       toast({
         title: "Success!",
@@ -83,8 +98,12 @@ export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
 
       // Notify parent component
       onUrlCreated?.()
+      console.log("🎉 Form submission completed successfully")
     } catch (error: any) {
-      console.error("Error shortening URL:", error)
+      console.error("❌ Error shortening URL:", error)
+      console.error("❌ Error message:", error.message)
+      console.error("❌ Error stack:", error.stack)
+      
       toast({
         title: "Error",
         description: error.message || "Failed to shorten URL. Please try again.",
@@ -92,6 +111,7 @@ export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
       })
     } finally {
       setIsLoading(false)
+      console.log("🏁 Form submission finished (loading state cleared)")
     }
   }
 
