@@ -1,5 +1,5 @@
-import { initializeApp, getApps, type FirebaseApp } from "firebase/app"
-import { getFirestore, type Firestore } from "firebase/firestore"
+import { initializeApp, getApps } from "firebase/app"
+import { getFirestore } from "firebase/firestore"
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -10,61 +10,23 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 }
 
-let app: FirebaseApp | null = null
-let db: Firestore | null = null
+// Initialize Firebase
+let app
+if (getApps().length === 0) {
+  app = initializeApp(firebaseConfig)
+} else {
+  app = getApps()[0]
+}
 
-// Initialize Firebase for both client and server
-function initializeFirebase() {
-  if (app && db) {
-    return { app, db }
-  }
+// Initialize Firestore
+export const db = getFirestore(app)
 
-  try {
-    // Check for missing environment variables
-    const missingVars = Object.entries(firebaseConfig)
-      .filter(([key, value]) => !value)
-      .map(([key]) => key)
-
-    if (missingVars.length > 0) {
-      console.error("Missing Firebase environment variables:", missingVars)
-      throw new Error(`Missing Firebase environment variables: ${missingVars.join(", ")}`)
-    }
-
-    // Initialize Firebase app
-    if (getApps().length === 0) {
-      app = initializeApp(firebaseConfig)
-      console.log("Firebase app initialized with project:", firebaseConfig.projectId)
-    } else {
-      app = getApps()[0]
-    }
-
-    // Initialize Firestore
-    db = getFirestore(app)
-    console.log("Firestore initialized successfully")
-
-    return { app, db }
-  } catch (error: any) {
-    console.error("Firebase initialization error:", error)
-    throw error
+// Helper function to get Firebase instances
+export function getFirebase() {
+  return {
+    app,
+    db,
   }
 }
 
-// Get both Firebase app and Firestore db (works on both client and server)
-export function getFirebase(): { app: FirebaseApp | null; db: Firestore | null } {
-  try {
-    return initializeFirebase()
-  } catch (error) {
-    console.error("Failed to get Firebase:", error)
-    return { app: null, db: null }
-  }
-}
-
-// Get just the Firebase app instance
-export function getFirebaseApp(): FirebaseApp | null {
-  const { app } = getFirebase()
-  return app
-}
-
-// Initialize and export db
-const { db: firestoreDb } = initializeFirebase()
-export { firestoreDb as db }
+export default app

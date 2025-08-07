@@ -5,11 +5,14 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { UrlShortenerForm } from "@/components/url-shortener-form"
 import { LinkHistory } from "@/components/link-history"
-import { BarChart3, Shield, User, LogOut } from "lucide-react"
+import { DatabaseDiagnostic } from "@/components/database-diagnostic"
+import { BarChart3, Shield, User, LogOut, AlertTriangle } from 'lucide-react'
 import { useAuth } from "@/hooks/use-auth"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function HomePage() {
   const [refreshTrigger, setRefreshTrigger] = useState(0)
+  const [showDiagnostics, setShowDiagnostics] = useState(false)
   const { user, isLoading, isAuthenticated, login, logout } = useAuth()
   const router = useRouter()
 
@@ -120,6 +123,32 @@ export default function HomePage() {
 
       <div className="container mx-auto px-4 py-12">
         <div className="max-w-4xl mx-auto">
+          {/* Troubleshooting Alert */}
+          <Alert className="mb-8 border-orange-200 bg-orange-50">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <strong>Having issues?</strong> Run database diagnostics to identify problems.
+                </div>
+                <Button 
+                  onClick={() => setShowDiagnostics(!showDiagnostics)}
+                  variant="outline"
+                  size="sm"
+                >
+                  {showDiagnostics ? "Hide" : "Show"} Diagnostics
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+
+          {/* Database Diagnostics */}
+          {showDiagnostics && (
+            <div className="mb-8">
+              <DatabaseDiagnostic />
+            </div>
+          )}
+
           {/* Header */}
           <div className="text-center mb-12">
             <h1 className="text-4xl font-bold text-gray-900 mb-4">Make Short URL</h1>
