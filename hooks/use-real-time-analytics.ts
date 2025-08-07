@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { doc, onSnapshot } from "firebase/firestore"
 import { db } from "@/lib/firebase"
-import { getUrlData, UrlData } from "@/lib/analytics-clean"
+import { UrlData } from "@/lib/analytics-clean"
 
 export function useRealTimeAnalytics(shortCode: string) {
   const [urlData, setUrlData] = useState<UrlData | null>(null)
@@ -36,7 +36,7 @@ export function useRealTimeAnalytics(shortCode: string) {
     const unsubscribe = onSnapshot(
       urlRef,
       {
-        includeMetadataChanges: true,
+        includeMetadataChanges: false, // Only listen to actual data changes
       },
       (doc) => {
         if (doc.exists()) {
@@ -55,7 +55,9 @@ export function useRealTimeAnalytics(shortCode: string) {
 
           // Handle click count updates with animation
           const newClickCount = data.totalClicks || 0
-          if (newClickCount > previousClickCount.current && previousClickCount.current > 0) {
+          
+          // Only trigger animation if this is a real increase and we have a previous count
+          if (newClickCount > previousClickCount.current && previousClickCount.current >= 0) {
             console.log(`🎉 useRealTimeAnalytics: New click detected! ${previousClickCount.current} -> ${newClickCount}`)
             setIsNewClick(true)
             
@@ -72,11 +74,6 @@ export function useRealTimeAnalytics(shortCode: string) {
           
           setClickCount(newClickCount)
           previousClickCount.current = newClickCount
-
-          // Notify window handlers if they exist (for auto-refresh component)
-          if ((window as any).analyticsHandlers?.handleUpdate) {
-            (window as any).analyticsHandlers.handleUpdate(data)
-          }
         } else {
           console.log(`❌ useRealTimeAnalytics: Document not found for: ${shortCode}`)
           setError("URL not found")
@@ -89,20 +86,8 @@ export function useRealTimeAnalytics(shortCode: string) {
         setError(err.message)
         setConnectionStatus("disconnected")
         setLoading(false)
-        
-        // Notify window handlers of error
-        if ((window as any).analyticsHandlers?.handleError) {
-          (window as any).analyticsHandlers.handleError()
-        }
       }
     )
-
-    // Initial data load
-    getUrlData(shortCode).then((data) => {
-      if (data) {
-        previousClickCount.current = data.totalClicks || 0
-      }
-    })
 
     // Cleanup subscription on unmount
     return () => {

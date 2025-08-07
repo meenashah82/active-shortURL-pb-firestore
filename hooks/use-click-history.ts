@@ -1,21 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { collection, query, orderBy, limit, onSnapshot, where } from "firebase/firestore"
+import { collection, query, where, orderBy, limit, onSnapshot } from "firebase/firestore"
 import { db } from "@/lib/firebase"
+import { ClickEvent } from "@/lib/analytics-clean"
 
-export interface ClickEvent {
-  id?: string
-  timestamp: any
-  userAgent?: string
-  referer?: string
-  ip?: string
-  "User-Agent"?: string
-  "X-Forwarded-For"?: string
-  shortCode?: string
-}
-
-export function useClickHistory(shortCode: string, limitCount: number = 50) {
+export function useClickHistory(shortCode: string, limitCount: number = 100) {
   const [clickHistory, setClickHistory] = useState<ClickEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -30,11 +20,11 @@ export function useClickHistory(shortCode: string, limitCount: number = 50) {
     setLoading(true)
     setError(null)
 
-    // Subscribe to clicks subcollection for real-time updates
+    // Set up real-time subscription to clicks subcollection
     const clicksRef = collection(db, "urls", shortCode, "clicks")
     const clicksQuery = query(
       clicksRef,
-      where("_placeholder", "!=", true), // Exclude placeholder documents
+      where("_placeholder", "!=", true),
       orderBy("timestamp", "desc"),
       limit(limitCount)
     )
@@ -45,21 +35,20 @@ export function useClickHistory(shortCode: string, limitCount: number = 50) {
         includeMetadataChanges: true,
       },
       (snapshot) => {
-        console.log(`📊 useClickHistory: Real-time click update received for ${shortCode}`)
-        
+        console.log(`📡 useClickHistory: Real-time update received for ${shortCode}`)
         const clicks: ClickEvent[] = []
+
         snapshot.forEach((doc) => {
           const clickData = doc.data() as ClickEvent
-          // Skip placeholder documents
           if (!clickData._placeholder) {
             clicks.push({
-              id: doc.id,
               ...clickData,
+              id: doc.id,
             })
           }
         })
 
-        console.log(`📊 useClickHistory: Processed ${clicks.length} clicks for ${shortCode}`)
+        console.log(`📡 useClickHistory: ${clicks.length} clicks loaded for ${shortCode}`)
         setClickHistory(clicks)
         setLoading(false)
         setError(null)
