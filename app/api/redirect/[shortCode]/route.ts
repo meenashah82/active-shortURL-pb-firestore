@@ -51,7 +51,7 @@ export async function GET(
       headers.get('USER-AGENT') ||
       headers.get('sec-ch-ua') ||
       'Unknown Browser'
-    
+
     // Enhanced IP extraction with comprehensive proxy support
     const forwardedFor = headers.get('x-forwarded-for')
     const realIP = headers.get('x-real-ip')
@@ -61,10 +61,10 @@ export async function GET(
     const forwardedForHeader = headers.get('forwarded-for')
     const forwardedHeader = headers.get('forwarded')
     const remoteAddr = headers.get('remote-addr')
-    
+
     // Parse forwarded-for header (can contain multiple IPs)
     let extractedIP = 'Unknown IP'
-    
+
     if (forwardedFor) {
       // X-Forwarded-For can contain multiple IPs, take the first (original client)
       extractedIP = forwardedFor.split(',')[0].trim()
@@ -108,7 +108,7 @@ export async function GET(
       headers.get('Referer') || 
       headers.get('REFERER') ||
       'Direct'
-    
+
     const country = 
       headers.get('cf-ipcountry') || 
       headers.get('cloudfront-viewer-country') || 
