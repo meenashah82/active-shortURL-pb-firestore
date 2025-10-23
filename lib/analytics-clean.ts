@@ -15,7 +15,7 @@ import {
   increment,
   addDoc,
 } from "firebase/firestore"
-import { getFirebase } from "./firebase"
+import { db } from "./firebase"
 
 export interface ClickEvent {
   timestamp: any
@@ -110,33 +110,12 @@ function getHeaderValue(headers: Record<string, string> | undefined, headerName:
   return foundKey ? headers[foundKey] : undefined
 }
 
-// Create short URL - using new unified structure and create clicks subcollection
+// Create short URL - using new unified structure WITHOUT creating clicks subcollection
 export async function createShortUrl(shortCode: string, originalUrl: string, metadata?: any): Promise<void> {
-  console.log(`🔄 createShortUrl: Starting for ${shortCode} -> ${originalUrl}`)
-
   try {
-    // Get Firebase instance
-    const { db } = getFirebase()
-    if (!db) {
-      const error = new Error("Firebase database not initialized")
-      console.error("❌ createShortUrl: Firebase database not initialized")
-      throw error
-    }
-    console.log("✅ createShortUrl: Firebase database is available")
-
-    // Test basic Firestore operations
-    try {
-      console.log("🔄 createShortUrl: Testing Firestore connection...")
-      const testRef = doc(db, "test", "connection")
-      console.log("✅ createShortUrl: Firestore document reference created successfully")
-    } catch (firestoreError) {
-      console.error("❌ createShortUrl: Firestore connection test failed:", firestoreError)
-      throw new Error(`Firestore connection failed: ${firestoreError instanceof Error ? firestoreError.message : String(firestoreError)}`)
-    }
+    console.log(`Creating short URL: ${shortCode} -> ${originalUrl}`)
 
     const urlRef = doc(db, "urls", shortCode)
-    const clicksRef = collection(db, "urls", shortCode, "clicks")
-    console.log(`📄 createShortUrl: Created document references for ${shortCode}`)
 
     const expiresAt = new Date()
     expiresAt.setDate(expiresAt.getDate() + 30)
@@ -152,57 +131,14 @@ export async function createShortUrl(shortCode: string, originalUrl: string, met
       lastClickAt: null,
     }
 
-    console.log(`📝 createShortUrl: Prepared URL data:`, {
-      originalUrl: urlData.originalUrl,
-      shortCode: urlData.shortCode,
-      isActive: urlData.isActive,
-      totalClicks: urlData.totalClicks,
-      expiresAt: expiresAt.toISOString(),
-    })
+    // Create only the main URL document - clicks subcollection will be created on first click
+    await setDoc(urlRef, urlData)
 
-    // Create the main URL document
-    console.log(`🔄 createShortUrl: Creating main URL document for ${shortCode}`)
-    try {
-      await setDoc(urlRef, urlData)
-      console.log(`✅ createShortUrl: Main URL document created for ${shortCode}`)
-    } catch (setDocError) {
-      console.error(`❌ createShortUrl: Failed to create main URL document for ${shortCode}:`, setDocError)
-      throw new Error(`Failed to create URL document: ${setDocError instanceof Error ? setDocError.message : String(setDocError)}`)
-    }
-
-    // Create the clicks subcollection by adding an initial placeholder document
-    // This ensures the subcollection exists immediately when the shortcode is created
-    const placeholderClickData = {
-      _placeholder: true,
-      createdAt: serverTimestamp(),
-      shortCode: shortCode,
-      note: "This is a placeholder document to initialize the clicks subcollection",
-    }
-
-    console.log(`🔄 createShortUrl: Creating placeholder document in clicks subcollection for ${shortCode}`)
-    try {
-      const placeholderDocRef = await addDoc(clicksRef, placeholderClickData)
-      console.log(`✅ createShortUrl: Placeholder document created with ID: ${placeholderDocRef.id}`)
-    } catch (addDocError) {
-      console.error(`❌ createShortUrl: Failed to create placeholder document for ${shortCode}:`, addDocError)
-      // Don't throw here - the main URL document was created successfully
-      console.log(`⚠️ createShortUrl: Continuing despite placeholder creation failure`)
-    }
-
-    console.log(`🎉 createShortUrl: SUCCESS - URL created with unified structure: ${shortCode}`)
+    console.log(`✅ URL created with unified structure: ${shortCode}`)
+    console.log(`📝 Clicks subcollection will be created on first click for: ${shortCode}`)
   } catch (error) {
-    console.error(`❌ createShortUrl: FAILED for ${shortCode}:`, error)
-    console.error(`❌ createShortUrl: Error type:`, typeof error)
-    console.error(`❌ createShortUrl: Error name:`, error instanceof Error ? error.name : "Unknown")
-    console.error(`❌ createShortUrl: Error message:`, error instanceof Error ? error.message : String(error))
-    console.error(`❌ createShortUrl: Error stack:`, error instanceof Error ? error.stack : undefined)
-    
-    // Re-throw with more context
-    if (error instanceof Error) {
-      throw new Error(`createShortUrl failed: ${error.message}`)
-    } else {
-      throw new Error(`createShortUrl failed: ${String(error)}`)
-    }
+    console.error("❌ Error creating short URL:", error)
+    throw error
   }
 }
 
@@ -228,13 +164,6 @@ export async function getUrlData(shortCode: string): Promise<UrlData | null> {
   console.log(`🔍 getUrlData: Starting for shortCode: ${shortCode}`)
 
   try {
-    // Get Firebase instance
-    const { db } = getFirebase()
-    if (!db) {
-      console.error("❌ getUrlData: Firebase database not initialized")
-      return null
-    }
-
     const urlRef = doc(db, "urls", shortCode)
     console.log(`🔍 getUrlData: Created document reference for: urls/${shortCode}`)
 
@@ -309,7 +238,7 @@ export async function getUrlWithAnalytics(shortCode: string): Promise<{
       clicks: urlData.totalClicks,
       analytics: analyticsData,
     }
-  } catch (error) {{
+  } catch (error) {
     console.error("Error getting URL with analytics:", error)
     return { url: null, clicks: 0, analytics: null }
   }
@@ -341,12 +270,6 @@ export async function getClickHistory(shortCode: string, limitCount = 50): Promi
   try {
     console.log(`📊 Fetching click history for: ${shortCode}`)
 
-    const { db } = getFirebase()
-    if (!db) {
-      console.error("❌ Firebase database not initialized")
-      return []
-    }
-
     const clicksRef = collection(db, "urls", shortCode, "clicks")
     const clickHistoryQuery = query(clicksRef, orderBy("timestamp", "desc"), limit(limitCount))
 
@@ -355,13 +278,11 @@ export async function getClickHistory(shortCode: string, limitCount = 50): Promi
 
     querySnapshot.forEach((doc) => {
       const data = doc.data() as IndividualClickData
-      // Skip placeholder documents
-      if (!data._placeholder) {
-        clickHistory.push({
-          ...data,
-          id: doc.id,
-        })
-      }
+      // No need to filter placeholder documents since we don't create them anymore
+      clickHistory.push({
+        ...data,
+        id: doc.id,
+      })
     })
 
     console.log(`📊 Found ${clickHistory.length} click records for: ${shortCode}`)
@@ -380,13 +301,6 @@ export function subscribeToClickHistory(
 ): () => void {
   console.log(`🔄 Subscribing to click history: ${shortCode}`)
 
-  const { db } = getFirebase()
-  if (!db) {
-    console.error("❌ Firebase database not initialized")
-    callback([])
-    return () => {}
-  }
-
   const clicksRef = collection(db, "urls", shortCode, "clicks")
   const clickHistoryQuery = query(clicksRef, orderBy("timestamp", "desc"), limit(limitCount))
 
@@ -398,13 +312,11 @@ export function subscribeToClickHistory(
 
       querySnapshot.forEach((doc) => {
         const data = doc.data() as IndividualClickData
-        // Skip placeholder documents
-        if (!data._placeholder) {
-          clickHistory.push({
-            ...data,
-            id: doc.id,
-          })
-        }
+        // No need to filter placeholder documents since we don't create them anymore
+        clickHistory.push({
+          ...data,
+          id: doc.id,
+        })
       })
 
       console.log(`📊 Click history update: ${shortCode} - ${clickHistory.length} records`)
@@ -428,8 +340,7 @@ export async function recordClick(
   console.log(`🔄 recordClick: Starting for shortCode: ${shortCode}`)
 
   try {
-    // Get Firebase instance
-    const { db } = getFirebase()
+    // Validate Firebase connection
     if (!db) {
       throw new Error("Firebase database not initialized")
     }
@@ -453,6 +364,7 @@ export async function recordClick(
     })
 
     // Second, create a new document in the clicks subcollection
+    // This will automatically create the subcollection on the first click
     console.log(`🔄 recordClick: Creating individual click document for ${shortCode}`)
 
     const clickData = {
@@ -485,8 +397,10 @@ export async function recordClick(
     }
 
     // Use addDoc to let Firestore generate the document ID automatically
+    // This will create the subcollection if it doesn't exist
     const clickDocRef = await addDoc(clicksCollectionRef, clickData)
     console.log(`✅ recordClick: Individual click document created with ID: ${clickDocRef.id}`)
+    console.log(`📝 recordClick: Clicks subcollection created/updated for: ${shortCode}`)
 
     // Verify the document was created
     const verifyDoc = await getDoc(clickDocRef)
@@ -506,13 +420,6 @@ export async function recordClick(
 
 // Real-time subscription to analytics from unified structure
 export function subscribeToAnalytics(shortCode: string, callback: (data: AnalyticsData | null) => void): () => void {
-  const { db } = getFirebase()
-  if (!db) {
-    console.error("❌ Firebase database not initialized")
-    callback(null)
-    return () => {}
-  }
-
   const urlRef = doc(db, "urls", shortCode)
 
   console.log(`🔄 Subscribing to unified analytics: ${shortCode}`)
@@ -547,13 +454,6 @@ export function subscribeToTopUrls(
   callback: (urls: Array<{ shortCode: string; clicks: number; originalUrl: string }>) => void,
   limitCount = 10,
 ): () => void {
-  const { db } = getFirebase()
-  if (!db) {
-    console.error("❌ Firebase database not initialized")
-    callback([])
-    return () => {}
-  }
-
   const urlsQuery = query(
     collection(db, "urls"),
     where("totalClicks", ">", 0),

@@ -13,16 +13,15 @@ interface UrlShortenerFormProps {
 
 export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
   const [url, setUrl] = useState("")
+  const [customShortCode, setCustomShortCode] = useState("")
   const [shortUrl, setShortUrl] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log("🚀 Form submission started")
 
     if (!url) {
-      console.log("❌ No URL provided")
       toast({
         title: "Error",
         description: "Please enter a URL to shorten.",
@@ -34,9 +33,7 @@ export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
     // Basic URL validation
     try {
       new URL(url)
-      console.log("✅ URL validation passed:", url)
     } catch {
-      console.log("❌ URL validation failed:", url)
       toast({
         title: "Error",
         description: "Please enter a valid URL (including http:// or https://).",
@@ -46,11 +43,12 @@ export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
     }
 
     setIsLoading(true)
-    console.log("🔄 Starting API call to /api/shorten")
 
     try {
-      const requestBody = { url }
-      console.log("📤 Sending request:", requestBody)
+      const requestBody: { url: string; customShortCode?: string } = { url }
+      if (customShortCode.trim()) {
+        requestBody.customShortCode = customShortCode.trim()
+      }
 
       const response = await fetch("/api/shorten", {
         method: "POST",
@@ -60,18 +58,12 @@ export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
         body: JSON.stringify(requestBody),
       })
 
-      console.log("📥 Response status:", response.status)
-      console.log("📥 Response ok:", response.ok)
-
       if (!response.ok) {
         const errorData = await response.json()
-        console.log("❌ Error response data:", errorData)
-        throw new Error(errorData.error || errorData.details || "Failed to shorten URL")
+        throw new Error(errorData.error || "Failed to shorten URL")
       }
 
       const data = await response.json()
-      console.log("✅ Success response data:", data)
-      
       setShortUrl(data.shortUrl)
 
       // Store in localStorage for history
@@ -83,27 +75,26 @@ export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
         shortUrl: data.shortUrl,
         createdAt: new Date().toISOString(),
         totalClicks: 0,
+        isCustom: data.isCustom || false,
       }
       storedUrls.unshift(newUrl)
       localStorage.setItem("shortened-urls", JSON.stringify(storedUrls.slice(0, 50))) // Keep last 50
-      console.log("💾 Saved to localStorage:", newUrl)
 
       toast({
         title: "Success!",
-        description: "URL shortened successfully.",
+        description: data.isCustom 
+          ? "Custom short URL created successfully!" 
+          : "URL shortened successfully.",
       })
 
-      // Clear the input
+      // Clear the inputs
       setUrl("")
+      setCustomShortCode("")
 
       // Notify parent component
       onUrlCreated?.()
-      console.log("🎉 Form submission completed successfully")
     } catch (error: any) {
-      console.error("❌ Error shortening URL:", error)
-      console.error("❌ Error message:", error.message)
-      console.error("❌ Error stack:", error.stack)
-      
+      console.error("Error shortening URL:", error)
       toast({
         title: "Error",
         description: error.message || "Failed to shorten URL. Please try again.",
@@ -111,7 +102,6 @@ export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
       })
     } finally {
       setIsLoading(false)
-      console.log("🏁 Form submission finished (loading state cleared)")
     }
   }
 
@@ -217,6 +207,24 @@ export function UrlShortenerForm({ onUrlCreated }: UrlShortenerFormProps) {
                 "Shorten"
               )}
             </Button>
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="customShortCode" className="text-sm font-medium text-gray-700">
+              Custom short code (optional)
+            </label>
+            <Input
+              id="customShortCode"
+              type="text"
+              placeholder="my-custom-link"
+              value={customShortCode}
+              onChange={(e) => setCustomShortCode(e.target.value)}
+              className="border-gray-300 focus:border-purple-500 focus:ring-purple-500"
+              disabled={isLoading}
+            />
+            <p className="text-xs text-gray-500">
+              3-20 characters, letters, numbers, hyphens, and underscores only
+            </p>
           </div>
         </form>
 

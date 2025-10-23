@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createShortUrl, getUrlData } from '@/lib/analytics-clean'
+import { getUrlData, createShortUrl } from '@/lib/analytics-clean'
 
 function generateShortCode(): string {
   const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
@@ -10,113 +10,69 @@ function generateShortCode(): string {
   return result
 }
 
-function isValidUrl(string: string): boolean {
-  try {
-    new URL(string)
-    return true
-  } catch (_) {
-    return false
-  }
+function isValidCustomShortCode(code: string): boolean {
+  // Must be 3-20 characters, alphanumeric, hyphens, and underscores only
+  const regex = /^[a-zA-Z0-9_-]{3,20}$/
+  return regex.test(code)
 }
 
 export async function POST(request: NextRequest) {
-  console.log('🚀 POST /api/shorten - Request received')
-  
   try {
-    // Parse request body
-    const body = await request.json()
-    console.log('📋 Request body:', body)
-    
-    const { url } = body
+    const { url, customShortCode } = await request.json()
 
-    // Validate URL
-    if (!url || typeof url !== 'string') {
-      console.log('❌ Invalid URL provided:', url)
-      return NextResponse.json(
-        { error: 'URL is required and must be a string' },
-        { status: 400 }
-      )
+    if (!url) {
+      return NextResponse.json({ error: 'URL is required' }, { status: 400 })
     }
 
-    if (!isValidUrl(url)) {
-      console.log('❌ Invalid URL format:', url)
-      return NextResponse.json(
-        { error: 'Invalid URL format' },
-        { status: 400 }
-      )
-    }
-
-    console.log('✅ URL validation passed:', url)
-
-    // Generate unique short code
     let shortCode: string
-    let attempts = 0
-    const maxAttempts = 10
+    let isCustom = false
 
-    do {
-      shortCode = generateShortCode()
-      attempts++
+    // If custom short code is provided, validate and check availability
+    if (customShortCode && customShortCode.trim()) {
+      const trimmedCode = customShortCode.trim()
       
-      console.log(`🎲 Generated short code attempt ${attempts}: ${shortCode}`)
-      
-      // Check if short code already exists
-      const existingUrl = await getUrlData(shortCode)
-      
-      if (!existingUrl) {
-        console.log('✅ Short code is unique:', shortCode)
-        break
+      if (!isValidCustomShortCode(trimmedCode)) {
+        return NextResponse.json({ 
+          error: 'Custom short code must be 3-20 characters and contain only letters, numbers, hyphens, and underscores' 
+        }, { status: 400 })
       }
-      
-      console.log('⚠️ Short code already exists, trying again...')
-      
-      if (attempts >= maxAttempts) {
-        console.error('❌ Max attempts reached for short code generation')
-        return NextResponse.json(
-          { error: 'Failed to generate unique short code' },
-          { status: 500 }
-        )
-      }
-    } while (true)
 
-    // Create URL using analytics-clean library
-    console.log(`🔗 Creating short URL: ${shortCode} -> ${url}`)
-    
-    try {
-      await createShortUrl(shortCode, url)
-      console.log('✅ Short URL created successfully')
-    } catch (createError) {
-      console.error('❌ Error creating short URL:', createError)
-      return NextResponse.json(
-        { 
-          error: 'Failed to create short URL',
-          details: createError instanceof Error ? createError.message : String(createError)
-        },
-        { status: 500 }
-      )
+      // Check if custom short code already exists
+      const existingUrl = await getUrlData(trimmedCode)
+      if (existingUrl) {
+        return NextResponse.json({ 
+          error: 'This custom short code is already taken. Please choose a different one.' 
+        }, { status: 409 })
+      }
+
+      shortCode = trimmedCode
+      isCustom = true
+    } else {
+      // Generate a unique short code
+      let attempts = 0
+      do {
+        shortCode = generateShortCode()
+        attempts++
+        if (attempts > 10) {
+          return NextResponse.json({ error: 'Failed to generate unique short code' }, { status: 500 })
+        }
+      } while (await getUrlData(shortCode))
     }
 
-    // Create response
-    const response = {
+    // Create the short URL
+    await createShortUrl(shortCode, url)
+
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${request.nextUrl.protocol}//${request.nextUrl.host}`
+    const shortUrl = `${baseUrl}/${shortCode}`
+
+    return NextResponse.json({
       shortCode,
+      shortUrl,
       originalUrl: url,
-      shortUrl: `${request.nextUrl.origin}/${shortCode}`,
-      createdAt: new Date().toISOString()
-    }
-
-    console.log('📤 Sending response:', response)
-
-    return NextResponse.json(response, { status: 201 })
-
-  } catch (error: any) {
-    console.error('❌ Error in POST /api/shorten:', error)
-    console.error('❌ Error stack:', error.stack)
-    
-    return NextResponse.json(
-      { 
-        error: 'Internal server error',
-        details: error.message 
-      },
-      { status: 500 }
-    )
+      isCustom
+    })
+  } catch (error) {
+    console.error('Error creating short URL:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

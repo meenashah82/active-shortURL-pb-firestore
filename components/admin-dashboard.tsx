@@ -36,8 +36,6 @@ export function AdminDashboard() {
   const [urls, setUrls] = useState<UrlData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [deleteResult, setDeleteResult] = useState<string | null>(null)
   const router = useRouter()
 
   // Check if current user is superadmin
@@ -81,53 +79,38 @@ export function AdminDashboard() {
     }
   }
 
-  const deleteUrl = async (id: string, shortCode: string) => {
-    if (!confirm(`Are you sure you want to delete the short URL "${shortCode}"?`)) {
+const deleteUrl = async (id: string, shortCode: string) => {
+  if (!confirm(`Are you sure you want to delete the short URL "${shortCode}"? This will also delete all associated click data.`)) {
+    return
+  }
+
+  try {
+    const { db } = getFirebase()
+    if (!db) {
+      setError("Database connection not available")
       return
     }
 
-    try {
-      const { db } = getFirebase()
-      if (!db) {
-        setError("Database connection not available")
-        return
-      }
+    // First, delete all click documents in the subcollection
+    const clicksRef = collection(db, "urls", id, "clicks")
+    const clicksSnapshot = await getDocs(clicksRef)
+    
+    // Delete all click documents
+    const deletePromises = clicksSnapshot.docs.map(clickDoc => deleteDoc(clickDoc.ref))
+    await Promise.all(deletePromises)
 
-      await deleteDoc(doc(db, "urls", id))
-      setUrls(urls.filter((url) => url.id !== id))
-    } catch (error: any) {
-      console.error("Error deleting URL:", error)
-      setError(`Failed to delete URL: ${error.message}`)
-    }
+    // Then delete the main URL document
+    await deleteDoc(doc(db, "urls", id))
+    
+    // Update the UI
+    setUrls(urls.filter((url) => url.id !== id))
+    
+    console.log(`✅ Successfully deleted URL ${shortCode} and ${clicksSnapshot.docs.length} click records`)
+  } catch (error: any) {
+    console.error("Error deleting URL:", error)
+    setError(`Failed to delete URL: ${error.message}`)
   }
-
-  const handleRemoveAllData = async () => {
-    setIsDeleting(true)
-    setDeleteResult(null)
-    setError(null)
-
-    try {
-      const result = await removeAllClicksData()
-
-      if (result.success) {
-        setDeleteResult(
-          `Successfully deleted all data:\n` +
-            `• URLs: ${result.deletedCounts.urls}\n` +
-            `• Legacy Analytics: ${result.deletedCounts.analytics}\n` +
-            `• Legacy Clicks: ${result.deletedCounts.clicks}\n` +
-            `• Subcollections: ${result.deletedCounts.subcollections}`,
-        )
-        // Refresh the URLs list
-        setUrls([])
-      } else {
-        setError(`Failed to delete all data: ${result.error}`)
-      }
-    } catch (error: any) {
-      setError(`Error during deletion: ${error.message}`)
-    } finally {
-      setIsDeleting(false)
-    }
-  }
+}
 
   const openUrl = (shortCode: string) => {
     const shortUrl = `https://www.wodify.link/${shortCode}`
@@ -207,48 +190,6 @@ export function AdminDashboard() {
           <h1 className="text-2xl font-semibold text-gray-900">Admin Dashboard</h1>
           <p className="text-gray-600 mt-1">Manage shortened URLs and view analytics</p>
         </div>
-
-        {/* Super Admin Only: Remove All Data Button */}
-        {isSuperAdmin && (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" className="bg-red-600 hover:bg-red-700" disabled={isDeleting}>
-                <AlertTriangle className="mr-2 h-4 w-4" />
-                {isDeleting ? "Deleting..." : "Remove All Data"}
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle className="flex items-center text-red-600">
-                  <AlertTriangle className="mr-2 h-5 w-5" />
-                  Dangerous Operation
-                </AlertDialogTitle>
-                <AlertDialogDescription className="space-y-2">
-                  <p className="font-semibold">This will permanently delete ALL data from:</p>
-                  <ul className="list-disc list-inside space-y-1 text-sm">
-                    <li>All shortened URLs</li>
-                    <li>All analytics data</li>
-                    <li>All click tracking data</li>
-                    <li>All subcollection data</li>
-                  </ul>
-                  <p className="text-red-600 font-semibold mt-4">
-                    This action cannot be undone. Are you absolutely sure?
-                  </p>
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleRemoveAllData}
-                  className="bg-red-600 hover:bg-red-700"
-                  disabled={isDeleting}
-                >
-                  {isDeleting ? "Deleting..." : "Yes, Delete Everything"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        )}
       </div>
 
       {error && (
@@ -266,12 +207,6 @@ export function AdminDashboard() {
               </div>
             )}
           </AlertDescription>
-        </Alert>
-      )}
-
-      {deleteResult && (
-        <Alert className="border-green-200 bg-green-50">
-          <AlertDescription className="text-green-800 whitespace-pre-line">{deleteResult}</AlertDescription>
         </Alert>
       )}
 
